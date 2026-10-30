@@ -1,6 +1,7 @@
 //! Board 4's external preamplifier and overload lamp driver (circuit No. 12,
-//! `board4-preamp.lib`; docs/circuit/board4.md) in real time, solved as their circuit by
-//! the nodal solver ([`crate::mna`]).
+//! `board4-preamp.lib`; docs/circuit/board4.md) in real time: their circuits as the nodal
+//! solver ([`crate::mna`]) has them, the preamplifier's solved with its linear nodes
+//! eliminated ([`reduced`]), the lamp driver's by that solver.
 //!
 //! The EXTERNAL INPUT's volume (R9, 1M audio) is a Thevenin source into pin 11; the
 //! preamplifier (gain about 200) runs at four trapezoidal substeps a sample (its closed loop
@@ -16,6 +17,10 @@ use crate::mna::{Circuit, GND, NoConvergence, Node, Part};
 use crate::resample::{Decimator, Interpolator};
 use crate::vca::Q2N4058;
 use crate::vcf::{TIS92, TIS93, TIS97};
+
+mod reduced;
+
+use reduced::Reduced;
 
 /// The preamplifier's parts that the panel or the harness sets.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -337,10 +342,11 @@ pub struct PreampOut {
 #[derive(Debug, Clone)]
 pub struct Preamp {
     pub circuit: PreampCircuit,
+    /// The preamplifier's circuit: its netlist and operating point, and where [`Reduced`],
+    /// which solves it, counts its solves (for profiles).
     net: Circuit,
+    amp: Reduced,
     lamp: Circuit,
-    r_src: usize,
-    r46: usize,
     dt: f64,
     up: Interpolator,
     down_amp: Decimator,
@@ -391,14 +397,13 @@ impl Preamp {
             crate::voice::Quality::NoCompromises => (1e-9, 1e-9),
             crate::voice::Quality::HighFidelity | crate::voice::Quality::Potato => (1e-5, 1e-5),
         };
-        self.net.tolerance = t;
+        self.amp.tolerance = t;
         self.lamp.tolerance = t;
     }
 
-    /// The circuit at `rate` Hz at its operating point, its input at 0 V behind `r_src`
+    /// The preamplifier's circuit at its operating point, its input at 0 V behind `r_src`
     /// (R9's source resistance), SW10 on.
-    pub fn new(circuit: PreampCircuit, rate: f64, r_src: f64) -> Result<Preamp, NoConvergence> {
-        let k = &circuit;
+    fn amplifier(k: &PreampCircuit, r_src: f64) -> Result<Circuit, NoConvergence> {
         let mut c = Circuit::new(NODES, HELD);
         c.set(P10, V_POS);
         c.set(N10, -10.0);
@@ -413,7 +418,7 @@ impl Preamp {
         }
         let r = |c: &mut Circuit, a, b, r: f64| c.add(Part::Resistor { a, b, r });
         let cap = |c: &mut Circuit, a, b, v: f64| c.add(Part::Capacitor { a, b, c: v });
-        let r_src_part = r(&mut c, SRC, N78, r_src + 1e3);
+        r(&mut c, SRC, N78, r_src + 1e3);
         cap(&mut c, N78, B27, C23);
         r(&mut c, B27, GND, 100e3);
         c.add_bjt(C27, B27, TAIL, &k.q27, 25.0, false);
@@ -430,11 +435,19 @@ impl Preamp {
         cap(&mut c, N62, GND, 220e-6);
         cap(&mut c, B32, AMP, 10e-12);
         cap(&mut c, AMP, OUT, 1e-6);
-        let r46 = r(&mut c, OUT, GND, 33e3);
+        r(&mut c, OUT, GND, 33e3);
         c.dc()?;
         // The trapezoidal rule: backward Euler's damping at these steps upsets the loop near
         // its bandwidth (-9 dB at 20 kHz against ngspice at four substeps; numerics.md).
         c.set_theta(0.5);
+        Ok(c)
+    }
+
+    /// The circuit at `rate` Hz at its operating point, its input at 0 V behind `r_src`
+    /// (R9's source resistance), SW10 on.
+    pub fn new(circuit: PreampCircuit, rate: f64, r_src: f64) -> Result<Preamp, NoConvergence> {
+        let k = &circuit;
+        let c = Self::amplifier(k, r_src)?;
         let mut l = Circuit::new(LNODES, LHELD);
         l.set(L15, 15.0);
         l.set(LN10, -10.0);
@@ -469,10 +482,9 @@ impl Preamp {
         let latency = up.delay() + down_amp.delay();
         Ok(Preamp {
             circuit,
+            amp: Reduced::new(&c, 1.0 / rate / SUBSTEPS as f64),
             net: c,
             lamp: l,
-            r_src: r_src_part,
-            r46,
             dt: 1.0 / rate,
             up,
             down_amp,
@@ -495,7 +507,7 @@ impl Preamp {
     pub fn set_source_resistance(&mut self, r_src: f64) {
         if r_src != self.r_in {
             self.r_in = r_src;
-            self.net.set_resistance(self.r_src, r_src + 1e3);
+            self.amp.set_source(r_src + 1e3);
         }
     }
 
@@ -503,8 +515,7 @@ impl Preamp {
     pub fn set_switch(&mut self, on: bool) {
         if on != self.on {
             self.on = on;
-            self.net
-                .set_resistance(self.r46, if on { 33e3 } else { 1e12 });
+            self.amp.set_output(if on { 33e3 } else { 1e12 });
         }
     }
 
@@ -513,6 +524,25 @@ impl Preamp {
             return true;
         }
         (0..16).all(|_| net.step(h / 16.0).is_ok())
+    }
+
+    /// A step of the preamplifier with the source at `x`, as [`Preamp::step`].
+    fn step_amp(&mut self, x: f64, h: f64) -> bool {
+        let (amp, net) = (&mut self.amp, &mut self.net);
+        if amp.step(h, x, net).is_some() {
+            return true;
+        }
+        (0..16).all(|_| amp.step(h / 16.0, x, net).is_some())
+    }
+
+    /// A node's voltage (its source's, once the first step has set it).
+    #[cfg(test)]
+    pub(crate) fn voltage(&self, n: Node) -> f64 {
+        if n < HELD {
+            self.net.v(n)
+        } else {
+            self.amp.v(n)
+        }
     }
 
     /// The resamplers' delay, samples.
@@ -548,11 +578,10 @@ impl Preamp {
     /// sample.
     pub fn fine(&mut self, x: f64) -> f64 {
         self.looped = true;
-        self.net.set(SRC, x);
-        if !Self::step(&mut self.net, self.dt / SUBSTEPS as f64) {
+        if !self.step_amp(x, self.dt / SUBSTEPS as f64) {
             self.failed += 1;
         }
-        self.last = (self.net.v(AMP), self.net.v(OUT));
+        self.last = (self.amp.v(AMP), self.amp.v(OUT));
         if self.on { self.last.1 / 33e3 } else { 0.0 }
     }
 
@@ -568,7 +597,7 @@ impl Preamp {
             // Out of FEEDBACK's loop: the decimators filled with the circuit's outputs as
             // they are, so that its current carries on rather than starting from nothing.
             self.looped = false;
-            let (a, o) = (self.net.v(AMP), self.net.v(OUT));
+            let (a, o) = (self.amp.v(AMP), self.amp.v(OUT));
             for _ in 0..SUBSTEPS * 128 {
                 self.down_amp.push(a);
                 self.down_out.push(o);
@@ -590,14 +619,13 @@ impl Preamp {
         self.up.push(v_in, &mut fine);
         let (mut amp, mut out) = self.last;
         for &x in &fine {
-            self.net.set(SRC, x);
-            if !Self::step(&mut self.net, h) {
+            if !self.step_amp(x, h) {
                 self.failed += 1;
             }
-            if let Some(a) = self.down_amp.push(self.net.v(AMP)) {
+            if let Some(a) = self.down_amp.push(self.amp.v(AMP)) {
                 amp = a;
             }
-            if let Some(o) = self.down_out.push(self.net.v(OUT)) {
+            if let Some(o) = self.down_out.push(self.amp.v(OUT)) {
                 out = o;
             }
         }
@@ -608,7 +636,7 @@ impl Preamp {
     /// The lamp driver, a step every [`LAMP_EVERY`] samples, and the outputs.
     fn outputs(&mut self) -> PreampOut {
         let (amp, out) = self.last;
-        self.lamp_peak = self.lamp_peak.max(self.net.v(AMP));
+        self.lamp_peak = self.lamp_peak.max(self.amp.v(AMP));
         self.lamp_wait += 1;
         if self.lamp_wait >= LAMP_EVERY {
             self.lamp.set(LAMP_IN, self.lamp_peak);

@@ -201,10 +201,9 @@ fn the_circuit_driven_hard() {
             let x = amp_in * (std::f64::consts::TAU * 200.0 * i as f64 / SR).sin();
             let o = Model::tick(&mut c, x);
             if i > n / 2 {
-                let net = c.circuits().0;
                 for k in 1..14 {
-                    lo[k] = lo[k].min(net.v(k));
-                    hi[k] = hi[k].max(net.v(k));
+                    lo[k] = lo[k].min(c.voltage(k));
+                    hi[k] = hi[k].max(c.voltage(k));
                 }
                 amps.push(o.amp);
             }
