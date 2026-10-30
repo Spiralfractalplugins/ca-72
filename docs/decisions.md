@@ -16858,3 +16858,65 @@ A fixture test checks all payload bytes, every internal checksum, source provena
 Windows upload list. CA72_SOURCE_COMMIT permits packaging existing verified CI binaries
 without incorrectly attributing their source to the packaging-fix checkout. This changes
 packaging only; binaries from the original tagged CI remain unchanged.
+
+## R-PREAMP-SOLVE. The preamplifier's linear nodes eliminated ahead of Newton's method
+
+**Audit, 2026-10-30:** ULTRA's external preamplifier, 19 solved nodes and 36 parts through
+the general nodal solver, was the real matrix cost: 39 % of a sample in FEEDBACK, and
+numerics.md had long said it needed its own solver. Schur elimination had been set aside by
+rule as "non-exact", never measured.
+
+`preamp/reduced.rs` solves the same equations. Only the transistors' nine internal nodes touch
+anything nonlinear; the other ten fall into four groups, and since Newton's step solves linear
+equations exactly, the next iterate does not depend on their present values at all. They are
+worked out at each iterate only because the stopping rule looks at every node. The device
+equations, GMIN, the trapezoidal rule, the predictor, the limiting, the all-nodes stopping
+rule, the cap of 100, the shorter retry and the four substeps are unchanged. The part values
+are read from the `Circuit`, which stays as the netlist, the operating point, the profiles'
+counts and the tests' reference. The nine nodes are a ring that eliminates in about 100
+operations in a fixed order, without the general solver's pivot search (which moved a pivot
+on 0.24 % of its solves on the worst load). R9, SW10 and a shorter step recompute their
+groups on the audio thread, in fixed arrays, without allocating.
+
+**The samples change, by rounding.** The plain form of this algebra was not good enough: a group's
+voltage taken from a transistor node's puts an ulp of 12 V through an ohm into one row with no
+row left to balance it, 1.3e-9 V at AMP, ten thousand times the circuit's own rounding; and C26's
+history as a charge over the step rounds the same way at every step, a drift the feedback
+multiplies by 232. Both passed -120 dBFS easily. They were found by holding the
+difference to the general solver's rounding, and are why `Group` keeps only differences.
+
+Measured against `cfd5859`, Linux on an i9-13900HX, on a machine that was not quiet (mean load
+12), pairs alternating under one lock, medians:
+
+| | Before | After |
+|---|---|---|
+| Preamplifier, worst load, us a sample (`ca72-lab solvers`, with its timers) | 7.81 | 2.98 |
+| The same, us an iteration: load, linear solve | 0.47, 0.27 | 0.19, 0.07 |
+| Newton iterations a sample, and solves by iterations | 9.52 | 9.52, every bin the same |
+| FEEDBACK 6 / 8.5 ULTRA, us a sample, one core, free-running | 15.11 / 16.38 | 11.20 / 11.04 |
+| FEEDBACK 6 / 8.5 High Fidelity, the same | 10.20 / 10.82 | 8.36 / 8.64 |
+| FEEDBACK 6 / 8.5 ULTRA, paced, mean % of a 256-frame block | 74.2 / 75.9 | 54.1 / 54.7 |
+| The same, 99th percentile | 101 / 106 | 71 / 70 |
+| The same, blocks late of 1,829 | 22.5 / 21.5 | 1 / 2 |
+
+Held notes, with no preamplifier in the path, did not move. The threaded worst case did not
+either (mean 2.93 to 2.81 ms, 99th percentile 4.8 ms both): other threads set it.
+
+Accuracy: of the EXTERNAL INPUT's 46 non-chaotic renders against the code before, 45 are within
+-236 dBFS and the worst, High Fidelity's chirp at EXT 8, within -166, against -160 for the same
+render's own twins an ulp apart; 44 take exactly the same iterations and the other two
+differ by 0.001 %. At the solver, every node stays within about the general solver's own
+rounding (`preamp::reduced`'s tests). Of 360 FEEDBACK render pairs at equal seeds, 336 stay
+within -123 dBFS, the hardware takes at EXT 0, 5, 8 and 10 within -162, their distance to the
+hardware the same to two decimals. The other 24 are chaotic: EMPHASIS 8 with FEEDBACK 10 at EXT 10
+parts from 1.02 s, and FEEDBACK 1.5 at EXT 10 on some seeds from 4.7 s, by -64 dBFS at most.
+Their third-octave bands, level and oscillation match within the seeds' own spread, as do all
+30 steps of a FEEDBACK sweep across EXT 10. `ca72-lab hifi` prints the same figures in all its
+scenarios, its failure on perf-ext's contour root included, which is older than this. All
+42 factory presets are the same to the bit at HI, and at ULTRA but for Feedback Funk at -326 dB.
+
+A hard source at EXT 10 (a 2.5 V chirp at the jack from no source resistance) fails some forty steps
+in two seconds, here and before: from there a change of one ulp at the input alone parts the
+render by -13.7 dBFS, the code before from itself as the new code from it. That is an old
+weakness of the circuit's steps at that drive, and it is not changed here.
+

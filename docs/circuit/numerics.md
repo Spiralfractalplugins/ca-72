@@ -182,7 +182,8 @@ steps of a nine-state loop a sample, two iterations each, which cost more than t
 is left for exact work is small: the bias's chain of logarithms and exponentials (1 us,
 latency-bound), a polyphase interpolator, the noise model's decimators interleaved, the
 VCA's fast solves with an analytic Jacobian: perhaps 10 to 15 % together. The
-preamplifier needs its own solver (the nodal solver's generality is most of its cost).
+preamplifier needs its own solver (the nodal solver's generality is most of its cost; it
+has had one since decisions.md R-PREAMP-SOLVE: 7.8 to 3.0 us a sample on the worst load).
 Anything beyond that changes the models: lower oversampling, lower contour and bias rates,
 reduced models, or relaxing "no loss" from below the last bit of a 24-bit output to below
 audibility (say -120 dBFS), which would allow looser tolerances, a chord Newton and
