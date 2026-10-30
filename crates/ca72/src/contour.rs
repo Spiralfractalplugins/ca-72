@@ -1081,7 +1081,14 @@ impl Contours {
         };
         // V-trig for the sections at `ss`, from `guess`.
         let solve_vt = |ss: &[SectionState; 2], guess: f64| {
-            let f_vt = |vt: f64| f_vt_by(vt, q12(vt), ss);
+            // (From V-trig high, with CR2 [CR9] still off, Newton's step lands far up that
+            // diode's exponential, whence each step moves one n Vt: 80 stopped short of the
+            // root on a release with SUSTAIN high. Nothing here carries an ampere: no slope
+            // there, and the root finder bisects, as for the dump node.)
+            let f_vt = |vt: f64| {
+                let (f, slope) = f_vt_by(vt, q12(vt), ss);
+                (f, if f.abs() < 1.0 { slope } else { 0.0 })
+            };
             root_slope(f_vt, 0.0, c.p93, guess, false, tol)
         };
         let vtrig_old = self.vtrig;
