@@ -19,7 +19,10 @@ not here: its engine, its device catalogue and patch library, its command bus, C
 server, its GUI's panel, and its design and other decisions, which are in its own record,
 not this one. "The owner" is the person who commissioned the work. Only the Potato quality
 mode is released in the plug-in (`README.md`); No Compromises and High Fidelity remain in
-the model and the lab.
+the model and the lab. (Note, 2026-10-30: that was so of 0.1. Since 0.2.0 the plug-in's
+QUALITY has three positions: ULTRA, the model's No Compromises; HI, its Potato; and LO, a
+separate light model (decisions.md R47, R48). High Fidelity is still in the model and the
+lab only.)
 
 ## A circuit-derived Minimoog Model D (the owner's request)
 

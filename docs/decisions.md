@@ -16858,3 +16858,39 @@ A fixture test checks all payload bytes, every internal checksum, source provena
 Windows upload list. CA72_SOURCE_COMMIT permits packaging existing verified CI binaries
 without incorrectly attributing their source to the packaging-fix checkout. This changes
 packaging only; binaries from the original tagged CI remain unchanged.
+
+## R-TRIPWIRE. The 1e-7 rule retired as an acceptance standard; it stays as a regression tripwire
+
+**Owner decision, 2026-10-30** (passed on by the session that started this work). "Every
+render within 1e-7 of full scale of the model as it stands" (history.md, "Three quality modes")
+is retired as an acceptance standard. It stays useful only as a regression tripwire: a
+difference says that a change moved the output, not whether the move is acceptable.
+
+**Why.** The audit of 2026-10-30, on main `cfd5859`
+(`/mnt/lab/artifacts/ca-72/audit-2026-10-30/REPORT.md`, section 4), found the rule no longer
+in force, though nothing had said so, and `docs/circuit/no-compromises-attempts.md` still read
+as if it applied.
+- **It could not weigh a change.** The record itself says the rule "measured when a change
+  first altered a bit, not how much" (numerics.md, "No Compromises"). 1e-7 is only a few times
+  the model's own rounding on the musical renders, so rounding alone could cross it: an
+  approximate `exp` was dropped at 1.3e-7. The Schur complement and modified Newton were set
+  aside as "non-exact" with nothing measured (no-compromises-attempts.md).
+- **The sound has been judged against hardware since R42,** not against an earlier render
+  ("Change the circuit, never the output").
+- **R-BLEP had already ended it in practice for HI and ULTRA.** The owner's answers of
+  2026-10-16 accepted the sound changes in both, ULTRA's "because accuracy comes first in a
+  render engine; its renders, and the lab's references for it, change". The rule itself was
+  only ever No Compromises', that is ULTRA's: HI, the model's Potato, has no limits in
+  `ca72-lab hifi`, which reports its distances and does not judge them.
+
+**What stays.** `ca72-lab perf check` and its twins are unchanged, run by hand: the reference
+is not in git and CI does not run it. This decision concerns 1e-7 alone: the tests against
+ngspice and High Fidelity's limits (`crates/ca72-lab/src/quality.rs`) are not touched. Until
+a standard is approved, CONTRIBUTING.md's rule is the one that applies: a change that alters
+the samples needs its reason and a measurement. What replaces the 1e-7 rule has not been
+decided. CI has no bit-identity check today: it compares no render with a recorded reference,
+so the tripwire is run by hand.
+
+No code changes with this entry and no sample moves. plan.md and
+no-compromises-attempts.md, which gave the rule as current, now point here; history.md and
+numerics.md keep it as the record of its day.

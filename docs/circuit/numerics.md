@@ -397,6 +397,13 @@ from Potato's work" below.)
 
 ## Potato (quality modes; from 2026-09-29)
 
+(Note, 2026-10-30: "Potato" here is the model's `Quality::Potato`, the plug-in's QUALITY HI;
+[README.md](README.md) has the names. This section is the record as it was written, with
+the filter at twice the rate. Since 0.2.1 that filter runs at four times (decisions.md R71,
+2026-10-13: at twice, strong EMPHASIS and AMOUNT OF CONTOUR gave broadband noise and aliased
+tones), so "twice the rate" below, and the costs measured with it, are the model as it then
+stood. High Fidelity's filter was at four times throughout.)
+
 The goal (the owner's): a hundred voices at once in real time at 256-frame blocks, each
 under the worst case's load, fidelity kept as high as possible, measured against No
 Compromises (`ca72-lab hifi --quality potato` reports its distances on each path, not judged).
@@ -473,7 +480,8 @@ silence, the circuit from its operating point). About 8.7 us a sample in all.
 on 1024 points of the tail current's logarithm, linear between) and Newton's tolerance
 1e-6 V (from 1e-10): the filter 4.2 to 2.9 us a sample, its fidelity unchanged. At the
 sample rate (not twice it) 2.2 us, but a self-oscillating filter strays (perf-screech's
-spectra -0.2 dB from No Compromises' in the median window, not -12): kept at twice. About
+spectra -0.2 dB from No Compromises' in the median window, not -12): kept at twice (since
+R71, 2026-10-13, four times). About
 7.1 us a sample in all. `ca72-lab crowd`, paced: 28 voices on 14 threads mean 5.3 ms a
 256-frame block (396 of 938 late), 50 voices 9.8 ms: a voice among many costs about 10 us
 a sample (7 alone), and a hundred need about 3.5 times less.
