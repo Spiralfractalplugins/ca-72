@@ -16925,3 +16925,98 @@ Hardware evidence is limited. Behringer's [Model D user manual](https://synthman
 says multi-trigger on changes pitch and triggers the filter and loudness contours on a new
 note. No authoritative source was found for key-lift behaviour. This decision preserves
 CA-72's established behaviour; it does not claim a verified hardware rule for key lifts.
+## R-CONTOUR-SPIKE. No Compromises' contours solve from their last solve
+
+`ca72-lab worst` put the contours over a sample's 20.8 us in their worst blocks, the slowest
+part in them, in the 10 to 15 ms after a key's release with DECAY off. V-trig's root finder
+solved each dump node (R1401's far end) at each of its evaluations, and each of those solves
+began at V-trig's voltage with CR7 [CR4] volts forward. There a Newton step moves one n Vt
+(49 mV): some sixty steps a node, each two evaluations by differences, up to 6,843 steps in a
+tick and 184,955 in the worst block. Potato left that path on 2026-09-29 and High Fidelity
+took Potato's lean solves the next day; No Compromises stayed on it to keep its samples.
+
+No Compromises now takes the same path: the dump node from its last solution with its slope
+analytic, Q20 and Q12 from their last solve within the tick. It and High Fidelity also start
+each junction behind a resistance (Q7, Q8, the reset feeds, Q12's base) and the dump node from
+its last solve within the tick rather than the last tick's. The equations, the tolerances
+(1e-12 V and 1e-11 V) and libm stay as they were, so this is a change of iterates, not an
+approximation. Potato's ticks are unchanged.
+
+**Measured against main (cfd5859), 48 kHz.** Over 60 s of the worst case in No Compromises the
+contours moved at most 1.0e-13 V and the audio 3.1e-10 of full scale, and over 55 gate trains
+at most 1.1e-13 V with all 6,711 onsets on the same samples. High Fidelity moved at most
+2.0e-14 V and 8.6e-9. `ca72-lab hifi` measures as before. Three alternating pairs on a machine
+other agents were using, threaded, the median: the contours' worst block 40.2 to 18.0 us a
+sample, the blocks they alone overran 31 to 0, the worst case's late blocks 200 to 7 of 11,250
+and its worst block 242 % to 132 %. At 20 notes a second ULTRA's contours took 3.10 us a sample
+from 3.86.
+
+**Potato's samples.** A voice settles its contours in No Compromises' numerics before its mode
+applies, so a Potato voice's rest moved by rounding: at most 8.9e-16 V at the contours and
+1.7e-14 of full scale in the audio. With both builds settled in Potato's numerics, the worst
+case's 20 s and the 55 gate trains are identical to the bit. Keeping the old bits would keep
+the slow path for the settling alone.
+
+V-trig's own root still stops short at 80 iterations on some releases (21 times in the worst
+case's 60 s, twice in perf-ext, one for each note): its first Newton step from V-trig high
+lands on CR2's [CR9's] exponential and creeps back at one n Vt a step. Those samples are as
+they were here; curing them moves the contours by up to 1.9 mV, past High Fidelity's limit
+against the old samples, and is the owner's to choose.
+
+## R-CONTOUR-VTRIG. V-trig's root bisects off CR2's exponential
+
+On a release with SUSTAIN high V-trig's root stopped at its 80 iterations short of the root:
+from V-trig high, with CR2 [CR9] still off, Newton's first step (7.66 V to 1.22 V, say) landed
+far up that diode's exponential, beyond where the law holds its exponent, and each step back
+climbed one n Vt. It did so 21 times in a minute of the worst case, 70 over 55 gate trains and
+twice in perf-ext, in No Compromises and High Fidelity alike, and once in Potato (R-CONTOUR-SPIKE
+left it so). In a coupled tick the next pass finished the solve. In an uncoupled one V-trig stood
+about 43 mV low, leaving up to 1.8 mV on the loudness contour for up to 90 ms over 10 uV, and
+`ca72-lab hifi` and `perf record` refused the render.
+
+**The owner's decision, 2026-10-30:** it is a real failure, so it is fixed; High Fidelity's 1e-5 V
+limit against the old samples does not apply, the old samples being unconverged.
+
+Where V-trig's residual reaches an ampere (nothing here carries one) its root finder now gets no
+slope and bisects, the dump node's idiom, in every mode. Limiting that diode's step as SPICE
+does took fewer iterations on average (6 against 10 at the wall) but more at worst in No
+Compromises (33 against 20) and more code; a threshold of 0.1 A saved two. Solves that never
+reach the wall run as before.
+
+**Measured against R-CONTOUR-SPIKE's commit, 48 kHz.** No solve stops at its cap in any of those
+loads, in any mode, nor over the gate trains at 44.1 kHz (4 before); `hifi` passes and `perf
+record` records. In every solve that met the wall (1,846 to 3,761 a load) the root is within
+7.2e-15 V of plain bisection of the same equations. V-trig's longest solve went from 80
+iterations to 20.
+
+- No Compromises and High Fidelity, the worst case's minute: the contours moved at most 1.8 mV
+  (four stretches of about 80 ms over 10 uV; ten of the 21 stops moved them by over 1 uV), all 98
+  attacks on the same samples, no attack's peak by more than 60 uV, level in 50 ms windows at
+  most 0.11 dB. The audio moved at most 0.17 of full scale, near 5.6 s, and that is a phase: there
+  the filter is oscillating by itself (EMPHASIS 0.99) and 0.1 mV on its contour over two stretches
+  of 80 ms integrates to 0.2 rad, its level within 0.07 dB and its frequency unchanged, and the
+  difference reaches the output only as the tremolo opens the VCA. The phase then grows to 0.8 rad
+  with no difference on the contours and is lost when the filter locks. Elsewhere in the minute the
+  audio moved at most 5.7e-5, in most windows less than a render's own spread when each elementary
+  function moves an ulp.
+- Gate trains, No Compromises and High Fidelity: at most 1.9 mV and 1.8e-4 of full scale, all
+  6,711 onsets on the same samples.
+- Potato: its one stop (33.96 s) moved the contours by 0.14 V for 40 ms, past High Fidelity's
+  limit but within what Potato's falls already are from No Compromises' (median 0.31 V). This fall
+  ends further from No Compromises', 0.55 V against 0.46 V at most: the unconverged V-trig had
+  happened to shorten Potato's usual lag. The audio's largest move, 0.25 at 47.7 s, is no measure
+  of this: an ulp alone moves it 0.25 there. The gate trains moved at most 4.4e-15 V, on the same
+  1,774 onsets.
+- LO does not use these contours: its render is identical.
+- Factory presets, as each is saved: 42 of 42 identical, on a line of keys. POLY's chords
+  (`preset_render`): HI 41 identical and Feedback Funk at -197 dB; ULTRA 25 identical and 17 moved,
+  by -91.5 dB peak or less but for Feedback Funk at -65.6 dB, level unchanged in all. That preset's
+  old render was the outlier: moved an ulp it lands within 2.7e-7 of the new one, so that release's
+  old result hung on rounding.
+- Time, over three to five alternating pairs on a machine others were using: the contours as
+  before within the noise (1.89 us a sample in No Compromises, 1.24 to 1.26 in High Fidelity, 0.46
+  to 0.44 in Potato), the worst block no longer (threaded, No Compromises 6.78 to 6.72 ms, High
+  Fidelity 5.21 to 4.99). Three fixed runs stalled for tens to hundreds of milliseconds; the pairs
+  after them did not.
+
+ngspice's comparison (`contours_match_the_circuit`) has not run on this: it was not installed.

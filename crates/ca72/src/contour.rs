@@ -423,15 +423,16 @@ pub struct Contours {
     trig_settled: bool,
     sec_settled: [bool; 2],
     /// In High Fidelity and Potato (`lean`): the trigger section woken only by what it
-    /// reads (the key, EXT. S-TRIG, the temperature), not by every panel change; Q20 and
-    /// Q12 solved from their last solve within the tick (in every mode their steps are
-    /// limited as the nodal solver's: until 2026-09-30 No Compromises held them to 0.2 V
-    /// down and 2 Vt up, and they stopped short hundreds of times a few seconds); the dump
-    /// node from its last solution with its slope analytic.
+    /// reads (the key, EXT. S-TRIG, the temperature), not by every panel change.
     lean: bool,
     trig_inputs: Option<(bool, bool, u64)>,
-    /// The lean modes' warm starts for the dump nodes, filter and loudness (the same node
-    /// when they share R1401; NaN: none).
+    /// In No Compromises and High Fidelity (`track`): each junction behind a resistance
+    /// (the decay's Q7 and Q8, the reset feeds, Q12's base) and the dump nodes solved from
+    /// their last solve within the tick, not the last tick's (performance; decisions.md
+    /// R-CONTOUR-SPIKE). Potato's samples stay as they were.
+    track: bool,
+    /// Warm starts for the dump nodes, filter and loudness (the same node when they share
+    /// R1401; NaN: none).
     dump: [f64; 2],
     /// The transistors' parameters at the temperature, and what they were worked out for
     /// ([`Contours::devices`]).
@@ -560,38 +561,20 @@ fn root_dir(
 }
 
 /// An NPN with its emitter grounded, its base through `r` from `vb` and its collector at
-/// `vc` (Q20, Q12): [`solve_junctions_limited`]'s Newton steps and limits with the
-/// Jacobian analytic ([`BjtAt::currents_d`]) instead of by differences (performance).
-/// Returns the junction voltages and the collector and base currents.
+/// `vc` (Q20, Q12): [`solve_junctions_limited`]'s Newton steps with the Jacobian analytic
+/// ([`BjtAt::currents_d`]) instead of by differences (performance), a junction's step limited
+/// only as it rises past its critical voltage (SPICE's limiting, as the nodal solver's), not
+/// held to 0.2 V down and 2 Vt up: until 2026-09-30 a collector junction swinging volts took
+/// some fifty steps, and they stopped short hundreds of times a few seconds. Returns the
+/// junction voltages and the collector and base currents.
 fn grounded_npn(
-    m: &BjtAt,
-    q: &Bjt,
-    x: [f64; 2],
-    vb: f64,
-    r: f64,
-    vc: f64,
-    tol: f64,
-) -> ([f64; 2], f64, f64) {
-    grounded_npn_with(m, q, x, (vb, r, vc), tol, true)
-}
-
-/// [`grounded_npn`]; with `pnjlim` (High Fidelity, Potato) a junction's step limited only
-/// as it rises past its critical voltage (SPICE's limiting, as the nodal solver's), not
-/// held to 0.2 V down and 2 Vt up: a collector junction swinging volts took some fifty
-/// steps.
-fn grounded_npn_with(
     m: &BjtAt,
     q: &Bjt,
     mut x: [f64; 2],
     (vb, r, vc): (f64, f64, f64),
     tol: f64,
-    pnjlim: bool,
 ) -> ([f64; 2], f64, f64) {
-    let crit = if pnjlim {
-        crate::mna::vcrit(m.vt, m.is)
-    } else {
-        0.0
-    };
+    let crit = crate::mna::vcrit(m.vt, m.is);
     let rb = r + q.rb;
     let mut converged = false;
     for _ in 0..60 {
@@ -616,13 +599,8 @@ fn grounded_npn_with(
             (res[0] * j[1][1] - res[1] * j[0][1]) / det,
             (j[0][0] * res[1] - j[1][0] * res[0]) / det,
         ];
-        let step = if pnjlim {
-            let to = |k: usize| crate::mna::pnjlim(x[k] - dx[k], x[k], m.vt, crit) - x[k];
-            [to(0), to(1)]
-        } else {
-            let lim = |d: f64| d.clamp(-0.2, 2.0 * m.vt);
-            [lim(-dx[0]), lim(-dx[1])]
-        };
+        let to = |k: usize| crate::mna::pnjlim(x[k] - dx[k], x[k], m.vt, crit) - x[k];
+        let step = [to(0), to(1)];
         x = [x[0] + step[0], x[1] + step[1]];
         if step[0].abs() < tol && step[1].abs() < tol {
             converged = true;
@@ -664,6 +642,7 @@ impl Contours {
     /// of the order of its square; `ca72-lab hifi`).
     pub fn set_quality(&mut self, q: crate::voice::Quality) {
         self.lean = q != crate::voice::Quality::NoCompromises;
+        self.track = q != crate::voice::Quality::Potato;
         (self.tol, self.tol_decay) = match q {
             crate::voice::Quality::NoCompromises => (1e-12, 1e-11),
             crate::voice::Quality::HighFidelity | crate::voice::Quality::Potato => (1e-9, 1e-9),
@@ -703,6 +682,7 @@ impl Contours {
             sec_settled: [false; 2],
             lean: false,
             trig_inputs: None,
+            track: true,
             dump: [f64::NAN; 2],
             devices: std::cell::Cell::new(None),
         }
@@ -920,25 +900,26 @@ impl Contours {
         // every region (in saturation its collector junction takes base current too, which
         // drains C7 faster), so C7 and the line are solved together: two passes.
         let vb4 = npn.vt * crate::ulp::log(0.5e-3 / npn.is);
-        let j_feed = self.j_feed;
+        let track = self.track;
+        let j_feed = self.j_feed.map(std::cell::Cell::new);
         let feed_at =
             |rst: f64, r: f64, j: f64| series_junction_from(rst - vb4, r + c.ge.rs, ge, j);
-        let j12b = self.j12b;
+        let j12b = std::cell::Cell::new(self.j12b);
         let base12 = q12d.base_law();
-        let q12_base = |r: f64| series_junction_from(r, c.r19 + c.q12.rb, &base12, j12b);
+        let q12_base = |r: f64| {
+            let s = series_junction_from(r, c.r19 + c.q12.rb, &base12, j12b.get());
+            if track {
+                j12b.set(s.0);
+            }
+            s
+        };
         let j10 = self.j10;
-        // (In High Fidelity and Potato each solve of Q20 and Q12 starts from the last
-        // one's, not the last tick's, and limits its steps as the nodal solver does.)
-        let lean = self.lean;
+        // (Each solve of Q20 and Q12 starts from the last one's, not the last tick's.)
         let x20 = std::cell::Cell::new(self.x20);
         let q20 = |v7: f64, rst: f64| {
-            if lean {
-                let s = grounded_npn_with(&npn, &c.npn, x20.get(), (v7, c.r55, rst), tol, true);
-                x20.set(s.0);
-                s
-            } else {
-                grounded_npn(&npn, &c.npn, x20.get(), v7, c.r55, rst, tol)
-            }
+            let s = grounded_npn(&npn, &c.npn, x20.get(), (v7, c.r55, rst), tol);
+            x20.set(s.0);
+            s
         };
         let i60 = |v7: f64| series_junction_from(kb - v7, c.r60 + c.ge.rs, ge, j10).1;
         let (v0, rst0) = (self.v7, self.rst);
@@ -955,9 +936,8 @@ impl Contours {
         // from anywhere to convergence: the warm-started solves they use are held to 0.2 V
         // down and 2 Vt up a step, which does not reach a bracket's far end in its steps
         // (the finders never evaluate there).
-        let solved = |vb: f64, r: f64, vc: f64| {
-            grounded_npn_with(&npn, &c.npn, [0.7, 0.6], (vb, r, vc), 1e-12, true)
-        };
+        let solved =
+            |vb: f64, r: f64, vc: f64| grounded_npn(&npn, &c.npn, [0.7, 0.6], (vb, r, vc), 1e-12);
         for _ in 0..passes {
             let r_now = rst;
             // Rising: C7's current falls as it charges.
@@ -988,7 +968,10 @@ impl Contours {
                     .into_iter()
                     .enumerate()
                 {
-                    let (jf, i) = feed_at(r, r_reset, j_feed[k]);
+                    let (jf, i) = feed_at(r, r_reset, j_feed[k].get());
+                    if track {
+                        j_feed[k].set(jf);
+                    }
                     f -= i;
                     df -= through(ge(jf).1, r_reset + c.ge.rs);
                 }
@@ -1016,58 +999,53 @@ impl Contours {
         // CR2 [CR9] and, with DECAY off, their capacitors through CR7 [CR4] and R1401.
         let x12 = std::cell::Cell::new(self.x12);
         let q12 = |vt: f64| {
-            if lean {
-                let s = grounded_npn_with(&q12d, &c.q12, x12.get(), (rst, c.r19, vt), tol, true);
-                x12.set(s.0);
-                s
-            } else {
-                grounded_npn(&q12d, &c.q12, x12.get(), rst, c.r19, vt, tol)
-            }
+            let s = grounded_npn(&q12d, &c.q12, x12.get(), (rst, c.r19, vt), tol);
+            x12.set(s.0);
+            s
         };
         // The dump node (R1401's far end) for V-trig at `vt`, the diodes of the capacitors
         // `caps` into one R1401: both into the left hand controller's one, or each into its
-        // own ([`ContourCircuit::dump_each`]). (In High Fidelity and Potato from its last
-        // solution with its slope analytic, not from V-trig's voltage by differences: its
-        // bisections from there made the contours' slowest ticks.)
-        let (lean, dump_warm) = (self.lean, self.dump);
-        let dump_node = |vt: f64, caps: &[f64], warm: f64| {
+        // own ([`ContourCircuit::dump_each`]), from its last solution with its slope analytic.
+        // (From V-trig's voltage by differences, each step on the diode's exponential moved one
+        // n Vt: some sixty steps a node, at each of V-trig's evaluations, the contours' slowest
+        // ticks with DECAY off.)
+        let dump_warm = self.dump.map(std::cell::Cell::new);
+        let dump_node = |vt: f64, caps: &[f64], k: usize| {
             let fd = |d: f64| caps.iter().map(|&v| si(v - d).0).sum::<f64>() - (d - vt) / c.r1401;
             let lo = caps.iter().fold(vt, |a, &v| a.min(v)) - 1.0;
             let hi = caps.iter().fold(vt, |a, &v| a.max(v)) + 1.0;
             // Falling: the diodes' currents fall and R1401's grows as the node rises.
             debug_assert!(fd(lo) >= 0.0);
-            if lean {
-                // (Beyond 80 thermal voltages the diode law holds its exponent, so its slope
-                // there is not its current's: no slope, and the root finder bisects. Nothing
-                // here carries an ampere.)
-                let fd_slope = |d: f64| {
-                    let (i, g) = caps.iter().fold((0.0, 0.0), |(i, g), &v| {
-                        let (iv, gv) = si(v - d);
-                        (i + iv, g + gv)
-                    });
-                    let f = i - (d - vt) / c.r1401;
-                    let slope = if f.abs() < 1.0 {
-                        -g - 1.0 / c.r1401
-                    } else {
-                        0.0
-                    };
-                    (f, slope)
+            // (Beyond 80 thermal voltages the diode law holds its exponent, so its slope
+            // there is not its current's: no slope, and the root finder bisects. Nothing
+            // here carries an ampere.)
+            let fd_slope = |d: f64| {
+                let (i, g) = caps.iter().fold((0.0, 0.0), |(i, g), &v| {
+                    let (iv, gv) = si(v - d);
+                    (i + iv, g + gv)
+                });
+                let f = i - (d - vt) / c.r1401;
+                let slope = if f.abs() < 1.0 {
+                    -g - 1.0 / c.r1401
+                } else {
+                    0.0
                 };
-                let guess = if warm.is_finite() { warm } else { vt };
-                root_slope(fd_slope, lo, hi, guess, false, tol)
-            } else {
-                root_dir(fd, lo, hi, vt, false, tol)
+                (f, slope)
+            };
+            let warm = dump_warm[k].get();
+            let guess = if warm.is_finite() { warm } else { vt };
+            let d = root_slope(fd_slope, lo, hi, guess, false, tol);
+            if track {
+                dump_warm[k].set(d);
             }
+            d
         };
         // Each section's dump node for V-trig at `vt`, the sections' capacitors at `ss`.
         let dump_nodes = |vt: f64, ss: &[SectionState; 2]| {
             if c.dump_each {
-                [
-                    dump_node(vt, &[ss[0].v], dump_warm[0]),
-                    dump_node(vt, &[ss[1].v], dump_warm[1]),
-                ]
+                [dump_node(vt, &[ss[0].v], 0), dump_node(vt, &[ss[1].v], 1)]
             } else {
-                let d = dump_node(vt, &[ss[0].v, ss[1].v], dump_warm[0]);
+                let d = dump_node(vt, &[ss[0].v, ss[1].v], 0);
                 [d, d]
             }
         };
@@ -1103,7 +1081,14 @@ impl Contours {
         };
         // V-trig for the sections at `ss`, from `guess`.
         let solve_vt = |ss: &[SectionState; 2], guess: f64| {
-            let f_vt = |vt: f64| f_vt_by(vt, q12(vt), ss);
+            // (From V-trig high, with CR2 [CR9] still off, Newton's step lands far up that
+            // diode's exponential, whence each step moves one n Vt: 80 stopped short of the
+            // root on a release with SUSTAIN high. Nothing here carries an ampere: no slope
+            // there, and the root finder bisects, as for the dump node.)
+            let f_vt = |vt: f64| {
+                let (f, slope) = f_vt_by(vt, q12(vt), ss);
+                (f, if f.abs() < 1.0 { slope } else { 0.0 })
+            };
             root_slope(f_vt, 0.0, c.p93, guess, false, tol)
         };
         let vtrig_old = self.vtrig;
@@ -1111,7 +1096,7 @@ impl Contours {
         debug_assert!(
             f_vt_by(
                 0.0,
-                grounded_npn_with(&q12d, &c.q12, [0.7, 0.6], (rst, c.r19, 0.0), 1e-12, true),
+                grounded_npn(&q12d, &c.q12, [0.7, 0.6], (rst, c.r19, 0.0), 1e-12),
                 &self.sections
             )
             .0 >= 0.0
@@ -1154,7 +1139,7 @@ impl Contours {
             } else {
                 dump_nodes(vtrig, &first)
             };
-            self.dump = if lean && !panel.decay_on {
+            self.dump = if !panel.decay_on {
                 d_nodes
             } else {
                 [f64::NAN; 2]
@@ -1230,7 +1215,7 @@ impl Contours {
                         let (i, d) = pnp.base_law()(x);
                         (i * (pnp.bf + 1.0), d * (pnp.bf + 1.0))
                     };
-                    let (j7, j8) = (st.j7, st.j8);
+                    let (j7, j8) = (std::cell::Cell::new(st.j7), std::cell::Cell::new(st.j8));
                     let r7 = s.r9 + c.npn.rb;
                     // Trapezoidal, but the first sample after the attack backward Euler (as
                     // ngspice steps after a switch): the path through DECAY was open and the
@@ -1244,15 +1229,20 @@ impl Contours {
                     // its resistance changes its current by g / (1 + R g) a volt, g its slope at
                     // the solution (performance: finite differences took three residuals).
                     let res = |v: f64, e7: f64| {
-                        let (x7, ib7) = series_junction_from(su.v_e6 - e7, r7, &base, j7);
+                        let (x7, ib7) = series_junction_from(su.v_e6 - e7, r7, &base, j7.get());
                         let g7 = base(x7).1;
                         let (i_b7, d_b7) = if ib7 > 0.0 {
                             (ib7, -g7 / (1.0 + r7 * g7))
                         } else {
                             (0.0, 0.0)
                         };
-                        let (x8, i8) = series_junction_from(e7 - su.v_th8, su.r_e8, emitter, j8);
+                        let (x8, i8) =
+                            series_junction_from(e7 - su.v_th8, su.r_e8, emitter, j8.get());
                         let g8 = emitter(x8).1;
+                        if track {
+                            j7.set(x7);
+                            j8.set(x8);
+                        }
                         let d8 = g8 / (1.0 + su.r_e8.max(0.0) * g8);
                         let (i_si, g_si) = si(e7 - vtrig);
                         let (i_d, g_d) = dump_at(v);
@@ -1335,8 +1325,8 @@ impl Contours {
                     }
                     st.v = v;
                     st.e7 = e7;
-                    st.j7 = series_junction_from(su.v_e6 - e7, s.r9 + c.npn.rb, &base, j7).0;
-                    st.j8 = series_junction_from(e7 - su.v_th8, su.r_e8, emitter, j8).0;
+                    st.j7 = series_junction_from(su.v_e6 - e7, s.r9 + c.npn.rb, &base, j7.get()).0;
+                    st.j8 = series_junction_from(e7 - su.v_th8, su.r_e8, emitter, j8.get()).0;
                     terminal = v - s.esr * ((v - e7) / r_dec + i_dump(v));
                 }
                 laps.lap(Part::Decay);
@@ -1410,7 +1400,7 @@ impl Contours {
             }
             let g = solve_vt(&self.sections, vtrig);
             let f = g - vtrig;
-            if f.abs() <= if lean { COUPLED } else { tol } {
+            if f.abs() <= if self.lean { COUPLED } else { tol } {
                 break;
             }
             if pass >= COUPLING_PASSES {
