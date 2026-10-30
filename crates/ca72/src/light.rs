@@ -1367,9 +1367,11 @@ pub struct Light {
     pre_hp: (f32, f32, f32),
     overload_peak: f64,
     /// The plug-in's DRIVE: the gain on the bus into the ladder's input pair (1 the circuit),
-    /// and the pair's limit with it (as [`Ladder::tick`] takes it).
+    /// and the pair's limit with it (as [`Ladder::tick`] takes it), raised by `ring_lift` past
+    /// EMPHASIS's threshold.
     drive: f32,
     drive_top: f32,
+    ring_lift: f32,
     limit: (f32, f32, f32),
 }
 
@@ -1547,7 +1549,8 @@ impl Light {
             overload_peak: 0.0,
             drive: 1.0,
             drive_top: 1.0,
-            limit: (1.0, 1.0, 0.0),
+            ring_lift: 1.0,
+            limit: (0.0, 0.0, 0.0),
         };
         l.set_drive(1.0);
         // (The oscillators start in phase, as the circuit's do when its voice is made; ENTROPY's
@@ -1613,8 +1616,16 @@ impl Light {
         let gain = gain.max(1e-3);
         self.drive = gain as f32;
         self.drive_top = gain.powf(laws::DRIVE_CEILING).min(1.0) as f32;
-        let top = self.drive_top;
-        self.limit = (top, 1.0 / top, top * tanh(laws::BIAS / top));
+        // (The engine calls this every block: the ring's lift stays in the limit.)
+        self.set_limit();
+    }
+
+    /// The pair's limit from DRIVE's and the ring's, worked out again if it moved.
+    fn set_limit(&mut self) {
+        let top = self.drive_top * self.ring_lift;
+        if top != self.limit.0 {
+            self.limit = (top, 1.0 / top, top * tanh(laws::BIAS / top));
+        }
     }
 
     /// The three oscillators started together `at` one share of the way through their cycles
@@ -2027,15 +2038,13 @@ impl Light {
         self.pass = f64::from(exp2((pass * (std::f64::consts::LOG2_10 / 20.0)) as f32)) as f32;
         // Past the threshold, the pair's limit for the ring's level at this cutoff.
         let ringing = 1.0 - self.set.corner;
-        let top = if ringing > 0.0 {
+        self.ring_lift = if ringing > 0.0 {
             let lift = interpolate(&laws::RING_LEVEL_AT_LOG2, &laws::RING_LEVEL, log2);
-            self.drive_top * (1.0 + ringing * (lift - 1.0)) as f32
+            (1.0 + ringing * (lift - 1.0)) as f32
         } else {
-            self.drive_top
+            1.0
         };
-        if top != self.limit.0 {
-            self.limit = (top, 1.0 / top, top * tanh(laws::BIAS / top));
-        }
+        self.set_limit();
     }
 
     /// The ladder's stage gain and loop gain for the cutoff the panel, the keys and the
@@ -2973,6 +2982,45 @@ mod tests {
             let up = level(db) - off;
             assert!((up - want).abs() < 0.3, "DRIVE {db} dB: {up:+.2} dB");
         }
+    }
+
+    /// DRIVE leaves the pair's limit its share for the ring: told again each block, as the
+    /// engine tells it, it changes no sample wherever the blocks fall against the control
+    /// laws' 16 samples, and moved, it moves the limit under the ring's lift
+    /// (decisions.md R-LO-SET-DRIVE).
+    #[test]
+    fn set_drive_keeps_the_rings_limit() {
+        let ringing = |l: &mut Light| {
+            let mut p = measuring();
+            p.cutoff = 0.3;
+            p.emphasis = 0.7;
+            l.set_panel(&p);
+            l.note(72, true);
+        };
+        for offset in [0, 1, 4, 8, 10, 15] {
+            let play = |told: bool| {
+                let mut l = Light::new(48_000.0);
+                ringing(&mut l);
+                let mut x = run(&mut l, offset);
+                for _ in 0..200 {
+                    if told {
+                        l.set_drive(1.0);
+                    }
+                    x.extend(run(&mut l, 256));
+                }
+                x
+            };
+            assert_eq!(play(true), play(false), "offset {offset}");
+        }
+        let mut l = Light::new(48_000.0);
+        ringing(&mut l);
+        run(&mut l, 64);
+        let lift = l.limit.0 / l.drive_top;
+        assert!(lift > 1.01, "the ring's lift {lift}");
+        l.set_drive(4.0);
+        assert!(l.drive_top < 1.0);
+        let moved = l.limit.0 / l.drive_top;
+        assert!((moved - lift).abs() < 1e-5, "{lift} to {moved}");
     }
 
     /// FILTER MODE HI as the circuit's: the bus less the filter's output, so that a sawtooth
