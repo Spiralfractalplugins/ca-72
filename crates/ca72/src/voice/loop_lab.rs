@@ -201,7 +201,7 @@ fn the_circuit_driven_hard() {
             let x = amp_in * (std::f64::consts::TAU * 200.0 * i as f64 / SR).sin();
             let o = Model::tick(&mut c, x);
             if i > n / 2 {
-                for k in 1..14 {
+                for k in 4..14 {
                     lo[k] = lo[k].min(c.voltage(k));
                     hi[k] = hi[k].max(c.voltage(k));
                 }
@@ -213,7 +213,7 @@ fn the_circuit_driven_hard() {
             "AMP", "OUT",
         ];
         let mut line = String::new();
-        for k in 3..14 {
+        for k in 4..14 {
             line.push_str(&format!(" {} {:.3}..{:.3};", names[k], lo[k], hi[k]));
         }
         eprintln!("200 Hz {amp_in} V from {r_src}:{line}");

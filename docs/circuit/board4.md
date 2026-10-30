@@ -203,7 +203,9 @@ hardware reference's RANGE sits: 0.31 octave higher at a given control voltage
 
 ## The real-time preamplifier, lamp and A-440
 
-- **Preamplifier and lamp** (`preamp.rs`): solved as their circuit by the nodal solver.
+- **Preamplifier and lamp** (`preamp.rs`): solved as their circuit; the lamp driver by the
+  nodal solver, the preamplifier with its linear nodes eliminated (`preamp/reduced.rs`,
+  decisions.md R-PREAMP-SOLVE), the nodal solver's equations and iterates to rounding.
   The preamplifier runs four substeps a sample by the trapezoidal rule (backward Euler's
   damping upset its loop near its bandwidth: -9 dB at 20 kHz), its input upsampled and its
   outputs decimated by the halfband resamplers. The lamp driver runs once a sample from

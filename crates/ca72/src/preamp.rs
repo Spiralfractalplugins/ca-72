@@ -535,14 +535,10 @@ impl Preamp {
         (0..16).all(|_| amp.step(h / 16.0, x, net).is_some())
     }
 
-    /// A node's voltage (its source's, once the first step has set it).
+    /// A solved node's voltage.
     #[cfg(test)]
     pub(crate) fn voltage(&self, n: Node) -> f64 {
-        if n < HELD {
-            self.net.v(n)
-        } else {
-            self.amp.v(n)
-        }
+        self.amp.v(n)
     }
 
     /// The resamplers' delay, samples.
