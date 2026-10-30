@@ -16858,3 +16858,41 @@ A fixture test checks all payload bytes, every internal checksum, source provena
 Windows upload list. CA72_SOURCE_COMMIT permits packaging existing verified CI binaries
 without incorrectly attributing their source to the packaging-fix checkout. This changes
 packaging only; binaries from the original tagged CI remain unchanged.
+
+## R-CONTOUR-SPIKE. No Compromises' contours solve from their last solve
+
+`ca72-lab worst` put the contours over a sample's 20.8 us in their worst blocks, the slowest
+part in them, in the 10 to 15 ms after a key's release with DECAY off. V-trig's root finder
+solved each dump node (R1401's far end) at each of its evaluations, and each of those solves
+began at V-trig's voltage with CR7 [CR4] volts forward. There a Newton step moves one n Vt
+(49 mV): some sixty steps a node, each two evaluations by differences, up to 6,843 steps in a
+tick and 184,955 in the worst block. Potato left that path on 2026-09-29 and High Fidelity
+took Potato's lean solves the next day; No Compromises stayed on it to keep its samples.
+
+No Compromises now takes the same path: the dump node from its last solution with its slope
+analytic, Q20 and Q12 from their last solve within the tick. It and High Fidelity also start
+each junction behind a resistance (Q7, Q8, the reset feeds, Q12's base) and the dump node from
+its last solve within the tick rather than the last tick's. The equations, the tolerances
+(1e-12 V and 1e-11 V) and libm stay as they were, so this is a change of iterates, not an
+approximation. Potato's ticks are unchanged.
+
+**Measured against main (cfd5859), 48 kHz.** Over 60 s of the worst case in No Compromises the
+contours moved at most 1.0e-13 V and the audio 3.1e-10 of full scale, and over 55 gate trains
+at most 1.1e-13 V with all 6,711 onsets on the same samples. High Fidelity moved at most
+2.0e-14 V and 8.6e-9. `ca72-lab hifi` measures as before. Three alternating pairs on a machine
+other agents were using, threaded, the median: the contours' worst block 40.2 to 18.0 us a
+sample, the blocks they alone overran 31 to 0, the worst case's late blocks 200 to 7 of 11,250
+and its worst block 242 % to 132 %. At 20 notes a second ULTRA's contours took 3.10 us a sample
+from 3.86.
+
+**Potato's samples.** A voice settles its contours in No Compromises' numerics before its mode
+applies, so a Potato voice's rest moved by rounding: at most 8.9e-16 V at the contours and
+1.7e-14 of full scale in the audio. With both builds settled in Potato's numerics, the worst
+case's 20 s and the 55 gate trains are identical to the bit. Keeping the old bits would keep
+the slow path for the settling alone.
+
+V-trig's own root still stops short at 80 iterations on some releases (21 times in the worst
+case's 60 s, twice in perf-ext, one for each note): its first Newton step from V-trig high
+lands on CR2's [CR9's] exponential and creeps back at one n Vt a step. Those samples are as
+they were here; curing them moves the contours by up to 1.9 mV, past High Fidelity's limit
+against the old samples, and is the owner's to choose.
