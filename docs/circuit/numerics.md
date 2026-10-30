@@ -182,7 +182,8 @@ steps of a nine-state loop a sample, two iterations each, which cost more than t
 is left for exact work is small: the bias's chain of logarithms and exponentials (1 us,
 latency-bound), a polyphase interpolator, the noise model's decimators interleaved, the
 VCA's fast solves with an analytic Jacobian: perhaps 10 to 15 % together. The
-preamplifier needs its own solver (the nodal solver's generality is most of its cost).
+preamplifier needs its own solver (the nodal solver's generality is most of its cost; it
+has had one since decisions.md R-PREAMP-SOLVE: 7.8 to 3.0 us a sample on the worst load).
 Anything beyond that changes the models: lower oversampling, lower contour and bias rates,
 reduced models, or relaxing "no loss" from below the last bit of a 24-bit output to below
 audibility (say -120 dBFS), which would allow looser tolerances, a chord Newton and
@@ -764,3 +765,14 @@ Before the fix, High Fidelity had 1 and 28 late with 2 and 3 voices; one No Comp
 voice is the same within the machine's noise (alternating runs with the old waits: 15 and
 130 late, with the new: 2 and 50). So on this machine one No Compromises voice or four
 High Fidelity voices play in real time at 256 frames, and about 50 Potato voices.
+
+
+## HI's VCA and closed FEEDBACK loop (2026-10-30)
+
+HI runs its VCA on the filter's four samples before decimation, including paired POLY
+filters. With FEEDBACK and EXTERNAL INPUT on, the preamplifier's exact reduced solve runs
+between those steps, at HI's unchanged absolute and relative tolerance of 1e-5. Its
+100-iteration cap and h/16 retry are unchanged; no fitted audio model enters this loop.
+Only the OVERLOAD lamp uses the plain peak detector. FEEDBACK voices run alone; the normal
+HI filters still pair. Reported latency remains 86 samples. See decisions.md R-HI-FEEDBACK
+for the measurements and the owner's choice of accuracy over the fitted preamplifier.

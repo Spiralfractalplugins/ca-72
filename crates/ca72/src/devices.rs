@@ -502,7 +502,13 @@ impl BjtAt {
             di_f / qb - net * dqb_f / (qb * qb),
             -di_r / qb - net * dqb_r / (qb * qb) - di_r / self.br,
         ];
-        Currents { ic, ib, dic, dib }
+        Currents {
+            ic,
+            ib,
+            dic,
+            dib,
+            ef,
+        }
     }
 }
 
@@ -514,6 +520,8 @@ pub struct Currents {
     pub ib: f64,
     pub dic: [f64; 2],
     pub dib: [f64; 2],
+    /// The forward exponential, `exp(vbe / vt)` (held at e^80).
+    pub ef: f64,
 }
 
 /// Terminal voltages as a function of a transistor's currents, for [`solve_junctions`]:

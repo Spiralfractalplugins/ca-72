@@ -1721,8 +1721,24 @@ impl Vcf {
         xa: (f64, f64, f64),
         xb: (f64, f64, f64),
     ) -> (f64, f64) {
+        Vcf::tick_pair_oversampled(a, b, xa, xb, (&mut [0.0; 8], &mut [0.0; 8]))
+    }
+
+    /// [`Vcf::tick_pair`], each filter's samples at the loop's rate also written to `xs`, before
+    /// its decimator, as [`Vcf::tick_oversampled`].
+    pub fn tick_pair_oversampled(
+        a: &mut Vcf,
+        b: &mut Vcf,
+        xa: (f64, f64, f64),
+        xb: (f64, f64, f64),
+        xs: (&mut [f64; 8], &mut [f64; 8]),
+    ) -> (f64, f64) {
+        let (xsa, xsb) = xs;
         if !(a.potato && b.potato && a.recip && b.recip && a.oversample == b.oversample) {
-            return (a.tick(xa.0, xa.1, xa.2), b.tick(xb.0, xb.1, xb.2));
+            return (
+                a.tick_oversampled(xa.0, xa.1, xa.2, xsa),
+                b.tick_oversampled(xb.0, xb.1, xb.2, xsb),
+            );
         }
         let (nsa, gsa) = a.resampled(xa.0, xa.1);
         let (nsb, gsb) = b.resampled(xb.0, xb.1);
@@ -1734,10 +1750,12 @@ impl Vcf {
                 (b, (nsb[k], gsb[k].max(0.0), xb.2), &mut ib),
             );
             let va = a.filter_mode(nsa[k], va);
+            xsa[k] = va;
             if let Some(o) = a.down.push(va) {
                 oa = o;
             }
             let vb = b.filter_mode(nsb[k], vb);
+            xsb[k] = vb;
             if let Some(o) = b.down.push(vb) {
                 ob = o;
             }

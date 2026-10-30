@@ -967,11 +967,13 @@ pub struct Voice {
     last_ctl: (f64, f64),
     /// FEEDBACK (the plug-in's, not the instrument's): how much of the voice's own output is
     /// patched back into its EXTERNAL INPUT jack, 0 to 1 (1: the output at its full level,
-    /// before MAIN OUTPUT's VOLUME), one sample late, as players cable the output into the
+    /// before MAIN OUTPUT's VOLUME), at the next filter step where [`loops`], otherwise one
+    /// sample late, as players cable the output into the
     /// external input to overdrive the preamplifier and the mixer. Heard through the
     /// MIXER's EXTERNAL INPUT switch and VOLUME, as the cable is. 0, nothing is added.
     pub feedback: f64,
-    /// How the preamplifier is solved inside that loop in Potato ([`InLoop`]).
+    /// The historical preamplifier comparison ([`InLoop`]); the closed loop always uses
+    /// the exact solve, `Circuit` also selecting the nodal lamp.
     pub in_loop: InLoop,
     /// The last output sample, for FEEDBACK.
     fed_back: f64,
@@ -1179,9 +1181,8 @@ pub struct PreampPart {
     ext_amp: f64,
     /// EXT. INPUT VOLUME's law.
     volume: Memo<(f64, f64)>,
-    /// With FEEDBACK on (`accurate`), in Potato, the preamplifier as `in_loop` has it
-    /// (decisions.md R8, R11): Potato's own (its paths fitted to the circuit's gain)
-    /// oscillates low and dark inside the loop where the circuit does not.
+    /// FEEDBACK on: the historical delayed-loop comparison (`in_loop`, R8, R11).
+    /// The closed loop runs the exact preamplifier solve instead (R-HI-FEEDBACK).
     pub accurate: bool,
     pub in_loop: InLoop,
     /// FEEDBACK's loop at one rate ([`tick_looped`]): the preamplifier's current into the bus
@@ -1247,6 +1248,8 @@ pub struct Halfway {
     f: FrontOut,
     d: VcaDrive,
     v_kbd: f64,
+    /// The filter's output when FEEDBACK ran the whole audio path already.
+    looped: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -1261,10 +1264,13 @@ pub struct FrontOut {
 pub struct BackPart {
     vcf: Vcf,
     /// The VCA's signal path ([`Vca::signal`]) on the bias [`ControlPart`] works out: at the
-    /// sample rate, and in ULTRA at the filter's (decisions.md R-BLEP, ULTRA's VCA at 4x).
+    /// filter's rate in HI and ULTRA (decisions.md R-HI-FEEDBACK, R-BLEP).
     vca: Vca,
     vca_4x: OversampledVca,
-    /// Whether the last sample ran ULTRA's VCA, and the last output sample (V, before the
+    /// The filter's samples at its rate from [`Voice::filter_pair`], for
+    /// [`BackPart::after_filter`].
+    xs: [f64; 8],
+    /// Whether the last sample ran the oversampled VCA, and the last output sample (V, before the
     /// output's scale): what a switch between the two takes over.
     ultra: bool,
     last_out: f64,
@@ -1490,6 +1496,7 @@ impl Voice {
                         f
                     },
                     vca_4x: OversampledVca::new(&vca, ULTRA_VCA_OVERSAMPLING),
+                    xs: [0.0; 8],
                     vca,
                     ultra: false,
                     last_out: 0.0,
@@ -1784,9 +1791,11 @@ impl Voice {
         y
     }
 
-    /// Whether [`Voice::filter_pair`] solves this voice's filter beside another's (HI).
+    /// Whether [`Voice::filter_pair`] solves this voice's filter beside another's (HI). Not
+    /// with FEEDBACK's loop closed ([`tick_looped`]), which runs the filter a
+    /// step at a time with its own preamplifier and VCA, so a FEEDBACK voice plays alone.
     pub fn pairs(&self) -> bool {
-        self.panel.quality == Quality::Potato
+        self.panel.quality == Quality::Potato && !loops(&self.panel, self.feedback)
     }
 
     /// [`Voice::tick_jacks`] up to the filter (decisions.md R-HI-PAIRS): the keyboard, the
@@ -1796,7 +1805,7 @@ impl Voice {
     pub fn before_filter(&mut self, j: &Jacks) -> Halfway {
         self.audio.pre.accurate = self.feedback > 0.0;
         self.audio.pre.in_loop = self.in_loop;
-        let j = if self.feedback > 0.0 {
+        let j = if self.feedback > 0.0 && !loops(&self.panel, self.feedback) {
             Jacks {
                 ext: j.ext + self.feedback * self.fed_back,
                 ..*j
@@ -1816,10 +1825,33 @@ impl Voice {
         let ctl = self.ctl.tick_for(&pc, c, p.quality);
         self.last_ctl = (ctl.env_f, ctl.env_l);
         let d = self.bias.tick(ctl.env_l, j.loudness, p.quality);
+        if loops(&p, self.feedback) {
+            let (f, y, out) = tick_looped(
+                &mut self.audio.pre,
+                &mut self.audio.front,
+                &mut self.audio.back,
+                (&p, &j, v_kbd, &ctl, &d),
+                self.feedback,
+            );
+            self.audio.back.ready = Some(out);
+            return Halfway {
+                p,
+                f,
+                d,
+                v_kbd,
+                looped: Some(y),
+            };
+        }
         let i_pre = self.audio.pre.tick(&p, j.ext);
         let f = self.audio.front.tick(&p, &j, v_kbd, &ctl, i_pre);
         self.audio.back.set_filter(&p);
-        Halfway { p, f, d, v_kbd }
+        Halfway {
+            p,
+            f,
+            d,
+            v_kbd,
+            looped: None,
+        }
     }
 
     /// Two voices' filters over the sample, from [`Voice::before_filter`]: solved side by
@@ -1829,6 +1861,9 @@ impl Voice {
     pub fn filter_pair(a: &mut Voice, ha: &Halfway, b: &mut Voice, hb: &Halfway) -> (f64, f64) {
         if !(a.pairs() && b.pairs() && ha.p.quality == hb.p.quality) {
             let alone = |v: &mut Voice, h: &Halfway| {
+                if let Some(y) = h.looped {
+                    return y;
+                }
                 let (y, out) = v.audio.back.tick(&h.p, &h.f, &h.d);
                 v.audio.back.ready = Some(out);
                 y
@@ -1837,7 +1872,15 @@ impl Voice {
         }
         let _fast = crate::ulp::FastScope::new(ha.p.quality != Quality::NoCompromises);
         let x = |h: &Halfway| (h.f.i_bus, h.f.g_bus, h.f.i0);
-        Vcf::tick_pair(&mut a.audio.back.vcf, &mut b.audio.back.vcf, x(ha), x(hb))
+        let (ba, bb) = (&mut a.audio.back, &mut b.audio.back);
+        // Each filter's own samples kept for its VCA, BackPart::after_filter.
+        Vcf::tick_pair_oversampled(
+            &mut ba.vcf,
+            &mut bb.vcf,
+            x(ha),
+            x(hb),
+            (&mut ba.xs, &mut bb.xs),
+        )
     }
 
     /// [`Voice::tick_jacks`] from the filter's output `y` on: the VCA; the output sample.
@@ -2137,10 +2180,10 @@ pub const LINE_UP: (usize, usize) = (26, 39);
 ///   samples its output is held back. So every mode's attack comes out with ULTRA's, and
 ///   each meets its sound as in the circuit (the filter's own phase still the circuit's).
 ///
-/// In ULTRA the VCA's bias reaches the output [`vca_bias_latency`] later, through its VCA's
+/// In HI and ULTRA the VCA's bias reaches the output [`vca_bias_latency`] later, through its VCA's
 /// decimator, so its loudness contour comes that much earlier.
 ///
-/// At 48 kHz: 31.25 and 52.75 in Potato, 62.5 and 61.75 in the others.
+/// At 48 kHz: 31.25 and 29.75 in Potato, 62.5 and 61.75 in the others.
 fn contour_delays(audio: Quality, every: usize) -> (f64, f64) {
     let own = every as f64 - 1.0;
     let (to_filter, _) = filter_resamplers(audio);
@@ -2158,10 +2201,13 @@ fn contour_delays(audio: Quality, every: usize) -> (f64, f64) {
 /// ULTRA's VCA's oversampling (decisions.md R-BLEP): the filter's.
 const ULTRA_VCA_OVERSAMPLING: usize = 4;
 
-/// Whether the VCA runs at the filter's rate at a quality: in ULTRA (and the lab's High
-/// Fidelity, ULTRA but for the VCA's plain solve); not in Potato (HI) or the light model (LO).
+/// Whether the VCA runs at the filter's rate: HI, ULTRA and the lab's High Fidelity
+/// (ULTRA but for the VCA's plain solve). LO uses the light model.
 fn vca_oversampled(q: Quality) -> bool {
-    matches!(q, Quality::NoCompromises | Quality::HighFidelity)
+    matches!(
+        q,
+        Quality::NoCompromises | Quality::HighFidelity | Quality::Potato
+    )
 }
 
 /// How much later than at the sample rate the VCA's bias reaches the output at a quality,
@@ -2342,7 +2388,7 @@ impl AudioPart {
 }
 
 /// Whether FEEDBACK's loop runs at one rate ([`tick_looped`]; decisions.md R-FEEDBACK-LOOP):
-/// in ULTRA, whose preamplifier and VCA already run at the filter's rate, FEEDBACK and the
+/// in HI and ULTRA, whose preamplifier and VCA run at the filter's rate, FEEDBACK and the
 /// mixer's EXTERNAL INPUT on.
 pub(crate) fn loops(p: &Panel, feedback: f64) -> bool {
     feedback > 0.0
@@ -2372,7 +2418,10 @@ pub(crate) fn tick_looped(
     let (p, j, v_kbd, c, d) = at;
     let f = front.tick(p, j, v_kbd, c, 0.0);
     let _fast = crate::ulp::FastScope::new(p.quality != Quality::NoCompromises);
-    pre.preamp.set_quality(p.quality);
+    pre.preamp.set_quality(match (p.quality, pre.in_loop) {
+        (Quality::Potato, InLoop::Circuit) => Quality::HighFidelity,
+        (q, _) => q,
+    });
     pre.preamp.set_delayed(false);
     let (t, r) = pre.volume.get(p.ext_volume, ext_volume);
     pre.preamp.set_source_resistance(r);
@@ -2736,15 +2785,27 @@ impl BackPart {
     /// [`BackPart::tick`] from the filter's output `y` on: the output sample.
     fn after_filter(&mut self, p: &Panel, y: f64, d: &VcaDrive) -> f64 {
         let _fast = crate::ulp::FastScope::new(p.quality != Quality::NoCompromises);
-        // Only HI comes here (a pair): just switched from ULTRA, this path carries on from the
-        // 4x VCA's states, as in `tick`.
-        if self.ultra {
-            self.vca_4x.hand_over(&mut self.vca);
-            self.ultra = false;
+        // Only HI comes here (a pair). Its VCA at the filter's rate on the filter's
+        // own samples ([`Vcf::tick_pair_oversampled`]), switching as in `tick`.
+        let ultra = vca_oversampled(p.quality) && self.vcf.oversample() == ULTRA_VCA_OVERSAMPLING;
+        if ultra != self.ultra {
+            if ultra {
+                self.vca_4x.take_over(&self.vca, self.last_out);
+            } else {
+                self.vca_4x.hand_over(&mut self.vca);
+            }
+            self.ultra = ultra;
         }
-        self.vca.a440 = self.a440.tick(p.a440);
-        self.vca.plain_signal = p.quality != Quality::NoCompromises;
-        let out = self.vca.signal(y, d);
+        let a440 = self.a440.tick(p.a440);
+        let out = if ultra {
+            self.vca_4x.set_a440(a440);
+            self.vca_4x.set_plain(p.quality != Quality::NoCompromises);
+            self.vca_4x.signal(&self.xs, d)
+        } else {
+            self.vca.a440 = a440;
+            self.vca.plain_signal = p.quality != Quality::NoCompromises;
+            self.vca.signal(y, d)
+        };
         self.last_out = out;
         out / 5.0
     }

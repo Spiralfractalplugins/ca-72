@@ -502,7 +502,8 @@ are [standalone-spec.md](docs/standalone-spec.md) and
   control; players cable its PHONES output into EXTERNAL INPUT. This knob is that cable:
   turn it up, switch the MIXER's EXTERNAL INPUT on and raise its VOLUME, and the output
   overdrives the external input's preamplifier and the mixer (OVERLOAD lights). With it on
-  a voice costs about a fifth more.
+  HI closes this loop at four times the sample rate with the circuit's exact preamplifier
+  solve; FEEDBACK costs substantially more CPU (decisions.md R-HI-FEEDBACK).
 - **FILTER MODE** (at the head of the filter's switch column, LO by default): the original
   has no such switch; a modern recreation of the instrument has, and this is its high-pass,
   measured on one. At HI the output is the mixer's less the filter's: about 6 dB an octave
@@ -895,7 +896,9 @@ The service documents and datasheets the model was derived from are not included
   real time on most computers ([docs/decisions.md](docs/decisions.md) R48): one or two voices
   split over six threads each come close on a machine of 6 or more fast cores, more voices do
   not (R-THREADS). The model's
-  High Fidelity quality remains in `crates/ca72` and the lab.
+  High Fidelity quality remains in `crates/ca72` and the lab. HI's VCA runs at the filter's
+  rate (4x), including the closed FEEDBACK loop; its preamplifier uses the exact reduced
+  solve there and a plain model for the OVERLOAD lamp (R-HI-FEEDBACK).
 - **Potato mode (QUALITY at LO) is close to the circuit, not the same**
   ([docs/decisions.md](docs/decisions.md) R47): a FEEDBACK loop can settle into another
   oscillation than the circuit's (Feedback Funk is about 1 dB quieter as its notes start, 0.1's

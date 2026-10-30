@@ -543,6 +543,17 @@ pub(crate) fn pnjlim(vnew: f64, vold: f64, vt: f64, vcrit: f64) -> f64 {
     }
 }
 
+/// A solve's place in [`Circuit`]'s `iteration_counts`, by its Newton iterations.
+pub(crate) fn iteration_bin(it: usize) -> usize {
+    match it {
+        0..=4 => it.max(1) - 1,
+        5..=8 => 4,
+        9..=16 => 5,
+        17..=32 => 6,
+        _ => 7,
+    }
+}
+
 /// A diode's depletion and diffusion charge and their capacitance at a junction voltage.
 fn diode_charge(vd: f64, is: f64, nvt: f64, cap: &Depletion, tt: f64) -> (f64, f64) {
     let e = crate::ulp::exp((vd / nvt).min(80.0));
@@ -1425,13 +1436,7 @@ impl Circuit {
                 (0..n).all(|k| self.dx[k].abs() <= tol.0 + tol.1 * self.v[k + self.held].abs());
             if small && !limited {
                 self.iterations = it;
-                self.iteration_counts[match it {
-                    0..=4 => it.max(1) - 1,
-                    5..=8 => 4,
-                    9..=16 => 5,
-                    17..=32 => 6,
-                    _ => 7,
-                }] += 1;
+                self.iteration_counts[iteration_bin(it)] += 1;
                 return Ok(it);
             }
         }

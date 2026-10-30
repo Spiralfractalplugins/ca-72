@@ -29,7 +29,7 @@ version = "0.2.7"
 name = "Felt Bass"
 description = "Two sawtooths at 16', a hair apart, through a closed, plucked filter."
 tags = ["bass"]
-drive_curve = [-5.061183, -8.664823, -10.585891, -11.881521]
+drive_curve = [-5.061253, -8.665032, -10.586204, -11.881985]
 drive_curve_lo = [-5.238567, -8.990769, -10.349691, -10.703786]
 
 [preset.values]
@@ -54,7 +54,7 @@ spread = 0
 name = "Saw Monolith"
 description = "Three sawtooths, one an octave down, through a biting, resonant filter: a huge 70s prog-rock bass."
 tags = ["bass", "fat", "prog"]
-drive_curve = [-4.9667163, -8.659289, -10.642713, -11.474548]
+drive_curve = [-4.9667683, -8.659462, -10.643146, -11.475059]
 drive_curve_lo = [-5.116654, -8.760852, -10.257317, -10.857347]
 
 [preset.values]
@@ -109,7 +109,7 @@ spread = 0
 name = "Feedback Funk"
 description = "Narrow pulses with a high pulse on top, a squelchy resonant filter and the output fed back into the mixer: a late-night funk bass."
 tags = ["bass", "funk", "feedback"]
-drive_curve = [-3.5891492, -6.089032, -7.3002667, -8.07248]
+drive_curve = [-4.43105, -7.745255, -8.838916, -9.925427]
 drive_curve_lo = [-3.514435, -6.6952267, -8.71837, -9.501238]
 
 [preset.values]
@@ -269,7 +269,7 @@ volume = 9.611
 name = "Tenor Pluck"
 description = "One shark-tooth oscillator at 16' through a gently resonant filter that follows the keys, fading like a plucked string an octave above the upright bass; RETRIGGER starts it again on every note."
 tags = ["bass", "plucked"]
-drive_curve = [-5.9358506, -11.693454, -16.728617, -20.117731]
+drive_curve = [-5.9358907, -11.693542, -16.72882, -20.118134]
 drive_curve_lo = [-5.9173226, -11.6217575, -16.617035, -19.570364]
 
 [preset.values]
@@ -337,7 +337,7 @@ volume = 10
 name = "Singing Drift"
 description = "A loud 2' square over two quiet 16' squares, resonant and gliding, driven 7 dB into the filter and DOUBLE, its two instruments a little apart (ENTROPY 25, SPREAD 32): a hollow, singing lead."
 tags = ["lead", "glide", "prog"]
-drive_curve = [-5.1528625, -9.230573, -11.979226, -13.049748]
+drive_curve = [-5.152746, -9.230272, -11.978998, -13.048517]
 drive_curve_lo = [-4.8355947, -9.315902, -12.411315, -12.95354]
 
 [preset.values]
@@ -405,7 +405,7 @@ volume = 9.105
 name = "Horn Bloom"
 description = "One sawtooth opened slowly by the filter, a soft attack and a long glide, driven 16 dB into the filter and DOUBLE 17 cents wide; POLY's ten voices spread across the whole field, and the mod wheel adds a tremolo. A broad mid-70s synth horn."
 tags = ["lead", "brass", "glide", "slow"]
-drive_curve = [-5.113766, -8.523824, -10.13981, -10.902133]
+drive_curve = [-5.113824, -8.524016, -10.140142, -10.90254]
 drive_curve_lo = [-5.171143, -8.739637, -10.158769, -10.53461]
 
 [preset.values]
@@ -473,7 +473,7 @@ volume = 7.248
 name = "Brass Choir"
 description = "Three sawtooths in unison with a filter swell and full sustain, each note DOUBLE 12 cents wide: a broad, bright brass section."
 tags = ["brass"]
-drive_curve = [-3.7590554, -6.1400547, -7.187838, -7.2522907]
+drive_curve = [-3.7592068, -6.14042, -7.188351, -7.252809]
 drive_curve_lo = [-3.7115848, -5.410434, -5.9289856, -5.955994]
 
 [preset.values]
@@ -541,7 +541,7 @@ volume = 6.585
 name = "Smoke Flute"
 description = "A 4' triangle with a breath of white noise and a gentle swell: two UNISON voices, DOUBLE 7 cents wide and spread apart, driven 10 dB into the filter. The mod wheel sets the vibrato. A breathy, doubled flute."
 tags = ["woodwind", "flute"]
-drive_curve = [-5.962391, -11.825106, -17.334978, -21.73172]
+drive_curve = [-5.962394, -11.825122, -17.335041, -21.731915]
 drive_curve_lo = [-5.9614797, -11.814618, -17.272491, -21.243418]
 
 [preset.values]
@@ -609,7 +609,7 @@ volume = 10
 name = "Bright Xylo"
 description = "A 4' triangle with a sharp filter blip and a quick decay to silence, RETRIGGER striking it again on every note: a xylophone. Staccato, middle and upper keys."
 tags = ["percussive", "mallet", "arp"]
-drive_curve = [-5.345311, -10.090885, -13.564593, -15.215646]
+drive_curve = [-5.3453155, -10.090923, -13.564743, -15.215811]
 drive_curve_lo = [-5.2536407, -10.032413, -13.519246, -14.372896]
 
 [preset.values]
@@ -769,7 +769,7 @@ volume = 10
 name = "Wide Bow"
 description = "A triangle and a sawtooth in unison, a slow attack, a swelling filter and vibrato from the mod wheel, DOUBLE 5 cents wide, its two instruments drifting apart (ENTROPY 51) and spread: a pair of bowed cellos."
 tags = ["strings", "slow"]
-drive_curve = [-5.366758, -9.505061, -12.162142, -13.774681]
+drive_curve = [-5.366829, -9.505222, -12.162324, -13.7747345]
 drive_curve_lo = [-5.405066, -9.717315, -12.441055, -13.733826]
 
 [preset.values]
@@ -837,7 +837,7 @@ volume = 9.456
 name = "Driven Kick"
 description = "A triangle at 32' with a quiet 8' sawtooth on top, into a filter on the edge of oscillation driven the full 24 dB; a short contour sweeps its ring down into the low end, and RETRIGGER starts it again on every hit: a hard, saturated kick. MIDI note 57 puts it on A."
 tags = ["drums", "kick", "percussive"]
-drive_curve = [-1.0831457, -3.33048, -4.726172, -5.5339713]
+drive_curve = [-1.0831426, -3.3304412, -4.72612, -5.533982]
 drive_curve_lo = [-1.7415507, -2.2633643, -4.551016, -5.4127917]
 
 [preset.values]
@@ -905,7 +905,7 @@ volume = 10
 name = "Split Snare"
 description = "White noise with a quiet triangle for body, through a lightly resonant filter that snaps shut, DOUBLE 20 cents wide and spread a little, RETRIGGER striking it again on every hit: a snare. MIDI note 54 tunes the body to about 185 Hz."
 tags = ["drums", "snare", "noise", "percussive"]
-drive_curve = [-5.1684275, -9.008413, -11.214465, -12.169964]
+drive_curve = [-5.168552, -9.007219, -11.213298, -12.168962]
 drive_curve_lo = [-5.1359167, -8.687956, -10.273125, -10.728006]
 
 [preset.values]
@@ -973,7 +973,7 @@ volume = 10
 name = "Tight Hat"
 description = "White noise alone with the filter wide open and the loudness gone in a few tens of milliseconds, RETRIGGER striking it again on every hit: a closed hi-hat. Any key."
 tags = ["drums", "hi-hat", "noise", "percussive"]
-drive_curve = [-5.5213895, -10.173208, -13.324805, -14.993534]
+drive_curve = [-5.518926, -10.176236, -13.334153, -15.009055]
 drive_curve_lo = [-5.587862, -10.171929, -12.718532, -13.482969]
 
 [preset.values]
@@ -1041,7 +1041,7 @@ volume = 10
 name = "Loose Hat"
 description = "The closed hat's noise with a longer decay, RETRIGGER striking it again on every hit: an open hi-hat for the off-beats. Any key."
 tags = ["drums", "hi-hat", "noise", "percussive"]
-drive_curve = [-5.536216, -10.230811, -13.452346, -15.180038]
+drive_curve = [-5.5353737, -10.234436, -13.460505, -15.1947365]
 drive_curve_lo = [-5.584828, -10.1626425, -12.704918, -13.467244]
 
 [preset.values]
@@ -1109,7 +1109,7 @@ volume = 10
 name = "Wide Crash"
 description = "White noise wide open, DOUBLE and spread a little, struck and left to fade over a couple of seconds, RETRIGGER striking it again on every hit: a crash cymbal. Any key; a short note is enough."
 tags = ["drums", "cymbal", "noise", "percussive"]
-drive_curve = [-5.5193977, -10.155585, -13.255354, -14.851535]
+drive_curve = [-5.52012, -10.161634, -13.268011, -14.872219]
 drive_curve_lo = [-5.5837054, -10.16161, -12.70895, -13.475755]
 
 [preset.values]
@@ -1177,7 +1177,7 @@ volume = 9.809
 name = "Swarm Riser"
 description = "Pink noise through a resonant filter that the contour opens slowly while the loudness swells: four UNISON instruments, each built from its own parts (ENTROPY 100), DOUBLE and spread wide. Hold a key for about four seconds before the drop."
 tags = ["fx", "noise", "riser"]
-drive_curve = [-5.6200585, -10.608068, -14.677009, -17.610332]
+drive_curve = [-5.6200266, -10.608013, -14.67692, -17.610214]
 drive_curve_lo = [-5.703195, -10.665604, -13.7245655, -14.570088]
 
 [preset.values]
@@ -1245,7 +1245,7 @@ volume = 10
 name = "Warp Field"
 description = "Two sawtooths a hair apart, opened slowly, with a slow vibrato from oscillator 3 at LO: POLY's eight voices, each built from its own parts (ENTROPY 85) and DOUBLE 11 cents wide, drift like worn tape across the whole field, its centre left clear (INNER 30). Hold chords."
 tags = ["pad", "poly", "entropy", "slow"]
-drive_curve = [-4.769899, -7.7550864, -8.895731, -9.194822]
+drive_curve = [-4.7699723, -7.755331, -8.896062, -9.195177]
 drive_curve_lo = [-4.4576483, -6.834673, -7.3890047, -7.386191]
 
 [preset.values]
@@ -1313,7 +1313,7 @@ volume = 7.141
 name = "White Lotus"
 description = "One narrow rectangle into a filter that rings on its third harmonic and follows the keys; oscillator 3 at LO wobbles the ring at 11 Hz through FILTER MODULATION. A mellow held bass with a ring an octave and a fifth above each note."
 tags = ["bass", "resonant", "held"]
-drive_curve = [-3.2946668, -5.5716453, -5.978153, -7.0067215]
+drive_curve = [-3.294675, -5.5716724, -5.9781933, -7.0067425]
 drive_curve_lo = [-2.027353, -2.7517626, -3.8071709, -4.90262]
 
 [preset.values]
@@ -1374,7 +1374,7 @@ spread = 0
 name = "Cycle of Fifths"
 description = "Four UNISON voices of two sawtooths at 8', about a fifth apart, each note DOUBLE 30 cents wide across the whole field, gliding; the last key held sounds."
 tags = ["fat", "glide"]
-drive_curve = [-4.2434635, -6.7190666, -7.9736896, -8.681424]
+drive_curve = [-4.244053, -6.7202883, -7.9769883, -8.682135]
 drive_curve_lo = [-4.3580794, -6.725092, -7.716546, -8.09175]
 
 [preset.values]
@@ -1534,7 +1534,7 @@ volume = 8.192
 name = "Acid Squelch"
 description = "One sawtooth at 16' into a filter on the edge of singing, a short decay and a quick glide between held keys (NOTE PRIORITY LAST, single triggering): a squelchy acid line. MACRO 1 (SQUELCH) pushes the emphasis and the contour; MACRO 2 (DECAY) lengthens the filter's decay."
 tags = ["bass", "acid", "glide", "macros"]
-drive_curve = [-4.1791763, -7.9346967, -11.213385, -13.081631]
+drive_curve = [-4.179114, -7.934611, -11.213288, -13.0817375]
 drive_curve_lo = [-3.6277394, -7.875197, -12.447357, -14.544626]
 macro_names = ["SQUELCH", "DECAY"]
 
@@ -1608,7 +1608,7 @@ macro2_to_filter_decay = 35
 name = "Tonewheel Drift"
 description = "Triangles at 16', 8' and 4' with a click of contour, POLY's eight voices: a soft drawbar organ. Three LFOs turn it as a rotating speaker turns (the level, the filter and the width); MACRO 1 (ROTOR) spins them up from slow to fast, gliding as a rotor does; MACRO 2 (PERC) adds a percussive bite."
 tags = ["organ", "keys", "poly", "lfo", "macros"]
-drive_curve = [-4.4074335, -6.9797635, -8.26372, -9.058274]
+drive_curve = [-4.4076242, -6.9801135, -8.263705, -9.0528555]
 drive_curve_lo = [-4.6132507, -7.4474897, -8.583485, -8.934282]
 macro_names = ["ROTOR", "PERC", "", "", "", ""]
 
@@ -1777,7 +1777,7 @@ lfo4_fade = 0
 name = "Glass Bell"
 description = "A triangle at 8' and a quieter one at 4', both frequency-modulated by oscillator 3 at 2' (OSCILLATOR MODULATION, the mod wheel a third forward) a little over three octaves above, struck and left to ring: an inharmonic glass bell, POLY's eight voices across the field, TUNE a little down to take back the pitch the modulation adds. MACRO 1 (CLANG) retunes oscillator 3 for a harsher strike."
 tags = ["bell", "metallic", "poly", "macros"]
-drive_curve = [-4.9543858, -8.1129055, -9.577355, -10.500102]
+drive_curve = [-4.9545164, -8.113219, -9.577764, -10.497825]
 drive_curve_lo = [-5.2550173, -8.917688, -10.578967, -11.078526]
 macro_names = ["CLANG", "", "", "", "", ""]
 
@@ -1940,7 +1940,7 @@ lfo4_fade = 0
 name = "Night Surf"
 description = "Pink noise alone through a resonant filter, four UNISON instruments spread wide: slow LFOs roll the filter, the level and the emphasis in and out of step, and a fourth carries it across the field. Waves on a beach at night. Hold one key."
 tags = ["fx", "ambient", "noise", "lfo"]
-drive_curve = [-5.80098, -11.151291, -15.588096, -18.935766]
+drive_curve = [-5.800976, -11.15127, -15.588033, -18.93564]
 drive_curve_lo = [-5.645685, -10.655677, -14.599152, -17.27238]
 
 [preset.values]
@@ -2068,7 +2068,7 @@ lfo4_to_spread = 40
 name = "Ray Gun"
 description = "Oscillators 2 and 3 at 4' falling fifteen semitones in a quarter of a second: an LFO in ENV mode, a falling sawtooth, sweeps both FREQUENCY knobs from the top down to where they are set, RETRIGGER firing it on every key. A ray gun. MACRO 1 (SWEEP) slows the fall."
 tags = ["fx", "zap", "percussive", "lfo", "macros"]
-drive_curve = [-5.6580057, -10.53561, -13.682359, -15.228559]
+drive_curve = [-5.654851, -10.524034, -13.676968, -15.225511]
 drive_curve_lo = [-5.8061104, -11.100563, -13.555642, -13.968763]
 macro_names = ["SWEEP"]
 
@@ -2155,7 +2155,7 @@ macro1_to_lfo1_rate = -20
 name = "Pitch Tom"
 description = "A triangle at 16' with a tick of white noise, its pitch dropping into the note as it is struck (an LFO in ENV mode on oscillator 2's FREQUENCY): the CA-72's first tom. Play it down the keys for low, middle and high toms."
 tags = ["drums", "tom", "percussive", "lfo"]
-drive_curve = [-5.62202, -10.287952, -12.96859, -14.041182]
+drive_curve = [-5.622092, -10.288224, -12.969086, -14.041764]
 drive_curve_lo = [-5.726311, -10.432612, -12.304642, -12.790794]
 
 [preset.values]
@@ -2238,7 +2238,7 @@ lfo1_to_osc2_frequency = 30
 name = "Deep Boom"
 description = "Triangles at 32' and 16' dropping three semitones into each note (an LFO in ENV mode), driven 15 dB and left to ring out, gliding between held keys: a long, saturated sub bass for hip-hop and trap lines. MACRO 1 (GROWL) drives it harder."
 tags = ["bass", "sub", "glide", "lfo", "macros"]
-drive_curve = [-4.8235693, -8.062557, -10.001879, -10.383565]
+drive_curve = [-4.823728, -8.062947, -10.002353, -10.384089]
 drive_curve_lo = [-4.7615495, -7.48284, -8.423847, -8.759419]
 macro_names = ["GROWL"]
 
@@ -2325,7 +2325,7 @@ macro1_to_drive = 35
 name = "Zither Me Timbres"
 description = "Two sawtooths and a square at 4', a quick filter blip and no sustain, POLY's eight voices spread wide: a plucked chord stab. Struck harder, its contour opens further and it rings longer (velocity on AMOUNT OF CONTOUR and the loudness DECAY). MACRO 1 (OPEN) opens the filter and lengthens it; MACRO 2 (WIDE) spreads the voices and DOUBLE further."
 tags = ["poly", "stab", "keys", "macros"]
-drive_curve = [-4.0445013, -6.2324843, -7.26124, -7.642692]
+drive_curve = [-4.0445714, -6.2326307, -7.2614117, -7.6428704]
 drive_curve_lo = [-4.1752152, -6.140952, -6.945225, -7.262912]
 macro_names = ["OPEN", "WIDE", "", "", "", ""]
 
@@ -2492,7 +2492,7 @@ lfo4_fade = 0
 name = "Octave Runner"
 description = "The arpeggiator at sixteenths over two octaves, a short GATE, on a sawtooth and a square at 16'; a timed LFO opens and closes the filter over two bars. Hold one key: an octave-bouncing disco bass. MACRO 1 (BITE) adds emphasis and contour."
 tags = ["bass", "arp", "lfo", "macros"]
-drive_curve = [-4.981269, -8.967191, -11.088683, -11.698582]
+drive_curve = [-4.9812694, -8.967255, -11.088895, -11.698907]
 drive_curve_lo = [-5.1215463, -9.503114, -10.919564, -10.739538]
 macro_names = ["BITE"]
 
@@ -2586,7 +2586,7 @@ macro1_to_contour_amount = 20
 name = "Random Glass"
 description = "The arpeggiator in RANDOM order over three octaves at sixteenth-note triplets, HOLD on: play a chord, let go, and it goes on. A triangle and a CONTINUOUS pulse whose width a four-bar LFO turns, through a filter that follows the keys and a one-bar sweep. Glassy, generative plucks."
 tags = ["arp", "hold", "ambient", "plucked", "lfo"]
-drive_curve = [-5.7562585, -10.968833, -14.706341, -16.526587]
+drive_curve = [-5.756227, -10.968969, -14.705621, -16.524971]
 drive_curve_lo = [-5.8041935, -11.204965, -14.646396, -15.736467]
 
 [preset.values]
@@ -2693,7 +2693,7 @@ osc2_shape = 0.5546
 name = "Swing Keys"
 description = "The arpeggiator UP and DOWN at swung eighths through the chord held, on a mellow triangle with a quiet 4' tine above it, POLY so each note rings into the next, with a gentle tremolo. MACRO 1 (TINE) brings the tine and the contour forward."
 tags = ["arp", "keys", "poly", "lfo", "macros"]
-drive_curve = [-4.95189, -8.33697, -10.3643465, -11.466911]
+drive_curve = [-4.952009, -8.337224, -10.364655, -11.466324]
 drive_curve_lo = [-5.000804, -8.28561, -9.681943, -10.042246]
 macro_names = ["TINE", "", "", "", "", ""]
 
@@ -2857,7 +2857,7 @@ lfo4_fade = 0
 name = "Tempo Wobble"
 description = "Sawtooth, square and a 32' triangle sub, driven 10 dB, with two timed LFOs on the filter: MACRO 1 (WOB 8) fades in an eighth-note wobble, set most of the way up, and MACRO 2 (WOB 16) a sixteenth-note one, so the two can be crossfaded as it plays; MACRO 3 (GROWL) adds emphasis and drive. Both restart on every note."
 tags = ["bass", "wobble", "lfo", "macros"]
-drive_curve = [-4.0237994, -5.842658, -7.3513966, -7.5664687]
+drive_curve = [-4.0238657, -5.8427176, -7.3515253, -7.5666223]
 drive_curve_lo = [-3.889598, -6.252793, -6.7646527, -6.56687]
 macro_names = ["WOB 8", "WOB 16", "GROWL"]
 
@@ -2963,7 +2963,7 @@ macro3_to_drive = 25
 name = "Pulse Strings"
 description = "Two pulses in CONTINUOUS between SQUARE and WIDE, their widths swept by each voice's own oscillator 3 at LO through MOD (one narrowing, one both ways), a slow swell: a classic pulse-width string ensemble, POLY's eight voices drifting apart. The mod wheel sets how far the widths move."
 tags = ["strings", "poly", "pwm", "slow"]
-drive_curve = [-3.0477216, -4.413159, -4.7111645, -4.7943296]
+drive_curve = [-3.0478652, -4.413383, -4.711418, -4.79458]
 drive_curve_lo = [-2.788114, -3.720129, -3.5928724, -3.3270788]
 
 [preset.values]
@@ -3039,7 +3039,7 @@ osc2_shape_mod_dir = 2
 name = "Gatekeeper"
 description = "Two sawtooths a hair apart, POLY's eight voices, chopped into sixteenths by oscillator 3 TIMED at LO (a square) through FILTER MODULATION, in step with the host's tempo, and a two-bar LFO sweeping the filter, with a gently opening gate. The mod wheel sets how hard it chops."
 tags = ["pad", "poly", "gate", "tempo", "lfo"]
-drive_curve = [-4.4809275, -7.3487453, -8.802599, -9.3019905]
+drive_curve = [-4.481, -7.348973, -8.802968, -9.302486]
 drive_curve_lo = [-4.748331, -7.580429, -8.320788, -8.464433]
 
 [preset.values]
@@ -3200,7 +3200,7 @@ lfo4_fade = 0
 name = "Pressure Solo"
 description = "A sawtooth and a square at 8', gliding, with a vibrato that rises in after each note starts (an LFO on TUNE, FADE in about a second). Pressure, a note's own (MPE) or the keyboard's, opens the filter up to an octave and a half; MPE's slide (timbre) adds a noisy growl through the mod wheel. An expressive solo lead."
 tags = ["lead", "expressive", "glide", "lfo"]
-drive_curve = [-5.118053, -9.184415, -11.241732, -11.742525]
+drive_curve = [-5.1180663, -9.184544, -11.242013, -11.742916]
 drive_curve_lo = [-5.427994, -10.0415125, -11.655596, -11.565901]
 
 [preset.values]
@@ -3285,7 +3285,7 @@ timbre_mod = 70
 name = "Morph Bloom"
 description = "Two CONTINUOUS waveforms between shark tooth and sawtooth, each voice's own LFOs turning them, and a 4' triangle above: a slow pad for four macros. MACRO 1 (BRIGHT) opens the filter and the 4'; MACRO 2 (DRIFT) pulls the voices apart; MACRO 3 (MOTION) fades in a slow filter sweep; MACRO 4 (FAST) shortens the swells. All four start at nothing."
 tags = ["pad", "poly", "slow", "lfo", "macros"]
-drive_curve = [-5.705015, -10.670242, -13.8951235, -15.427962]
+drive_curve = [-5.7050457, -10.670377, -13.895405, -15.428289]
 drive_curve_lo = [-5.3984876, -9.792191, -12.47954, -13.437194]
 macro_names = ["BRIGHT", "DRIFT", "MOTION", "FAST"]
 
@@ -3416,7 +3416,7 @@ osc2_shape = 0.2185
 name = "Bubble Computer"
 description = "A square into a ringing filter that four timed LFOs step about: sixteenths, chopped by dotted eighths, against quarter-note triplets, under a two-bar swell of emphasis. A 1970s film computer thinking aloud, in time with the host. Hold one key."
 tags = ["fx", "sequence", "tempo", "lfo"]
-drive_curve = [-4.067394, -8.418802, -12.42308, -14.515451]
+drive_curve = [-4.0673556, -8.418756, -12.423108, -14.515601]
 drive_curve_lo = [-4.3436756, -8.604979, -12.896603, -14.422385]
 
 [preset.values]
@@ -3579,7 +3579,7 @@ lfo4_fade = 0
 name = "Velocihator"
 description = "The hat's noise, short, played by velocity: struck harder, it is louder and brighter and rings longer (velocity on VOLUME, CUTOFF, the filter's DECAY and the loudness DECAY). Any key."
 tags = ["drums", "hi-hat", "noise", "percussive"]
-drive_curve = [-5.616578, -10.45604, -13.815408, -15.564928]
+drive_curve = [-5.6165824, -10.45605, -13.8154335, -15.564968]
 drive_curve_lo = [-5.485016, -9.791689, -11.976063, -12.5473995]
 
 [preset.values]
@@ -3743,7 +3743,7 @@ lfo4_fade = 0
 name = "Droning On"
 description = "Wide rectangles at 8', 4' and 2', oscillators 2 and 3 tuned apart, UNISON's four instruments spread across the field, DOUBLE and FEEDBACK thickening them; timed LFOs turn the first's width and the pitch over bars, a slow one the filter, and HOLD keeps the notes sounding until the next. A dark drone."
 tags = ["bass", "dark", "drone"]
-drive_curve = [-3.3966024, -5.077812, -5.790694, -5.9414306]
+drive_curve = [-3.3966541, -5.077913, -5.7908473, -5.94159]
 drive_curve_lo = [-2.9262462, -3.9060316, -4.1516457, -3.9828844]
 
 [preset.values]
@@ -3908,7 +3908,7 @@ lfo4_fade = 5.0714
 name = "Finger in a Light Socket"
 description = "Two LFOs each setting the other's speed, a loop: LFO 1 (TRIANGLE, 1.2 Hz) sweeps CUTOFF; LFO 2 (TRIANGLE, 0.3 Hz) pushes LFO 1's RATE up and down (+35 %) while LFO 1 pulls LFO 2's (-30 %), so the sweep speeds up, slows down and never quite repeats; DOUBLE on and the voices spread. Hold a chord."
 tags = ["pad", "poly", "lfo", "loop"]
-drive_curve = [-5.508525, -9.8766985, -12.430575, -13.74407]
+drive_curve = [-5.508577, -9.876868, -12.430668, -13.743925]
 drive_curve_lo = [-5.6397014, -10.324783, -12.656231, -13.5209675]
 
 [preset.values]
@@ -4072,7 +4072,7 @@ lfo4_fade = 0
 name = "Phase Chase"
 description = "Two LFOs at the same speed pushing each other's PHASE, a loop: LFO 1 (SAWTOOTH, 2 Hz) on CUTOFF, LFO 3 (TRIANGLE, 2 Hz) on OSCILLATOR 1's VOLUME, each moving the other's PHASE by +40 %. The rhythm leans, stumbles and catches itself. NOTE PRIORITY LAST. Hold one note."
 tags = ["bass", "lfo", "loop"]
-drive_curve = [-5.532907, -9.956545, -12.565992, -13.934953]
+drive_curve = [-5.533098, -9.957591, -12.566583, -13.934379]
 drive_curve_lo = [-5.704124, -10.473372, -12.842141, -13.725958]
 
 [preset.values]
@@ -4236,7 +4236,7 @@ lfo4_fade = 0
 name = "Level Pump"
 description = "An LFO fading another in and out by its LEVEL: LFO 1 (SQUARE, 4 Hz, SOFT) pumps MAIN OUTPUT VOLUME (-45 %) and CUTOFF; LFO 2 (TRIANGLE, 0.15 Hz) takes LFO 1's LEVEL down (-100 %) and back, and LFO 1 dents LFO 2's own LEVEL (-20 %), a loop. The pumping swells in and dies away. Hold a chord."
 tags = ["pad", "poly", "lfo", "loop"]
-drive_curve = [-5.508525, -9.8766985, -12.430575, -13.74407]
+drive_curve = [-5.508577, -9.876868, -12.430668, -13.743925]
 drive_curve_lo = [-5.6397014, -10.324783, -12.656231, -13.5209675]
 
 [preset.values]
@@ -4400,7 +4400,7 @@ lfo4_fade = 0
 name = "Hold Me Long Time"
 description = "An LFO on its own RATE: LFO 1 (the shark tooth, 0.8 Hz, RETRIG) on CUTOFF and OSCILLATOR 2's FREQUENCY, and on its own RATE (+60 %), so it races up its rise and drags down its fall; RETRIGGER on, each note starts it again the same. Play notes."
 tags = ["lead", "lfo", "loop"]
-drive_curve = [-5.532907, -9.956545, -12.565992, -13.934953]
+drive_curve = [-5.533098, -9.957591, -12.566583, -13.934379]
 drive_curve_lo = [-5.700802, -10.42272, -12.729645, -13.756646]
 
 [preset.values]
