@@ -16858,3 +16858,65 @@ A fixture test checks all payload bytes, every internal checksum, source provena
 Windows upload list. CA72_SOURCE_COMMIT permits packaging existing verified CI binaries
 without incorrectly attributing their source to the packaging-fix checkout. This changes
 packaging only; binaries from the original tagged CI remain unchanged.
+
+## R-LO-FILTER-FM. LO's cutoff law takes an audio-rate line at twice the voice's rate
+
+**Found in the efficiency audit of 2026-10-30:** LO is clean on plain notes but folded under
+audio-rate filter modulation. With oscillator 3 two octaves above oscillator 1 on the same key
+every true product is a harmonic of the key, so anything else is foldover. A sawtooth modulator
+at FILTER MODULATION with the wheel forward stood at -27.6 dBc inharmonic at 48 kHz on C5 and
+-26.2 on C6, the loudest below 12 kHz at -36.8 dBc at 2,477 Hz (48000 - 87 x 523.25).
+
+Measured stage by stage in the render path. Oscillator 3's own line is clean: it holds -119 dBc
+below 12 kHz, and an ideal additive line moves the output by about a decibel at 48 kHz. The
+ladder and its decimator are clean: with an ideal line and an ideal bus at the filter's rate
+the output is -87 dBc, and a brickwall decimation of the ladder's output reads as the real one
+does. **The
+cutoff's law is the cause:** its exponential run at the voice's rate turns that clean line into
+a stage gain with -22.3 dBc of foldover at C5 and -18.6 at C6. Holding it across the ladder's
+eight steps is a second, smaller cause. Separately, at 48 kHz, C5 and C6:
+
+| The ladder's coefficients | Held | Interpolated |
+|---|---|---|
+| Law at the voice's rate, aliased | -27.6, -26.2 | -29.0, -28.1 |
+| Alias-free | -38.6, -37.9 | -52.4, -51.4 |
+
+So interpolating the line alone is not the fix. A straight line across the ladder's steps with
+the law on every step reached -36.1 and -34.8 at 48 kHz: its images near the rate carry the
+line's top harmonics almost as loud as the harmonics themselves. A four-point interpolator
+reached -40.0 and -40.5.
+
+**The change.** The line now goes through a 2x sparse interpolator (the 79-tap halfband the bus
+already goes through first) and the cutoff's law runs on both of its samples; the ladder's g and
+k follow them in straight lines across the eight steps. Two evaluations of the law read as
+eight do, within 0.6 dB for a sawtooth at 44.1 and 48 kHz (a narrow pulse would gain up to 3
+dB). The bus reaches the ladder 23.6 samples after the oscillators; the line now reaches it about 20.5 after, so
+**the plug-in's latency is unchanged** (86 samples) and the line stands nearer the bus than it
+did: LO's locked FM timbre no longer moves with the sample rate, its harmonics within 0.7 dB of
+the voice's own at 192 kHz at every rate, where they were up to 3.5 dB away.
+
+| Inharmonic dBc | 44.1 kHz | 48 kHz | 96 kHz |
+|---|---|---|---|
+| Saw modulator, C5 | -39.9 to -49.2 | -27.6 to -51.0 | -52.2 to -62.0 |
+| Saw modulator, C6 | -35.7 to -47.5 | -26.2 to -49.6 | -31.5 to -59.6 |
+| Triangle modulator, C5 | -52.9 to -53.9 | -58.8 to -57.9 | -68.6 to -76.0 |
+| Square modulator, C5 | -32.3 to -42.5 | -34.9 to -40.1 | -37.0 to -58.3 |
+
+What stays is the bus: its interpolator's transition band, 24 to 28 kHz at 48 kHz, passes images
+of its top harmonics. A steady filter never hears them, since the decimator removes them, but a
+moving one mixes them down, at about -50 dBc with a sawtooth modulator. Mending that means a
+longer interpolator for the bus, which would change every patch, and is not done here.
+
+**Plain patches are bit-identical**, FILTER MODULATION off or the wheel down: the ladder's loop
+stands as it was, and 36 of the 42 factory presets render to the same samples at LO across C1 to
+C7. The six with FILTER MODULATION on and the wheel forward change: Tenor Pluck, Smoke Flute and
+White Lotus by a null of -61, -55 and -46 dB; Saw Monolith by -28; Gatekeeper and Droning On, whose
+lines are the fast ones, by -21 and -13, their levels within 0.04 dB. Their LO AUTO GAIN curves
+are measured again, Droning On's by up to 0.25 dB. Against ULTRA's third-octave spectrum the six
+move by 0.14 dB at most, so the change is not a step towards ULTRA by that measure: it removes
+foldover, which that measure hardly sees.
+
+Cost, ten alternating pairs on a machine not fully quiet: nothing for a plain voice (+0.3 %,
+within the pairs' +-2 %); +10.8 % for one voice with FILTER MODULATION on (344 to 382 ns a sample),
++9.2 % on the plug-in's own `process` with oscillator and filter modulation both at audio rate.
+`a_fast_line_through_the_cutoff_folds_nothing_loud` fails without the change, at -32.4 dBc.

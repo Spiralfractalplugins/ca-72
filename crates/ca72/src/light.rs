@@ -9,7 +9,8 @@
 //! time laws and trigger, and the VCA's measured law. The audio
 //! path runs in single precision, the filter at eight times the voice's rate; what the panel and the contours set
 //! (the oscillators' increments, the ladder's coefficient) is worked out every
-//! [`CONTROL_EVERY`] samples and followed between.
+//! [`CONTROL_EVERY`] samples and followed between, FILTER MODULATION's line through the cutoff's
+//! law at twice the voice's rate (decisions.md R-LO-FILTER-FM).
 //!
 //! The keys are the instrument's: lowest-note priority (or NOTE PRIORITY's HIGH or LAST, as the
 //! circuit's voice has them: [`crate::voice::Priority`]), single triggering (a key pressed while
@@ -36,6 +37,9 @@ const LATE_PAST: usize = 64;
 
 /// Keep the nonlinear ladder's ultrasonic harmonics out of the output band.
 const FILTER_OVERSAMPLE: usize = 8;
+
+/// FILTER MODULATION's line against the voice's rate, where it meets the cutoff's law.
+const LINE_OVERSAMPLE: usize = 2;
 
 /// The laws, fitted to the circuit model's measurements at 48 kHz (`tests/potato_reference.rs`;
 /// decisions.md R31), as calibrated against the hardware reference (R42 on): where the circuit
@@ -1318,6 +1322,11 @@ pub struct Light {
     ladder: Ladder,
     filter_up: Interpolator,
     filter_down: Decimator,
+    /// FILTER MODULATION's line ahead of the cutoff's law, whether anything is in it, and the
+    /// ladder's stage gain and loop gain where the last sample left them.
+    line_up: Interpolator,
+    line_live: bool,
+    ladder_at: (f32, f32),
     /// The ladder's stage gain (and its step a sample) and loop gain.
     g: f32,
     g_step: f32,
@@ -1501,6 +1510,9 @@ impl Light {
             ladder: Ladder::default(),
             filter_up,
             filter_down,
+            line_up: Interpolator::sparse(LINE_OVERSAMPLE),
+            line_live: false,
+            ladder_at: (0.0, 0.0),
             g: 0.0,
             g_step: 0.0,
             k: 0.0,
@@ -1955,6 +1967,8 @@ impl Light {
         self.ladder = Ladder::default();
         self.filter_up.reset();
         self.filter_down.reset();
+        self.line_up.reset();
+        self.line_live = false;
         self.coupling = (self.coupling.0, 0.0, 0.0);
         self.droop = (self.droop.0, 0.0, 0.0);
         self.mode = (self.mode.0, 0.0, 0.0);
@@ -2066,6 +2080,39 @@ impl Light {
         ((t / (1.0 + t)) as f32, k as f32)
     }
 
+    /// One step of the ladder at stage gain `g` and loop gain `k`, its input `bus` at the
+    /// filter's rate, through to its decimator: an output sample at the voice's rate, when one
+    /// falls due.
+    #[inline(always)]
+    fn ladder_step(&mut self, bus: f32, g: f32, k: f32) -> Option<f64> {
+        let y = self.ladder.tick(
+            laws::DRIVE * self.drive * bus,
+            g.clamp(0.0, 0.999),
+            k,
+            laws::BIAS,
+            self.limit,
+        );
+        // The filter's output coupling; FILTER MODE HI, the bus (through its own coupling)
+        // less it.
+        let y = y * self.pass;
+        let (a, x0, y0) = self.coupling;
+        let lo = a * (y0 + y - x0);
+        self.coupling = (a, y, lo);
+        let y = if self.panel.filter_hi {
+            let (a, x0, y0) = self.mode;
+            let d = self.direct * bus;
+            let direct = a * (y0 + d - x0);
+            self.mode = (a, d, direct);
+            direct - lo
+        } else {
+            // (The direct branch's coupling at rest: in HI it starts from the bus's sample.)
+            self.mode.1 = 0.0;
+            self.mode.2 = 0.0;
+            lo
+        };
+        self.filter_down.push(f64::from(y))
+    }
+
     /// One output sample (1.0 = 5 V), `ext` at EXTERNAL INPUT.
     #[inline]
     pub fn tick(&mut self, ext: f64) -> f64 {
@@ -2137,6 +2184,8 @@ impl Light {
         let mut g = self.g + self.g_step;
         self.g = g;
         let mut k = self.k;
+        // (What the line adds to them each ladder's step, through each half of this sample.)
+        let mut ramp = [(0.0f32, 0.0f32); LINE_OVERSAMPLE];
         let modulating = depth > 0.0 && (osc_mod || filter_mod || any_mod);
         let needs_noise = noise_gain != 0.0 || (modulating && mix_k > 0.0);
         let (white, pink, red) = if needs_noise {
@@ -2146,6 +2195,10 @@ impl Light {
         };
         if !(modulating && any_mod) {
             self.mod_u = 0.0;
+        }
+        if self.line_live && !(modulating && filter_mod) {
+            self.line_live = false;
+            self.line_up.reset();
         }
         if modulating {
             // Oscillator 3 (its swing to ±1) and the noise (its RMS to 1) as MODULATION MIX
@@ -2205,8 +2258,26 @@ impl Light {
                         + mix_k * n * (laws::NOISE_OCTAVES_RMS / rms) as f32)
                     + offset
                         * ((1.0 - mix) * laws::MOD_OFFSET.1 + mix * laws::NOISE_OFFSET.1) as f32;
-                // Use the same bounded cutoff law for audio-rate modulation and contours.
-                (g, k) = self.coefficients(f64::from(octaves));
+                // Use the same bounded cutoff law for audio-rate modulation and contours: at
+                // twice the voice's rate, or what its exponential adds to a fast line folds
+                // (decisions.md R-LO-FILTER-FM). The bus takes longer to reach the ladder than
+                // the line takes through this, so no latency comes of it.
+                if !self.line_live {
+                    self.line_live = true;
+                    self.ladder_at = (g, k);
+                }
+                let mut line = [0.0; LINE_OVERSAMPLE];
+                self.line_up.push(f64::from(octaves), &mut line);
+                (g, k) = self.ladder_at;
+                let steps = (FILTER_OVERSAMPLE / LINE_OVERSAMPLE) as f32;
+                for (half, at) in ramp.iter_mut().zip(line) {
+                    let (from_g, from_k) = self.ladder_at;
+                    self.ladder_at = self.coefficients(at);
+                    *half = (
+                        (self.ladder_at.0 - from_g) / steps,
+                        (self.ladder_at.1 - from_k) / steps,
+                    );
+                }
             }
         }
         // The oscillators.
@@ -2308,35 +2379,17 @@ impl Light {
         let mut inputs = [0.0; FILTER_OVERSAMPLE];
         self.filter_up.push(f64::from(bus), &mut inputs);
         let mut filtered = 0.0;
-        for input in inputs.iter().take(FILTER_OVERSAMPLE) {
-            let bus = *input as f32;
-            let y = self.ladder.tick(
-                laws::DRIVE * self.drive * bus,
-                g.clamp(0.0, 0.999),
-                k,
-                laws::BIAS,
-                self.limit,
-            );
-            // The filter's output coupling; FILTER MODE HI, the bus (through its own coupling)
-            // less it.
-            let y = y * self.pass;
-            let (a, x0, y0) = self.coupling;
-            let lo = a * (y0 + y - x0);
-            self.coupling = (a, y, lo);
-            let y = if self.panel.filter_hi {
-                let (a, x0, y0) = self.mode;
-                let d = self.direct * bus;
-                let direct = a * (y0 + d - x0);
-                self.mode = (a, d, direct);
-                direct - lo
-            } else {
-                // (The direct branch's coupling at rest: in HI it starts from the bus's sample.)
-                self.mode.1 = 0.0;
-                self.mode.2 = 0.0;
-                lo
-            };
-            if let Some(out) = self.filter_down.push(f64::from(y)) {
-                filtered = out;
+        if self.line_live {
+            for (step, input) in inputs.iter().enumerate() {
+                let (more_g, more_k) = ramp[step * LINE_OVERSAMPLE / FILTER_OVERSAMPLE];
+                g += more_g;
+                k += more_k;
+                filtered = self.ladder_step(*input as f32, g, k).unwrap_or(filtered);
+            }
+        } else {
+            // (Their ramp is nothing: g and k stand, as the plain ladder's sums can use.)
+            for input in &inputs {
+                filtered = self.ladder_step(*input as f32, g, k).unwrap_or(filtered);
             }
         }
         let y = filtered as f32;
@@ -2525,6 +2578,63 @@ mod tests {
             .map(|i| i as f64 - x[i] / (x[i] - x[i - 1]))
             .collect();
         (ups.len() - 1) as f64 * 48_000.0 / (ups[ups.len() - 1] - ups[0])
+    }
+
+    /// An audio-rate line through the cutoff's law folds nothing near the sawtooth's level
+    /// (decisions.md R-LO-FILTER-FM): oscillator 3 two octaves above oscillator 1 on the same
+    /// key, so that all its true products are the key's harmonics, and foldover is what lies
+    /// at the rate less a whole number of them.
+    #[test]
+    fn a_fast_line_through_the_cutoff_folds_nothing_loud() {
+        let mut p = Panel {
+            cutoff: 0.7,
+            emphasis: 0.5,
+            contour_amount: 0.0,
+            keyboard_control_1: false,
+            filter_mod: true,
+            mod_wheel: 1.0,
+            mod_mix: 0.0,
+            ..Panel::default()
+        };
+        p.osc[0].range = crate::tuning::Range::R8;
+        p.osc[0].waveform = Waveform::Sawtooth;
+        p.osc[2].range = crate::tuning::Range::R2;
+        p.osc[2].waveform = Waveform::Sawtooth;
+        p.loudness_contour = ContourKnobs {
+            attack: 0.0,
+            decay: 0.5,
+            sustain: 1.0,
+        };
+        p.filter_contour = p.loudness_contour;
+        let mut l = Light::new(48_000.0);
+        l.set_panel(&p);
+        l.note(72, true);
+        run(&mut l, 48_000);
+        let x = run(&mut l, 1 << 15);
+        // A Hann-windowed partial's level at `f` Hz.
+        let at = |f: f64| {
+            let (mut re, mut im) = (0.0, 0.0);
+            for (n, v) in x.iter().enumerate() {
+                let t = n as f64 / x.len() as f64;
+                let w = 1.0 - (std::f64::consts::TAU * t).cos();
+                let a = std::f64::consts::TAU * f * n as f64 / 48_000.0;
+                re += v * w * a.cos();
+                im += v * w * a.sin();
+            }
+            re.hypot(im) / x.len() as f64
+        };
+        let f0 = 440.0 * 2f64.powf(3.0 / 12.0) * 2.0;
+        let loudest = (20..92)
+            .map(|h| 48_000.0 - f64::from(h) * f0)
+            .filter(|f| *f > 500.0 && *f < 12_000.0)
+            .map(at)
+            .fold(0.0, f64::max);
+        let partials = (1..24)
+            .map(|h| at(f64::from(h) * f0).powi(2))
+            .sum::<f64>()
+            .sqrt();
+        let db = 20.0 * (loudest / partials).log10();
+        assert!(db < -48.0, "the loudest foldover {db:.1} dBc");
     }
 
     /// Key 69 on 8' is 440 Hz, a RANGE an octave, oscillator 2's FREQUENCY pot at its

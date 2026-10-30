@@ -55,7 +55,7 @@ name = "Saw Monolith"
 description = "Three sawtooths, one an octave down, through a biting, resonant filter: a huge 70s prog-rock bass."
 tags = ["bass", "fat", "prog"]
 drive_curve = [-4.9667163, -8.659289, -10.642713, -11.474548]
-drive_curve_lo = [-5.109039, -8.750387, -10.241038, -10.837633]
+drive_curve_lo = [-5.116654, -8.760852, -10.257317, -10.857347]
 
 [preset.values]
 tune = 0
@@ -270,7 +270,7 @@ name = "Tenor Pluck"
 description = "One shark-tooth oscillator at 16' through a gently resonant filter that follows the keys, fading like a plucked string an octave above the upright bass; RETRIGGER starts it again on every note."
 tags = ["bass", "plucked"]
 drive_curve = [-5.9358506, -11.693454, -16.728617, -20.117731]
-drive_curve_lo = [-5.917338, -11.621786, -16.617125, -19.570425]
+drive_curve_lo = [-5.9173226, -11.6217575, -16.617035, -19.570364]
 
 [preset.values]
 a440 = 0
@@ -542,7 +542,7 @@ name = "Smoke Flute"
 description = "A 4' triangle with a breath of white noise and a gentle swell: two UNISON voices, DOUBLE 7 cents wide and spread apart, driven 10 dB into the filter. The mod wheel sets the vibrato. A breathy, doubled flute."
 tags = ["woodwind", "flute"]
 drive_curve = [-5.962391, -11.825106, -17.334978, -21.73172]
-drive_curve_lo = [-5.9614477, -11.814469, -17.271963, -21.242975]
+drive_curve_lo = [-5.9614797, -11.814618, -17.272491, -21.243418]
 
 [preset.values]
 a440 = 0
@@ -1314,7 +1314,7 @@ name = "White Lotus"
 description = "One narrow rectangle into a filter that rings on its third harmonic and follows the keys; oscillator 3 at LO wobbles the ring at 11 Hz through FILTER MODULATION. A mellow held bass with a ring an octave and a fifth above each note."
 tags = ["bass", "resonant", "held"]
 drive_curve = [-3.2946668, -5.5716453, -5.978153, -7.0067215]
-drive_curve_lo = [-2.0270896, -2.7514257, -3.8069327, -4.902413]
+drive_curve_lo = [-2.027353, -2.7517626, -3.8071709, -4.90262]
 
 [preset.values]
 tune = 0
@@ -3040,7 +3040,7 @@ name = "Gatekeeper"
 description = "Two sawtooths a hair apart, POLY's eight voices, chopped into sixteenths by oscillator 3 TIMED at LO (a square) through FILTER MODULATION, in step with the host's tempo, and a two-bar LFO sweeping the filter, with a gently opening gate. The mod wheel sets how hard it chops."
 tags = ["pad", "poly", "gate", "tempo", "lfo"]
 drive_curve = [-4.4809275, -7.3487453, -8.802599, -9.3019905]
-drive_curve_lo = [-4.7554317, -7.594635, -8.341533, -8.486711]
+drive_curve_lo = [-4.748331, -7.580429, -8.320788, -8.464433]
 
 [preset.values]
 a440 = 0
@@ -3744,7 +3744,7 @@ name = "Droning On"
 description = "Wide rectangles at 8', 4' and 2', oscillators 2 and 3 tuned apart, UNISON's four instruments spread across the field, DOUBLE and FEEDBACK thickening them; timed LFOs turn the first's width and the pitch over bars, a slow one the filter, and HOLD keeps the notes sounding until the next. A dark drone."
 tags = ["bass", "dark", "drone"]
 drive_curve = [-3.3966024, -5.077812, -5.790694, -5.9414306]
-drive_curve_lo = [-2.99958, -4.1111355, -4.367424, -4.2353716]
+drive_curve_lo = [-2.9262462, -3.9060316, -4.1516457, -3.9828844]
 
 [preset.values]
 a440 = 0
