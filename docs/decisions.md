@@ -16858,3 +16858,60 @@ A fixture test checks all payload bytes, every internal checksum, source provena
 Windows upload list. CA72_SOURCE_COMMIT permits packaging existing verified CI binaries
 without incorrectly attributing their source to the packaging-fix checkout. This changes
 packaging only; binaries from the original tagged CI remain unchanged.
+
+## R-TRIPWIRE. The 1e-7 rule retired as an acceptance standard; it stays as a regression tripwire
+
+**Owner decision, 2026-10-30** (passed on by the session that started this work). "Every
+render within 1e-7 of full scale of the model as it stands" (history.md, "Three quality modes")
+is retired as an acceptance standard. It stays useful only as a regression tripwire: a
+difference says that a change moved the output, not whether the move is acceptable.
+
+**Why.** The audit of 2026-10-30, on main `cfd5859`
+(`/mnt/lab/artifacts/ca-72/audit-2026-10-30/REPORT.md`, section 4), found the rule no longer
+in force, though nothing had said so, and `docs/circuit/no-compromises-attempts.md` still read
+as if it applied.
+- **It could not weigh a change.** The record itself says the rule "measured when a change
+  first altered a bit, not how much" (numerics.md, "No Compromises"). 1e-7 is only a few times
+  the model's own rounding on the musical renders, so rounding alone could cross it: an
+  approximate `exp` was dropped at 1.3e-7. The Schur complement and modified Newton were set
+  aside as "non-exact" with nothing measured (no-compromises-attempts.md).
+- **The sound has been judged against hardware since R42,** not against an earlier render
+  ("Change the circuit, never the output").
+- **R-BLEP had already ended it in practice for HI and ULTRA.** The owner's answers of
+  2026-10-16 accepted the sound changes in both, ULTRA's "because accuracy comes first in a
+  render engine; its renders, and the lab's references for it, change". The rule itself was
+  only ever No Compromises', that is ULTRA's: HI, the model's Potato, has no limits in
+  `ca72-lab hifi`, which reports its distances and does not judge them.
+
+**What stays.** `ca72-lab perf check` and its twins are unchanged, run by hand: the reference
+is not in git and CI does not run it. This decision concerns 1e-7 alone: the tests against
+ngspice and High Fidelity's limits (`crates/ca72-lab/src/quality.rs`) are not touched. Until
+a standard is approved, CONTRIBUTING.md's rule is the one that applies: a change that alters
+the samples needs its reason and a measurement.
+
+No code changes with this entry and no sample moves. plan.md and
+no-compromises-attempts.md, which gave the rule as current, now point here; history.md and
+numerics.md keep it as the record of its day.
+
+### PROPOSED, not approved: a standard by class of change
+
+**This is a proposal, not policy. Neither it nor any of its figures has been approved.** The
+audit's section 11 offers it for the owner's review, and it is kept here so that a later
+decision has something to accept, change or refuse. A change would declare its class, and the
+class would set the test. Of the figures, 0.01 cent, 1e-5 V and -120 dBFS are the limits in
+`quality.rs`; the others are new.
+
+| Class | Reference | Would pass when (proposed) |
+|---|---|---|
+| Refactor (any non-chaotic case) | Before-change render | Bit-identical, or at most -120 dBFS with the difference traced to rounding |
+| Algebraic | Before-change render | Non-chaotic: at most -120 dBFS. Chaotic: the statistical test below |
+| Convergence | Tightened-tolerance render | Pitch within 0.01 cent, contours within 1e-5 V, audio at most -100 dBFS; no failed solves; worst-case iterations bounded and reported |
+| Approximation | ULTRA tightened; ngspice benches | Level within 0.1 dB, third-octave distance at most 0.25 dB (p95 at most 1 dB), pitch within 0.5 cent, contour timing within 0.2 ms; aliasing no worse; stable across a sweep of EMPHASIS, DRIVE, FEEDBACK and rate |
+| Behavioural | Hardware recordings | Beats or ties the current model on hardware metrics; blind listening does not favour the old model |
+
+Also proposed, in every class: chaotic cases (feedback) compared as statistics over at least 8
+seeds or ulp twins, never sample by sample; CPU reported as paced mean, p99, p99.9 and late
+blocks on at least two machines; no added latency unless the owner approves it by name; no new
+late blocks, audio-thread allocation or failed solves; a frozen baseline of the 0.3.0 engine,
+its binary and the audit's renders; and bit-identity kept as a CI tripwire, which would be new
+work, since CI compares no render with a recorded reference today.
