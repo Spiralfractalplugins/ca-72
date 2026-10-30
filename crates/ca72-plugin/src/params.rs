@@ -816,7 +816,9 @@ pub struct Ca72Params {
     pub note_priority: EnumParam<NotePriority>,
     /// RETRIGGER, off by default: each key pressed starts the contours again, other keys held
     /// or not (the switch under GLIDE and DECAY; off, single triggering, the instrument's). A
-    /// preset's, as NOTE PRIORITY. After it: a session or a preset saved before reads it off.
+    /// preset's, as NOTE PRIORITY. LAST brings the new pitch with the attack; LOW or HIGH can
+    /// keep a held key's old pitch until it is lifted. Key lifts do not restart the contours.
+    /// After it: a session or a preset saved before reads it off.
     #[id = "retrigger"]
     pub retrigger: BoolParam,
 

@@ -4897,7 +4897,15 @@ impl Editing {
                     x,
                     y + top,
                 );
-                Some(if c.place == DrawerPlace::Lfo {
+                Some(if c.param == "retrigger" {
+                    let text = format!(
+                        "RETRIGGER: {} · On: each key strikes.\nNOTE PRIORITY LAST: new pitch with attack.\nLOW/HIGH: a held key may keep the old pitch until lifted.",
+                        p.text(v)
+                    );
+                    let b =
+                        art::tip_bounds(self.renderer.fonts(), &text, self.renderer.text_size());
+                    (text, x.clamp(-b[0], art::W - b[2]), tip.2)
+                } else if c.place == DrawerPlace::Lfo {
                     self.clear_of_scopes(tip)
                 } else {
                     tip
@@ -12884,6 +12892,50 @@ mod tests {
             Some("INNER: 40 %")
         );
         release(&mut e);
+    }
+
+    /// RETRIGGER's explanation stays readable at the smallest window in either lettering.
+    #[test]
+    fn retrigger_tip_explains_priority_and_fits() {
+        for skin in [Skin::Worn, Skin::Drawn] {
+            for lettering in [Lettering::Standard, Lettering::Large] {
+                for on in [false, true] {
+                    let (mut e, _, _) = editing_of(
+                        Ca72Params {
+                            retrigger: BoolParam::new("Retrigger", on),
+                            ..Ca72Params::default()
+                        },
+                        Library::at(std::env::temp_dir().join("ca72-editor-tests-no-library")),
+                    );
+                    e.set_look(skin);
+                    e.set_lettering(lettering);
+                    e.resize(MIN_WIDTH);
+                    e.fit(1.0, MIN_WIDTH, height_for(MIN_WIDTH));
+                    let p = at(&e, centre("retrigger"));
+                    go(&mut e, p);
+                    e.update_scene();
+                    let (text, x, y) = e.tip().expect("RETRIGGER's tip");
+                    assert!(text.starts_with(if on {
+                        "RETRIGGER: On"
+                    } else {
+                        "RETRIGGER: Off"
+                    }));
+                    assert!(text.contains("On: each key strikes."));
+                    assert!(text.contains("NOTE PRIORITY LAST: new pitch with attack"));
+                    assert!(
+                        text.contains("LOW/HIGH: a held key may keep the old pitch until lifted.")
+                    );
+                    let layer = art::tip(e.renderer.fonts(), x, y, &text, e.renderer.text_size());
+                    let b = layer.bounds;
+                    assert_eq!(layer.body.matches("<text ").count(), 3);
+                    assert!(
+                        x + b[0] >= 0.0 && x + b[2] <= art::W,
+                        "{skin:?}, {lettering:?}: {b:?}"
+                    );
+                    assert!(y + b[1] >= e.renderer.top(), "tip above the window");
+                }
+            }
+        }
     }
 
     #[test]
