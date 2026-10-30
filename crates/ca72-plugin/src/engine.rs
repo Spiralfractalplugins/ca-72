@@ -159,7 +159,7 @@ pub struct Controls {
     /// QUALITY at LO, Potato mode: the voices played by the light model ([`Light`]), not the
     /// circuit's, for computers the circuit is too heavy for (decisions.md R47).
     pub potato: bool,
-    /// QUALITY at ULTRA: the circuit's model with no compromises (`Quality::NoCompromises`),
+    /// QUALITY at ULTRA: the circuit's model with High Fidelity numerics (`Quality::HighFidelity`),
     /// not at its real-time setting (decisions.md R48). Switched while it plays.
     pub ultra: bool,
     /// How far each voice's own pressure and timbre move it (decisions.md R-MPE): all 0, not
@@ -3175,7 +3175,7 @@ impl Engine {
     /// held back to come out with ULTRA's: [`LINE_UP`]), so a host's compensation never
     /// changes with it.
     pub fn latency(&self) -> u32 {
-        let voices = ca72::voice::latency(Quality::NoCompromises);
+        let voices = ca72::voice::latency(Quality::HighFidelity);
         let late = match &self.over {
             Some(o) => voices / o.factor as f64 + o.up.delay() + o.down[0].delay(),
             None => voices,
@@ -3753,7 +3753,7 @@ impl Engine {
         let share = if share.is_finite() { share } else { 0.0 };
         let mut p = c.panel;
         p.quality = if c.ultra {
-            Quality::NoCompromises
+            Quality::HighFidelity
         } else {
             Quality::Potato
         };
@@ -6675,11 +6675,11 @@ mod tests {
         assert_eq!(made, POLY_VOICES.2);
     }
 
-    /// QUALITY at ULTRA (decisions.md R48): the circuit's voices play with no compromises,
+    /// QUALITY at ULTRA (decisions.md R-ULTRA-HIFI): the circuit's voices use High Fidelity,
     /// and switching to HI and back changes the model's setting under the key held, without
-    /// letting go of it. (A short while: No Compromises is slow, more so in a debug build.)
+    /// letting go of it. (A short while: ULTRA is slow, more so in a debug build.)
     #[test]
-    fn quality_ultra_plays_the_circuit_with_no_compromises_and_keeps_the_key() {
+    fn quality_ultra_plays_the_circuit_with_high_fidelity_and_keeps_the_key() {
         let mut c = Controls {
             ultra: true,
             ..Controls::default()
@@ -6691,7 +6691,7 @@ mod tests {
         assert!(loudest(&mut e, 0.05) > 0.001, "ULTRA's voice silent");
         {
             let p = e.slots[0].play.lock().unwrap();
-            assert_eq!(p.voice.panel.quality, Quality::NoCompromises);
+            assert_eq!(p.voice.panel.quality, Quality::HighFidelity);
             assert!(p.voice.envelopes().2, "the key not on the circuit's voice");
         }
         c.ultra = false;

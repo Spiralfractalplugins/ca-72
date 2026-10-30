@@ -1714,11 +1714,13 @@ impl Voice {
         self.audio.take_overload_peak()
     }
 
-    /// Whether [`crate::threaded::Helpers`] play the voice: at No Compromises, with FEEDBACK
-    /// off, its pitch and contour paths following its panel.
+    /// Whether [`crate::threaded::Helpers`] play the voice: at High Fidelity or No Compromises,
+    /// with FEEDBACK off, its pitch and contour paths following its panel.
     pub fn splits(&self) -> bool {
-        self.panel.quality == Quality::NoCompromises
-            && self.feedback == 0.0
+        matches!(
+            self.panel.quality,
+            Quality::NoCompromises | Quality::HighFidelity
+        ) && self.feedback == 0.0
             && self.control_quality.is_none()
     }
 
@@ -2158,8 +2160,8 @@ fn contour_delays(audio: Quality, every: usize) -> (f64, f64) {
 /// ULTRA's VCA's oversampling (decisions.md R-BLEP): the filter's.
 const ULTRA_VCA_OVERSAMPLING: usize = 4;
 
-/// Whether the VCA runs at the filter's rate at a quality: in ULTRA (and the lab's High
-/// Fidelity, ULTRA but for the VCA's plain solve); not in Potato (HI) or the light model (LO).
+/// Whether the VCA runs at the filter's rate: in High Fidelity (ULTRA) and No Compromises
+/// (the reference); not in Potato (HI) or the light model (LO).
 fn vca_oversampled(q: Quality) -> bool {
     matches!(q, Quality::NoCompromises | Quality::HighFidelity)
 }

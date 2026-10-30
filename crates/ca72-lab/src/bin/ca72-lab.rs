@@ -556,16 +556,21 @@ fn filteralias(rest: &[String]) -> Res {
             false,
         ),
     ];
-    let last = "ultra";
+    // Keep No Compromises available for the numerical reference.
+    let q = match std::env::var("CA72_QUALITY").as_deref() {
+        Ok("nc" | "no-compromises") => Quality::NoCompromises,
+        Ok("hifi") | Err(_) => Quality::HighFidelity,
+        Ok(other) => return Err(format!("filteralias: unknown CA72_QUALITY {other}")),
+    };
+    let last = if q == Quality::HighFidelity {
+        "ultra"
+    } else {
+        "reference"
+    };
     for &rate in &rates {
         for (name, panel, note, drive, from_osc) in &patches {
             let mut v = Voice::new(rate, *panel);
-            // (`CA72_QUALITY=hifi`: High Fidelity, ULTRA but for the VCA's plain signal path.)
-            v.panel.quality = if std::env::var("CA72_QUALITY").as_deref() == Ok("hifi") {
-                Quality::HighFidelity
-            } else {
-                Quality::NoCompromises
-            };
+            v.panel.quality = q;
             v.set_drive(*drive);
             v.note(*note, true);
             let warm = (0.5 * rate) as usize;

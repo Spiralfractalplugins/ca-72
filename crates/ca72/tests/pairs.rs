@@ -164,6 +164,8 @@ fn a_pair_switched_between_ultra_and_hi_plays_each_voice_alone() {
 
 #[test]
 fn ultra_and_mixed_pairs_play_each_voice_alone() {
+    pair_matches_alone(Quality::HighFidelity, Quality::HighFidelity, 0.2, true);
+    pair_matches_alone(Quality::Potato, Quality::HighFidelity, 0.2, true);
     pair_matches_alone(Quality::NoCompromises, Quality::NoCompromises, 0.2, true);
     pair_matches_alone(Quality::Potato, Quality::NoCompromises, 0.2, true);
 }
