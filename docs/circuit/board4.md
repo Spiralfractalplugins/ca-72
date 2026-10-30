@@ -295,3 +295,9 @@ hardware reference's RANGE sits: 0.31 octave higher at a given control voltage
   own passband at EMPHASIS 0, the voice's trims and the whole mixer on the bus) and a 3 Hz
   coupling, less the output (`filter-mode.lib`, behavioural; `vcf::MODE_RT`, `MODE_HZ`).
   At LO the circuit is the drawing's.
+
+
+HI's VCA, like ULTRA's, runs at the filter's rate (4x) from 2026-10-30. With FEEDBACK and
+EXTERNAL INPUT on, its preamplifier uses the exact reduced circuit solve at every filter
+step, with HI's tolerance; only its OVERLOAD lamp uses the plain detector. This closes the
+loop with a quarter-sample return instead of the resamplers' delay (R-HI-FEEDBACK).

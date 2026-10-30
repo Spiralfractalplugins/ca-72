@@ -1,7 +1,7 @@
 //! Board 4's external preamplifier and overload lamp driver (circuit No. 12,
 //! `board4-preamp.lib`; docs/circuit/board4.md) in real time: their circuits as the nodal
 //! solver ([`crate::mna`]) has them, the preamplifier's solved with its linear nodes
-//! eliminated ([`reduced`]), the lamp driver's by that solver.
+//! eliminated ([`reduced`]), the lamp driver's by that solver (HI uses its plain detector).
 //!
 //! The EXTERNAL INPUT's volume (R9, 1M audio) is a Thevenin source into pin 11; the
 //! preamplifier (gain about 200) runs at four trapezoidal substeps a sample (its closed loop
@@ -176,34 +176,43 @@ impl Plain {
         } else {
             0.0
         };
+        PreampOut {
+            amp,
+            i_bus: out / 33e3,
+            lamp: self.lamp(amp, h),
+        }
+    }
+
+    /// The lamp's peak detector; it does not feed the audio path.
+    fn lamp(&mut self, amp: f64, h: f64) -> f64 {
         if self.fall.0 != h {
             self.fall = (h, crate::ulp::exp(-h / 0.122));
         }
         self.peak = (self.peak * self.fall.1).max(amp);
         let x = ((self.peak - 1.375) / 0.40).clamp(0.0, 1.0);
-        PreampOut {
-            amp,
-            i_bus: out / 33e3,
-            lamp: 1.004 * x * x * (3.0 - 2.0 * x),
-        }
+        1.004 * x * x * (3.0 - 2.0 * x)
     }
 }
 
-/// How the preamplifier is solved inside FEEDBACK's loop in Potato (decisions.md R8, R11).
+/// The historical preamplifier comparisons in Potato (decisions.md R8, R11). HI's closed
+/// loop now always uses the exact reduced solve: `Circuit` also selects the circuit's lamp,
+/// the other choices its plain detector (R-HI-FEEDBACK). The old models remain for the lab's
+/// open-loop comparisons.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum InLoop {
     /// [`Delayed`]: Potato's plain model at twice the rate, its output as late as the
-    /// circuit's (R11). Within the circuit's own spread in the loop, at a fraction of its cost.
+    /// circuit's (R11). Used by the historical open-loop comparison.
     #[default]
     Delayed,
-    /// As its circuit (High Fidelity's solve; R8): about four times a voice's cost.
+    /// The exact reduced solve and the nodal lamp (High Fidelity's tolerance; R8).
     Circuit,
     /// Potato's plain model as it stands: the loop, some 45 samples shorter than with the
     /// circuit, falls into a low, dark oscillation the circuit does not make.
     Plain,
 }
 
-/// Potato's preamplifier inside FEEDBACK's loop (decisions.md R11): [`Plain`]'s equations at
+/// The historical preamplifier in FEEDBACK's delayed loop (decisions.md R11; HI now uses
+/// the exact solve at the filter's rate, R-HI-FEEDBACK): [`Plain`]'s equations at
 /// twice the sample rate between sparse halfband resamplers, its input delayed so that its
 /// output comes as late as the circuit's does through its own resamplers (four substeps a
 /// sample: 44.5 samples). In the loop that delay is what matters most: without it the loop
@@ -359,8 +368,7 @@ pub struct Preamp {
     lamp_lit: f64,
     r_in: f64,
     on: bool,
-    /// Potato: the preamplifier and lamp as [`Plain`] from their parts, not the circuit
-    /// solved.
+    /// Potato: [`Plain`] outside the closed loop; inside it only the lamp is plain.
     plain: Option<Plain>,
     /// Potato's model inside FEEDBACK's loop ([`Delayed`]), and whether it runs.
     delayed: Delayed,
@@ -581,9 +589,16 @@ impl Preamp {
         if self.on { self.last.1 / 33e3 } else { 0.0 }
     }
 
-    /// The sample's outputs after its [`Preamp::fine`] substeps (the lamp's driver as
-    /// [`Preamp::tick`] runs it).
+    /// The sample's outputs after its [`Preamp::fine`] substeps: the reduced circuit solve
+    /// at every quality, with HI's plain lamp (decisions.md R-HI-FEEDBACK).
     pub fn fine_outputs(&mut self) -> PreampOut {
+        if let Some(p) = &mut self.plain {
+            return PreampOut {
+                amp: self.last.0,
+                i_bus: if self.on { self.last.1 / 33e3 } else { 0.0 },
+                lamp: p.lamp(self.last.0, self.dt),
+            };
+        }
         self.outputs()
     }
 

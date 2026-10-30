@@ -16920,3 +16920,64 @@ in two seconds, here and before: from there a change of one ulp at the input alo
 render by -13.7 dBFS, the code before from itself as the new code from it. That is an old
 weakness of the circuit's steps at that drive, and it is not changed here.
 
+
+## R-HI-FEEDBACK. HI's VCA at the filter's rate, the exact preamplifier inside its loop
+
+**Reason, 2026-10-30.** HI's filter already ran at 4x, but its VCA ran after the filter's
+resampler at the sample rate. It added aliasing to high notes. FEEDBACK returned a sample at
+a time through the preamplifier's and filter's resamplers, about 90 samples late, instead of
+closing at the filter's rate as ULTRA's does (R-FEEDBACK-LOOP). At EXT 10 it oscillated near
+39 Hz against the hardware's 55 Hz. A fitted preamplifier made this cheaper, but changed the
+lock note at five of the 54 measured settings. The hardware takes alone did not expose that.
+
+**Owner's decision, 2026-10-30:** accuracy, option A with the plain lamp. Use the exact reduced
+preamp solver (R-PREAMP-SOLVE), not the fitted audio model. Accept roughly 1.9 times a
+0.3.0 HI FEEDBACK voice's cost. This is production work; the exploratory branches and their
+harnesses do not form part of it.
+
+**Built:**
+
+- HI's VCA takes the filter's four samples before decimation, including the paired POLY
+  filters. Its bias still comes at the sample rate, interpolated across the four steps.
+  The loudness contour's delay is 29.75 samples at 48 kHz instead of 52.75, accounting for
+  the VCA's decimator; the sound's line-up and reported 86-sample latency stay as they were.
+- With FEEDBACK and EXTERNAL INPUT on, the preamplifier's reduced circuit solve runs at
+  every filter step. HI retains its absolute and relative tolerance of 1e-5, four substeps,
+  100-iteration limit and h/16 retry. Only the lamp uses the plain peak detector; its output
+  does not feed the audio. ULTRA retains its solve and lamp, LO its light model.
+- FEEDBACK voices run alone. Pairing the interleaved filter, VCA and preamplifier added
+  roughly 100 lines without a measurable saving in the preceding Linux experiment. Normal
+  HI filters still pair; the split API also runs a looped voice whole. The pair tests cover
+  FEEDBACK and EXTERNAL INPUT switched mid-note, both voices leaving and rejoining, ULTRA
+  and mixed qualities, all to the bit against playing alone.
+- The HI factory AUTO GAIN curves are remeasured with `CA72_WRITE_CURVES`. The assertions
+  remain bit-exact, including the ignored all-presets check. All 42 HI curves move: Feedback
+  Funk by up to 1.852947 dB, every other one by at most 0.020684 dB (Wide Crash). LO's curves
+  stay exact. Preset LEVEL values are not changed.
+- **Owner's follow-up, 2026-10-30:** keep the shared HI/ULTRA curve format, since HI now
+  lands on ULTRA; a third preset curve field is not justified. ULTRA's byte identity is
+  required with AUTO GAIN off and for saved sessions. A freshly chosen factory preset at
+  ULTRA can change only through the remeasured shared correction. The report lists each
+  such render and measures every HI curve's error against an ULTRA measurement of the same
+  preset, flagging any error over 0.1 dB.
+
+**Measurement:** the full tables, manifests, scripts, timing conditions and level-matched
+48 kHz, 24-bit WAVs are in the owner's audit storage, `fixes/hi-preamp/ROUND3-REPORT.md` and
+`fixes/hi-preamp/round3/`.
+
+- Saw C8 at 48 kHz: inharmonic power -45.6 to -72.5 dBc (ULTRA -73.6). The upper-range POLY
+  pair: -45.6 to -70.8 dBc (ULTRA -68.5). The narrow pulse and triangle retain upstream
+  aliasing; this does not repair those stages.
+- Distance to hardware at EXT 0 / 5 / 8 / 10: 0.40 / 0.49 / 1.24 / 0.62 dB, without
+  refitting HI. EXT 10 holds 55.3 Hz on all three notes, as ULTRA and the hardware do.
+- The 54-point sweep, eight seeds each at ENTROPY 0.2 %: all points within the nodal
+  reference's or candidate's own seed spread (1.1 times it plus 0.02 dB), strongest lock
+  note the same at 53 of 54. The exception splits across notes in the reference too.
+  Median distance 0.00 dB, worst 1.29; worst mean level change 0.01 dB. Notes were not
+  delayed to manufacture different initial conditions.
+
+**Limits:** one Linux laptop, with other agents active. Timing under the shared lock is
+not a quiet-machine guarantee. No human listening, host, Mac, Windows or ARM validation.
+ngspice is absent: the report names the circuit-reference tests that return without running
+the simulator. The reduced solver's numerics still need the cross-platform and ngspice
+review recorded in R-PREAMP-SOLVE.

@@ -757,3 +757,14 @@ Before the fix, High Fidelity had 1 and 28 late with 2 and 3 voices; one No Comp
 voice is the same within the machine's noise (alternating runs with the old waits: 15 and
 130 late, with the new: 2 and 50). So on this machine one No Compromises voice or four
 High Fidelity voices play in real time at 256 frames, and about 50 Potato voices.
+
+
+## HI's VCA and closed FEEDBACK loop (2026-10-30)
+
+HI runs its VCA on the filter's four samples before decimation, including paired POLY
+filters. With FEEDBACK and EXTERNAL INPUT on, the preamplifier's exact reduced solve runs
+between those steps, at HI's unchanged absolute and relative tolerance of 1e-5. Its
+100-iteration cap and h/16 retry are unchanged; no fitted audio model enters this loop.
+Only the OVERLOAD lamp uses the plain peak detector. FEEDBACK voices run alone; the normal
+HI filters still pair. Reported latency remains 86 samples. See decisions.md R-HI-FEEDBACK
+for the measurements and the owner's choice of accuracy over the fitted preamplifier.
