@@ -16976,6 +16976,23 @@ harnesses do not form part of it.
   Median distance 0.00 dB, worst 1.29; worst mean level change 0.01 dB. Notes were not
   delayed to manufacture different initial conditions.
 
+- CPU, three alternating rounds under the lock: non-FEEDBACK paired means +34.5 % pooled
+  (+29.1 % paced, +42.1 % free-running). FEEDBACK 6 costs 1.89 times 0.3.0 HI, FEEDBACK 8.5
+  about 1.40 times. Load ranged from about 2 to 69. In the quieter round POLY 8 with FEEDBACK
+  used 48.1 % of a 256-frame period, p99 60.2 %, no late blocks; in the loaded rounds its
+  mean was 87 to 107 %, with 1,632 late blocks between them. This is not a real-time
+  capacity guarantee. No audio-thread allocation in all 126 timing runs.
+- LO's 42 factory renders are byte-identical to 0999f30; so are all 42 ULTRA panels with
+  AUTO GAIN off and all 42 with their original saved curves/state. Nine freshly loaded
+  ULTRA presets change through the shared curves, by less than 0.000433 dB at their stored
+  DRIVE. The shared curves' error against an independent ULTRA measurement exceeds 0.1 dB
+  somewhere on DRIVE in Driven Kick, Split Snare, Tight Hat, Loose Hat, Wide Crash, Swarm
+  Riser and Velocihator (mostly pre-existing; worst 1.197431 dB). At stored DRIVE only
+  Driven Kick exceeds it, +0.231413 dB. No extra levelling was applied.
+- The scoped `ca72`, `ca72-plugin` and `ca72-lab` suite: 880 passed, none failed, 96 ignored;
+  all 42 curves pass the exact recheck. Scoped clippy passes with the existing unused
+  `editor.rs::audio_refused` test helper warning; `-D warnings` still rejects that warning.
+
 **Limits:** one Linux laptop, with other agents active. Timing under the shared lock is
 not a quiet-machine guarantee. No human listening, host, Mac, Windows or ARM validation.
 ngspice is absent: the report names the circuit-reference tests that return without running
