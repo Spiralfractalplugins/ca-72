@@ -17020,3 +17020,42 @@ iterations to 20.
   after them did not.
 
 ngspice's comparison (`contours_match_the_circuit`) has not run on this: it was not installed.
+## R-LO-SET-DRIVE. LO's DRIVE leaves the ring its share of the pair's limit
+
+**Owner's decision, 2026-10-30,** after the audit of LO's filter FM. `Light::set_drive` wrote the
+input pair's limit outright, and the engine calls it every block, so past EMPHASIS's threshold,
+where `control()` raises that limit for the ring's level (`RING_LEVEL`), each block dropped it to
+DRIVE's alone until the next 16-sample control update. The ring was clamped periodically:
+components at the harmonics ± 2 fs/256, and a level depending on where a note fell against the
+blocks. With 256-frame blocks a note on a multiple of 16 samples never shows it, which is why a
+preset comparison whose notes all fall there at 48 kHz found nothing.
+
+The limit is now DRIVE's times a kept `ring_lift`, worked out in one place and only when it moves.
+A patch that returned early from `set_drive` when DRIVE stood still was rejected: it cured the
+held case, but DRIVE automated past the threshold kept every clamp.
+
+`res7_saw_n72` (saw, CUTOFF 3, EMPHASIS 7, key 72), inharmonic total in dBc, by the note's
+offset in samples past a 16-sample boundary:
+
+| Offset | 0 | 1 | 4 | 8 | 10 | 15 |
+|---|---|---|---|---|---|---|
+| 44.1 kHz before | -54.6 | -46.1 | -41.0 | -36.3 | -34.8 | -32.3 |
+| 44.1 kHz after | -54.6 | -54.6 | -54.6 | -54.6 | -54.6 | -54.6 |
+| 48 kHz before | -60.8 | -45.6 | -40.8 | -36.1 | -34.7 | -32.6 |
+| 48 kHz after | -60.8 | -60.8 | -60.8 | -60.8 | -60.8 | -60.8 |
+
+- **DRIVE moving:** DRIVE swept 2 to 4 dB, a new value each 256-frame block, offset 10, on the
+  light voice alone: -42.4 to -48.9 dBc at 44.1 kHz, -43.3 to -51.7 at 48 kHz, where aligned
+  blocks give -48.9 and -51.5. The early return stays at -42.4 and -43.3.
+- **DRIVE and the ring's level:** over EMPHASIS 6 to 10, CUTOFF 2, 3 and 5, DRIVE 0 to 24 dB, with
+  and without an oscillator, an aligned note is the same to the bit as before, and every other
+  offset now plays its level: the spread between offsets 0 and 10 falls from 2.3 dB to 0.001 dB.
+- **Presets:** with the notes on the grid, none of the 42 changes. Off it, seven do, each to the
+  level it has on the grid: Bubble Computer +0.36 dB at offset 15 (within 0.05 dB of it), Driven
+  Kick +0.21, Acid Squelch +0.09, White Lotus +0.05, Feedback Funk +0.04, Night Surf +0.01, Swarm
+  Riser +0.00.
+- **HI and ULTRA** don't use this voice: all 42 presets, off the grid, are the same to the byte.
+
+The regression test, `set_drive_keeps_the_rings_limit`, plays those offsets with DRIVE told each
+block and without, to the bit, and moves DRIVE under the ring; main fails it at offset 1, the early
+return at the move (1.088 to 1).
