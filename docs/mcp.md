@@ -312,6 +312,11 @@ the parameter's id in `ca72_set`/`ca72_get`, unless it says otherwise.
 | | OSC. 2 and 3 TIMED (decisions.md R-OSC-TIMED) | host parameters, switches | on/off (off); each at its own oscillator's RANGE LO only, its cycle a note value of the host's tempo; in the MIDI list | `osc2_timed`, `osc3_timed` |
 | | OSC. 2 and 3 DIVISION | host parameters, 18 steps | 4 bars, 2 bars, 1 bar, 1/2 dotted, 1/1 triplet, 1/2, 1/4 dotted, 1/2 triplet, 1/4, 1/8 dotted, 1/4 triplet, 1/8, 1/16 dotted, 1/8 triplet, 1/16, 1/32 dotted, 1/16 triplet, 1/32 (1/4) | `osc2_division`, `osc3_division` |
 
+With `retrigger` on, every key press starts the contours again. In MONO and UNISON,
+NOTE PRIORITY LAST brings the new note's pitch with its attack. With LOW on rising overlaps,
+or HIGH on falling overlaps, a held key can keep the old pitch until it is lifted, so the
+attack comes before the pitch moves. Key lifts do not start another attack.
+
 ### The LFO page (decisions.md R-LFO)
 
 Each LFO's controls are parameters (`ca72_set`, `ca72_get`); what it modulates is the patch's,

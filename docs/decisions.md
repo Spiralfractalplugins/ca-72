@@ -16858,3 +16858,35 @@ A fixture test checks all payload bytes, every internal checksum, source provena
 Windows upload list. CA72_SOURCE_COMMIT permits packaging existing verified CI binaries
 without incorrectly attributing their source to the packaging-fix checkout. This changes
 packaging only; binaries from the original tagged CI remain unchanged.
+
+## R-RETRIGGER-KEEP. Keep every key press striking; explain NOTE PRIORITY
+
+**Owner, 2026-10-30:** keep 0.3.0's behaviour. Every key press attacks, the standard
+multi-trigger behaviour; explain the interaction with NOTE PRIORITY where a player reads it.
+No samples change.
+
+The [KVR report (p9320313)](https://www.kvraudio.com/forum/viewtopic.php?p=9320313#p9320313)
+heard a flam with RETRIGGER on: LOW with a rising overlap, or HIGH with a falling overlap.
+Each press opens the trigger contact for the circuit's 13 ms re-arming gap, then starts
+the contours again. NOTE PRIORITY independently chooses among the keys still held, so
+that attack can sound at the old pitch. Only lifting the key that keeps priority lets
+the pitch move; the release contact adds its usual 2 ms lead. Key lifts do not re-attack.
+LAST selects the newly pressed key, bringing its pitch with the attack (and respecting GLIDE).
+
+Two designs were tried and rejected:
+
+- `fdd57b4` tied re-attacks to changes of the sounding key. It removed the flam but also
+  re-attacked on key lifts, including returns to an earlier held key and chord releases.
+- `cc9b7c5` attacked only on presses that changed the sounding key, never on lifts. Silencing
+  the other presses made percussive rising overlaps fade out: Ray Gun was down about 22 dB
+  and Pitch Tom about 15 dB by note 2. Their next pitches arrived without fresh contours.
+
+The owner chose to retain every press's attack and the existing sound of presets and
+projects. The RETRIGGER tip, README, quick start and MCP control guide now explain the
+choice: use NOTE PRIORITY LAST for the new note's pitch with its attack; under LOW or HIGH,
+a held key can keep the old pitch until it is lifted. This is a text change only.
+
+Hardware evidence is limited. Behringer's [Model D user manual](https://synthmanuals.com/manuals/behringer/model_d/manual_english/model_d_m_en.pdf)
+says multi-trigger on changes pitch and triggers the filter and loudness contours on a new
+note. No authoritative source was found for key-lift behaviour. This decision preserves
+CA-72's established behaviour; it does not claim a verified hardware rule for key lifts.

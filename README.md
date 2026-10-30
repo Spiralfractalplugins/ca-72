@@ -248,9 +248,16 @@ are [standalone-spec.md](docs/standalone-spec.md) and
 - **Keys:** every MIDI note plays. Notes 41 to 84 are the instrument's 44 keys, F to C
   (with RANGE at 8'); beyond them the plug-in continues the key string's scale, a key a
   semitone, which the instrument cannot do. Like the instrument, the keyboard gives the
-  lowest note held priority and triggers once while keys are held. Far above the keys
-  (with RANGE, FREQUENCY and the PITCH wheel high as well) an oscillator stops rising, far
-  past the audio band.
+  lowest note held priority and triggers once while keys are held by default. Far above
+  the keys (with RANGE, FREQUENCY and the PITCH wheel high as well) an oscillator stops
+  rising, far past the audio band.
+- **NOTE PRIORITY** chooses which held key sounds in MONO and UNISON: **LOW** (the default),
+  **LAST** or **HIGH**. **RETRIGGER**, off by default, starts the contours again on every key
+  press, even with other keys held. Choose **LAST** for the new note's pitch to arrive with
+  its attack. With **LOW** on rising overlaps, or **HIGH** on falling overlaps, a held key
+  can keep the old pitch until it is lifted: the attack sounds before the pitch moves,
+  which can sound like a flam. Lifting a key does not start another attack. With RETRIGGER
+  off, overlapping notes carry on the contours. Both choices are saved with the preset.
 - **GLIDE** goes five times longer: right-click it and choose **LONG**; **×5** prints beside the dial.
 - **POLY** (under the panel, not the instrument's): off, the one instrument as above. On,
   each note plays a whole instrument of its own, with its own keyboard circuit, contours
