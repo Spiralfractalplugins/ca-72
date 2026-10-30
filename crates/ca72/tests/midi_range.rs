@@ -65,7 +65,11 @@ fn sweep(quality: Quality) -> Vec<(i32, f64, f64)> {
 
 #[test]
 fn every_midi_note_continues_the_keyboards_scale() {
-    for quality in [Quality::NoCompromises, Quality::Potato] {
+    for quality in [
+        Quality::NoCompromises,
+        Quality::HighFidelity,
+        Quality::Potato,
+    ] {
         let rows = sweep(quality);
         let at = |n: i32| rows[n as usize];
         // The string's volts a key, from the instrument's own keys (F to C).

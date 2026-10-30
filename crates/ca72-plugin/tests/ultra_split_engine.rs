@@ -22,6 +22,10 @@ fn render(c: Controls, notes: usize, crews: Option<usize>, seconds: f64) -> (Vec
         set_split_for_measurement(Some(n));
         e.start_workers(2, None);
     }
+    #[cfg(target_os = "linux")]
+    let before = helpers();
+    #[cfg(target_os = "linux")]
+    let mut cpus = std::collections::BTreeSet::new();
     let mut chords = Chords::new(notes, 48_000.0);
     let (mut l, mut r) = ([0.0f32; 256], [0.0f32; 256]);
     let mut events = Vec::with_capacity(64);
@@ -29,12 +33,57 @@ fn render(c: Controls, notes: usize, crews: Option<usize>, seconds: f64) -> (Vec
     for i in 0..(seconds * 48_000.0 / 256.0) as usize {
         play_block(&mut e, &mut chords, i * 256, &mut l, &mut r, &mut events);
         out.extend(l.iter().chain(&r));
+        #[cfg(target_os = "linux")]
+        if crews.is_some() {
+            cpus.extend(helpers().values().map(|(_, cpu)| *cpu));
+        }
     }
     let (runs, held) = e.split_runs();
     if let Some(n) = crews {
         assert_eq!(held, n, "the crews started");
     }
+    #[cfg(target_os = "linux")]
+    if let Some(n) = crews.filter(|_| runs > 0) {
+        let ran = helpers()
+            .iter()
+            .filter(|(id, (ns, _))| *ns > before.get(*id).map_or(0, |(old, _)| *old))
+            .count();
+        assert!(ran >= 5 * n, "only {ran} helpers ran for {n} crews");
+        eprintln!("ULTRA: {runs} split runs, {ran} helpers used CPU, CPUs {cpus:?}");
+    }
     (out, runs)
+}
+
+// Scheduler evidence, off the audio path: helpers must do work, not just exist.
+#[cfg(target_os = "linux")]
+fn helpers() -> std::collections::BTreeMap<String, (u64, usize)> {
+    std::fs::read_dir("/proc/self/task")
+        .unwrap()
+        .filter_map(|entry| {
+            let path = entry.ok()?.path();
+            let name = std::fs::read_to_string(path.join("comm")).ok()?;
+            if ![
+                "ca72-keyboard",
+                "ca72-contours",
+                "ca72-vca-bias",
+                "ca72-preamp",
+                "ca72-filter",
+            ]
+            .contains(&name.trim())
+            {
+                return None;
+            }
+            let sched = std::fs::read_to_string(path.join("schedstat")).ok()?;
+            let ns = sched.split_whitespace().next()?.parse().ok()?;
+            let stat = std::fs::read_to_string(path.join("stat")).ok()?;
+            let cpu = stat[stat.rfind(')')? + 2..]
+                .split_whitespace()
+                .nth(36)?
+                .parse()
+                .ok()?;
+            Some((path.file_name()?.to_str()?.to_owned(), (ns, cpu)))
+        })
+        .collect()
 }
 
 fn ultra(poly: bool, unison: bool, voices: usize, double: f64) -> Controls {

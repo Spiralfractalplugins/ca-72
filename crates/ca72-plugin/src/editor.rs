@@ -6941,15 +6941,17 @@ pub(crate) mod window {
     }
 }
 
-/// ULTRA's note's lines (decisions.md R48; the owner approved this text on 2026-10-16,
-/// R-THREADS): ULTRA's cost against HI (3.7 to 6.4 times over the factory presets, more with
-/// FEEDBACK), and on a computer that splits an ULTRA voice over six threads (`splits`) that one
-/// voice plays live there; else what one voice takes.
+/// ULTRA's note's lines (decisions.md R-ULTRA-HIFI): its numerical limit and, on a computer
+/// that splits a voice over six threads (`splits`), what can be played live.
 fn ultra_note_lines(splits: bool) -> Vec<(&'static str, Tone)> {
     let mut lines = vec![
-        ("ULTRA · NO COMPROMISES", Tone::Accent),
+        ("ULTRA · HIGH FIDELITY", Tone::Accent),
         (
-            "THE CIRCUIT'S MODEL EXACTLY, AT ABOUT SEVEN TIMES THE WORK OF HI.",
+            "THE CIRCUIT'S MODEL, WITHIN -120 dBFS OF ITS NUMERICAL REFERENCE.",
+            Tone::Plain,
+        ),
+        (
+            "ON MEASURED PATHS; CHAOTIC FEEDBACK CAN DIVERGE.",
             Tone::Plain,
         ),
     ];
@@ -10067,7 +10069,7 @@ mod tests {
         assert_eq!((e.motion.lamp, e.motion.coil), (0.0, 1.0));
         assert_eq!(e.scene.opening.coil, 1.0);
         assert!(e.ultra_note);
-        assert_eq!(e.ultra_note().lines[0].0, "ULTRA · NO COMPROMISES");
+        assert_eq!(e.ultra_note().lines[0].0, "ULTRA · HIGH FIDELITY");
         press(&mut e);
         assert!(!e.ultra_note && e.settings.ultra_note_read);
         e.move_opening(t0 + Duration::from_secs(8), ultra);
@@ -15364,12 +15366,12 @@ mod tests {
         ] {
             assert_eq!(
                 n.lines[0],
-                ("ULTRA · NO COMPROMISES".to_owned(), Tone::Accent)
+                ("ULTRA · HIGH FIDELITY".to_owned(), Tone::Accent)
             );
             assert!(
                 text(n)
                     .iter()
-                    .any(|t| t.contains("ABOUT SEVEN TIMES THE WORK OF HI"))
+                    .any(|t| t.contains("WITHIN -120 dBFS OF ITS NUMERICAL REFERENCE"))
             );
             assert!(text(n).iter().any(|t| t == says), "{:?}", text(n));
             let dim: Vec<_> = n.lines.iter().rev().take(2).collect();

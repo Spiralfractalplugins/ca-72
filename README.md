@@ -18,6 +18,9 @@ New to the instrument? Start with the [illustrated quick-start guide](docs/quick
 It is free software under the GNU General Public License, version 3 or later. Copyright ©
 2026 Idle Foundry Ltd.
 
+**Next 0.3.x (draft):** ULTRA uses High Fidelity numerics for lower CPU cost, with the same
+circuit and 86-sample latency. HI and LO keep their samples.
+
 **Status:** 0.2.6: same sound, lighter on your computer: output bit-identical to 0.2.5, HI up to
 17 % lighter on a Mac and 9 % on Windows and Linux, smoother with several instances, and a panel
 that rests while you can't see it. Includes 0.2.5: a new instance starts at QUALITY LO, the light voices (projects keep their
@@ -512,9 +515,9 @@ are [standalone-spec.md](docs/standalone-spec.md) and
 - **POWER** is the host's bypass: the output fades out over 10 ms and back in.
 - **QUALITY** (a chrome toggle above POWER: ULTRA, HI, or LO, LO by default for a new
   instance from 0.2.5, HI before; projects keep theirs, those from 0.1 open at HI; not the
-  instrument's): at ULTRA the circuit's model plays with no compromises, its most exact, at
-  high CPU cost; in 0.2.0 it took about seven times the work of HI, with one voice using
-  about a whole core of a fast computer, so
+  instrument's): at ULTRA the circuit's model uses High Fidelity numerics, within -120 dBFS
+  of its No Compromises numerical reference on the measured paths, with the same circuit,
+  oversampling and substeps. It still has a high CPU cost, so
   it is meant for offline renders (export, bounce, freeze) and small projects on powerful
   computers. Choosing it, a shutter in the panel above opens and a lamp comes up and lights
   (or, chosen with a right click on the lamp, ALWAYS OPEN: the lamp stays up and only its
@@ -892,13 +895,16 @@ The service documents and datasheets the model was derived from are not included
 ## Limitations
 
 - At HI the circuit's model plays in its real-time quality (the model's own "Potato", not the
-  plug-in's Potato mode); at ULTRA, in its most exact, No Compromises, which does not run in
-  real time on most computers ([docs/decisions.md](docs/decisions.md) R48): one or two voices
+  plug-in's Potato mode); at ULTRA, in High Fidelity, within -120 dBFS of the numerical
+  reference on the measured paths. It does not run in real time on most computers ([docs/decisions.md](docs/decisions.md) R48): one or two voices
   split over six threads each come close on a machine of 6 or more fast cores, more voices do
   not (R-THREADS). The model's
-  High Fidelity quality remains in `crates/ca72` and the lab. HI's VCA runs at the filter's
-  rate (4x), including the closed FEEDBACK loop; its preamplifier uses the exact reduced
-  solve there and a plain model for the OVERLOAD lamp (R-HI-FEEDBACK).
+  No Compromises quality remains in `crates/ca72` and the lab as the numerical reference.
+  Chaotic feedback can diverge sample by sample even from another seed of itself; the
+  -120 dBFS limit describes the measured paths, not a null of every feedback patch.
+  HI's VCA runs at the filter's rate (4x), including the closed FEEDBACK loop; its
+  preamplifier uses the exact reduced solve there and a plain model for the OVERLOAD
+  lamp (R-HI-FEEDBACK).
 - **Potato mode (QUALITY at LO) is close to the circuit, not the same**
   ([docs/decisions.md](docs/decisions.md) R47): a FEEDBACK loop can settle into another
   oscillation than the circuit's (Feedback Funk is about 1 dB quieter as its notes start, 0.1's

@@ -354,8 +354,8 @@ pub enum FilterMode {
 }
 
 /// QUALITY (decisions.md R47, R48): LO, the light model (Potato mode); HI, the
-/// circuit's model at its real-time setting; ULTRA, the circuit's model with no compromises
-/// (the model's own No Compromises), for offline renders and small projects on powerful
+/// circuit's model at its real-time setting; ULTRA, the circuit's model with High Fidelity numerics
+/// (within -120 dBFS of the numerical reference), for offline renders and small projects on powerful
 /// computers. In this order, low to high, as a host lists them.
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QualityMode {
@@ -795,7 +795,7 @@ pub struct Ca72Params {
     pub inner: FloatParam,
     /// QUALITY, LO by default for a new instance (R-LO-DEFAULT; HI until 0.2.4): at LO the
     /// voices are played by the light model, Potato mode, for computers the circuit's is too
-    /// heavy for (decisions.md R47); at ULTRA by the circuit's model with no compromises (R48).
+    /// heavy for (decisions.md R47); at ULTRA by the circuit's model with High Fidelity numerics (R48).
     /// Not a preset's (`library::KEPT`): it suits the computer, not the sound; saved with the
     /// session. After AUTO GAIN: a session saved before it reads it HI (`filter_state`).
     #[id = "quality"]

@@ -30,12 +30,18 @@ fn jacks(i: usize, rate: f64) -> Jacks {
 
 #[test]
 fn a_lent_voice_gives_its_own_samples() {
+    for quality in [Quality::NoCompromises, Quality::HighFidelity] {
+        lent_samples(quality);
+    }
+}
+
+fn lent_samples(quality: Quality) {
     let rate = 48_000.0;
     let proto = Voice::prototype(rate);
     let make = |seed: u64| {
         let mut v = proto.clone();
         v.set_seed(seed);
-        v.panel.quality = Quality::NoCompromises;
+        v.panel.quality = quality;
         v.panel.ext_on = true;
         v.panel.ext_volume = 0.6;
         v.panel.osc[1].on = true;

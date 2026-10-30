@@ -96,7 +96,7 @@ fn mix(db: f64) -> Mix {
 /// `poly_bench`'s panel at ULTRA, its cutoff at sample `at`.
 fn panel(at: usize) -> Panel {
     let mut p = Panel {
-        quality: Quality::NoCompromises,
+        quality: Quality::HighFidelity,
         ..Panel::default()
     };
     p.osc[1].on = true;

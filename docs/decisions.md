@@ -17259,3 +17259,59 @@ not a quiet-machine guarantee. No human listening, host, Mac, Windows or ARM val
 ngspice is absent: the report names the circuit-reference tests that return without running
 the simulator. The reduced solver's numerics still need the cross-platform and ngspice
 review recorded in R-PREAMP-SOLVE.
+
+## R-ULTRA-HIFI. ULTRA uses High Fidelity's numerics
+
+**The owner, 2026-10-30:** approved making QUALITY ULTRA use `Quality::HighFidelity`
+instead of `Quality::NoCompromises`. The word ULTRA stays. This supersedes R48's
+"no compromises" promise and the old renders' bit identity, not its circuit: the same
+oscillator and filter oversampling, contour substeps and VCA at 4x remain. HI and LO
+keep their samples. No Compromises remains the model's and the lab's numerical reference;
+`ca72-lab hifi` still compares each path against it.
+
+**Why:** the audit's feedback trials cost 67.4 % of a 256-frame period before and 46.6 %
+after, with 17 late blocks becoming none in 5,487. The numerical difference on the lab's
+measured paths was about -150 dBFS, with the same distance to the hardware. High Fidelity
+uses the keyboard's 1e-5 tolerance, fast math and the VCA's plain solve (and its existing
+lean circuit solves). No new approximation is introduced here. Its stated limit is within
+-120 dBFS of the reference on those paths. A chaotic feedback patch can diverge from
+itself sample by sample; its seed ensemble, not that null alone, judges its sound.
+
+**The engine:** `panel_of` chooses High Fidelity at ULTRA, without an environment switch.
+`Voice::splits` admits both circuit qualities: without this second change the engine would
+silently lose ULTRA's five helpers. The threaded parts already follow the panel's quality;
+the pool, seats, worker budget and crews follow the ULTRA control and need no new gate.
+FEEDBACK still plays whole. The latency is still 85.75 samples rounded to 86; both circuit
+qualities have the same resamplers and VCA-bias delay. AUTO GAIN still shares HI's curve:
+its key ignores ULTRA and its probe measures the circuit at Potato, as before.
+
+The README and first-time note now say High Fidelity and its numerical limit, without the
+old claim of the model exactly or a fixed seven-times cost. The note still warns about
+live dropouts. The lab's `filteralias` defaults to the new ULTRA and accepts
+`CA72_QUALITY=nc` for its former No Compromises reference (labelled reference); the other
+reference comparisons are retained. Latency's attack comparison and the helpers' lending
+test cover both numerical modes; ULTRA's prototype and engine split tests cover the
+shipping mode, including actual helper CPU time on Linux.
+
+**The implementation's sound check (Linux, 2026-10-30):** all 42 factory presets at ULTRA,
+forced POLY (four voices, two seconds) and as saved (4.5 seconds), changed level by at most
+0.0000015 dB; the worst null was -135 dB relative to the old render. All 42 presets at HI
+and LO were byte-identical to the published 0.3.0 binary (1.5 seconds each). The hardware
+FEEDBACK takes at EXT 0, 5, 8 and 10 kept their third-octave distances: 0.3970, 0.5065,
+1.2410 and 0.6377 dB. The latency and split samples pass; Linux's scheduler confirms the
+helpers use CPU. No AUTO GAIN curve changes: all 42 presets keep the same HI/ULTRA key and
+the unchanged probe and curves. `hifi`'s audio differences are -149 to -188 dBFS, but its
+`perf-ext` reports two contour-root iteration caps in **both** modes and exits with a failure;
+this is retained as a finding, not suppressed. ngspice was absent, so no new SPICE comparison
+is claimed.
+
+**The paired cost check:** on the i9-13900HX, 48 kHz / 256 frames, three alternating
+before/after rounds under the shared benchmark lock, ULTRA's paced mean fell 15.6 to
+34.0 % across eight scenarios. FEEDBACK 6: 73.5 to 48.5 % of a period, 128 to 1 late in
+5,487 blocks; FEEDBACK 8.5: 70.6 to 48.0 %, 21 to none. POLY 8: 109.5 to 91.4 %, but its
+p99 still 137.6 % of a period. Free-running means fell 8.8 to 32.5 %; one modaudio pair
+was unusually slow in both builds and is retained. Foreign jobs kept 1.12 to 23.03 logical
+CPUs busy in samples before the calls, so these are this machine's observed costs, not a
+promise of real time. All 130,560 measured process blocks counted no audio-thread
+allocations. The audit's round-three report holds the runs, tails, settings and listening
+pairs; no listening verdict is claimed.

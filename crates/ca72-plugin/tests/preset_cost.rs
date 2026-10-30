@@ -9,7 +9,7 @@
 //! --nocapture` (`CA72_SECONDS`, 4; `CA72_VOICES`, 10; `CA72_ONLY`, a part of a preset's
 //! name; `CA72_NO_FEEDBACK`, set: FEEDBACK at 0; `CA72_DOUBLE`, DOUBLE's amount in %, 0;
 //! `CA72_DRIVE`, DRIVE in dB, 0; `CA72_POTATO`, set: QUALITY at LO, the light voices;
-//! `CA72_ULTRA`, set: QUALITY at ULTRA, the circuit's model with no compromises; `CA72_AS_SET`,
+//! `CA72_ULTRA`, set: QUALITY at ULTRA, the circuit's model with High Fidelity numerics; `CA72_AS_SET`,
 //! set: each preset as it sets POLY, UNISON, VOICES, DOUBLE and DRIVE, played the same chords,
 //! instead of POLY's ten voices without DOUBLE or DRIVE; `CA72_RETIRED`, set: the presets
 //! retired from the plug-in, `sounds/retired.toml`, instead of the factory's).
