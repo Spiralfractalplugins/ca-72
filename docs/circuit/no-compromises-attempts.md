@@ -1,7 +1,8 @@
 # No Compromises: what was tried for real time
 
 **A record of 2026-09-29, kept as it was written** (one note under "Tools" is of 2026-09-30).
-No Compromises is now the plug-in's QUALITY ULTRA. The figures below are that day's, on the
+No Compromises was the plug-in's QUALITY ULTRA before R-ULTRA-HIFI; ULTRA now uses
+High Fidelity, with No Compromises retained as the numerical reference. The figures below are that day's, on the
 machine named below, and the model and its threads have changed since. Two things it says no
 longer hold, each corrected where it stands: the keyboard as the only thread overrunning
 ("Where it stands"), and the 1e-7 rule ("Constraints").

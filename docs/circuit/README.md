@@ -9,8 +9,9 @@ still mention that DAW here and there.
 **"Potato" has two meanings.** `Quality::Potato`, `--quality potato` and "Potato" in these
 documents are the circuit's model at its real-time setting: the plug-in's QUALITY HI.
 "Potato mode", `CA72_POTATO` and the plug-in's `potato_*.rs` tests are QUALITY LO, the light
-model (`ca72::light::Light`, decisions.md R47), which is not the circuit's. No Compromises is
-QUALITY ULTRA; High Fidelity is in the model and the lab only.
+model (`ca72::light::Light`, decisions.md R47), which is not the circuit's. High Fidelity is
+QUALITY ULTRA; No Compromises remains the numerical reference in the model and lab
+(decisions.md R-ULTRA-HIFI).
 
 | Document | Contents |
 |---|---|

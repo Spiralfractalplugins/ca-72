@@ -3738,7 +3738,7 @@ impl Engine {
         )
     }
 
-    /// The panel the voices play: the controls', in Potato (at ULTRA, No Compromises), the
+    /// The panel the voices play: the controls', in Potato (at ULTRA, High Fidelity), the
     /// MIDI input's bend moving
     /// the PITCH wheel by its share of the wheel's travel and its modulation wheel holding
     /// MODULATION up to where the hardware reference's MIDI puts it

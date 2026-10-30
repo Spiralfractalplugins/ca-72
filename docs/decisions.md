@@ -5,6 +5,12 @@ was a device of the DAW it was developed in, are in [history.md](history.md). "T
 is the person who commissioned the work; an agent decision is one the owner has not
 separately approved.
 
+**Current quality mapping (2026-10-30 integration):** ULTRA uses High Fidelity, with
+No Compromises retained as the model/lab numerical reference (R-ULTRA-HIFI). HI's VCA
+and exact FEEDBACK loop run at the filter's 4x rate (R-HI-FEEDBACK). Entries below
+record their dates: older sample-rate HI, delayed HI loop and bit-exact ULTRA claims
+are historical and superseded by those decisions.
+
 ## R1. A plug-in of its own, the CA-72 by Idle Foundry
 **Owner decisions, 2026-10-01.** The circuit-derived model is released as an open-source
 plug-in, in this repository, separate from that DAW: the synth core, the SPICE runner, the
@@ -3497,7 +3503,7 @@ good as you can under that."); saved with the session, not with presets.
 **Agent decisions, 2026-10-10** (not separately approved):
 - **Where:** the branch `potato`, from `realistic-look` with `cal/hp-mode` merged (the release
   carries both, and the light voices must play FILTER MODE too). The development line is
-  another history (its base, 6126b71, is not this one's): its light model
+  another history (its base is not in this repository's published history): its light model
   (`crates/ca72/src/light.rs`) is brought over whole, its engine's integration written again
   for this engine.
 - **The switch:** QUALITY, in the panel's last column above POWER's lamp, where the column was
@@ -5262,7 +5268,7 @@ comparison tests unwanted high-band energy; it does not establish that LO matche
 every detail of ULTRA's spectrum.
 
 **Final checks and personal Mac installation, 2026-10-13:** independent DSP review
-signed off source commit `2e1520d`. All 315 non-ignored core and plug-in tests passed
+signed off the LO resonance foldover fix. All 315 non-ignored core and plug-in tests passed
 in debug; the four high-contour regressions passed with ngspice required, and the
 cutoff-fit regeneration passed explicitly. Clippy passed for the core, lab and plug-in,
 all targets, with and without all features. The old LO failed the high-band reproduction
@@ -5580,7 +5586,7 @@ between both layouts; editor checks cover actual CLAP, VST3 and standalone conte
 computer-keyboard note input. It replaces TYPE on the standalone button.
 
 **Integration follow-up, 2026-10-14.** The owner asked to include these UI fixes in
-the MIDI recovery build. Merge the keyboard feedback candidate `cf90cef` into
+the MIDI recovery build. Merge the keyboard feedback candidate with the TYPING label into
 the standalone development branch, preserving its icon, materials, pixel display,
 header alignment, grouped buttons, host-specific visibility and TYPING label.
 Retain R-TYPE's separate C-root octave and Z/X legend; TYPING continues through
@@ -8219,7 +8225,7 @@ persisted preferences. Engine history is still not restarted by INIT.
 **Owner authorisation, 2026-10-18.** Implement only issue 75's installed-version display in
 Settings. The changelog and What's New modal are outside this work.
 
-**Integration decision, 2026-10-18.** Keep `33cec21`'s Settings heading, derived from the
+**Integration decision, 2026-10-18.** Keep the installed-version candidate's Settings heading, derived from the
 existing `update::VERSION` (`CARGO_PKG_VERSION`), matching the plug-in's reported version.
 It remains visible independently of update status, including offline failure; opening the
 menu does not start an update check. The drawer still distinguishes a newer online version
@@ -10643,8 +10649,8 @@ differences below what can be heard.
    every factory preset's render changed (level within 0.1 dB). Accept it without levelling
    the presets again? (Recommended: yes.)
 
-**Evidence (the Mac, 2026-10-16; branch `lab/band-limiting`, commits `a16caea` and
-`4724718` on `bcb6c0b`):**
+**Evidence (the Mac, 2026-10-16; the switch-gated band-limiting candidate and its oscillator-cost probe,
+based on the then-current main):**
 - **Bit-identity.** `ca72-lab render` at 1x, 2x and 4x (A4 and A7) is the same to the byte as
   a build of `main`. `preset_render` renders all 19 factory presets the same to the bit at
   HI, LO and ULTRA (its QUALITY switch added on both sides for the check).
@@ -15660,7 +15666,7 @@ separately approved; HI unchanged, for the owner to decide (below).
   and makes the note at least twice as loud and no brighter (in HI, a sample late, it still
   grows harmonics, as R8 had it for every mode); the ends within the rails in all three. The
   threaded voice runs the same loop on the caller's thread (`threaded.rs`).
-- **HI.** HI's VCA runs at the sample rate; the same loop there needs it at 4x. An estimate
+- **HI (then; superseded by R-HI-FEEDBACK).** HI's VCA ran at the sample rate; the same loop there needed it at 4x. An estimate
   from the parts (another agent's, 2026-10-23) put that at 30 to 54 % more per FEEDBACK voice
   in HI. Left as it was until the owner chooses.
 
@@ -16894,6 +16900,7 @@ so the tripwire is run by hand.
 No code changes with this entry and no sample moves. plan.md and
 no-compromises-attempts.md, which gave the rule as current, now point here; history.md and
 numerics.md keep it as the record of its day.
+
 ## R-RETRIGGER-KEEP. Keep every key press striking; explain NOTE PRIORITY
 
 **Owner, 2026-10-30:** keep 0.3.0's behaviour. Every key press attacks, the standard
@@ -16910,9 +16917,9 @@ LAST selects the newly pressed key, bringing its pitch with the attack (and resp
 
 Two designs were tried and rejected:
 
-- `fdd57b4` tied re-attacks to changes of the sounding key. It removed the flam but also
+- The sounding-key-change design tied re-attacks to changes of the sounding key. It removed the flam but also
   re-attacked on key lifts, including returns to an earlier held key and chord releases.
-- `cc9b7c5` attacked only on presses that changed the sounding key, never on lifts. Silencing
+- The press-only sounding-key design attacked only on presses that changed the sounding key, never on lifts. Silencing
   the other presses made percussive rising overlaps fade out: Ray Gun was down about 22 dB
   and Pitch Tom about 15 dB by note 2. Their next pitches arrived without fresh contours.
 
@@ -16925,6 +16932,7 @@ Hardware evidence is limited. Behringer's [Model D user manual](https://synthman
 says multi-trigger on changes pitch and triggers the filter and loudness contours on a new
 note. No authoritative source was found for key-lift behaviour. This decision preserves
 CA-72's established behaviour; it does not claim a verified hardware rule for key lifts.
+
 ## R-CONTOUR-SPIKE. No Compromises' contours solve from their last solve
 
 `ca72-lab worst` put the contours over a sample's 20.8 us in their worst blocks, the slowest
@@ -17216,8 +17224,9 @@ harnesses do not form part of it.
   Funk by up to 1.852947 dB, every other one by at most 0.020684 dB (Wide Crash). LO's curves
   stay exact. Preset LEVEL values are not changed.
 - **Owner's follow-up, 2026-10-30:** keep the shared HI/ULTRA curve format, since HI now
-  lands on ULTRA; a third preset curve field is not justified. ULTRA's byte identity is
-  required with AUTO GAIN off and for saved sessions. A freshly chosen factory preset at
+  lands on ULTRA; a third preset curve field is not justified. For that isolated HI change, ULTRA's byte identity was
+  required with AUTO GAIN off and for saved sessions; R-ULTRA-HIFI supersedes that
+  identity requirement for the combined build. A freshly chosen factory preset at
   ULTRA can change only through the remeasured shared correction. The report lists each
   such render and measures every HI curve's error against an ULTRA measurement of the same
   preset, flagging any error over 0.1 dB.
@@ -17243,7 +17252,8 @@ harnesses do not form part of it.
   used 48.1 % of a 256-frame period, p99 60.2 %, no late blocks; in the loaded rounds its
   mean was 87 to 107 %, with 1,632 late blocks between them. This is not a real-time
   capacity guarantee. No audio-thread allocation in all 126 timing runs.
-- LO's 42 factory renders are byte-identical to 0999f30; so are all 42 ULTRA panels with
+- In that isolated HI implementation, LO's 42 factory renders are byte-identical to
+  the reduced-preamp baseline; so are all 42 ULTRA panels with
   AUTO GAIN off and all 42 with their original saved curves/state. Nine freshly loaded
   ULTRA presets change through the shared curves, by less than 0.000433 dB at their stored
   DRIVE. The shared curves' error against an independent ULTRA measurement exceeds 0.1 dB
@@ -17265,8 +17275,8 @@ review recorded in R-PREAMP-SOLVE.
 **The owner, 2026-10-30:** approved making QUALITY ULTRA use `Quality::HighFidelity`
 instead of `Quality::NoCompromises`. The word ULTRA stays. This supersedes R48's
 "no compromises" promise and the old renders' bit identity, not its circuit: the same
-oscillator and filter oversampling, contour substeps and VCA at 4x remain. HI and LO
-keep their samples. No Compromises remains the model's and the lab's numerical reference;
+oscillator and filter oversampling, contour substeps and VCA at 4x remain. This numerical switch alone keeps HI and LO
+samples; the combined branch also includes the separate HI and LO sound changes above. No Compromises remains the model's and the lab's numerical reference;
 `ca72-lab hifi` still compares each path against it.
 
 **Why:** the audit's feedback trials cost 67.4 % of a 256-frame period before and 46.6 %
@@ -17293,7 +17303,7 @@ reference comparisons are retained. Latency's attack comparison and the helpers'
 test cover both numerical modes; ULTRA's prototype and engine split tests cover the
 shipping mode, including actual helper CPU time on Linux.
 
-**The implementation's sound check (Linux, 2026-10-30):** all 42 factory presets at ULTRA,
+**The isolated implementation's sound check (Linux, 2026-10-30, before integration):** all 42 factory presets at ULTRA,
 forced POLY (four voices, two seconds) and as saved (4.5 seconds), changed level by at most
 0.0000015 dB; the worst null was -135 dB relative to the old render. All 42 presets at HI
 and LO were byte-identical to the published 0.3.0 binary (1.5 seconds each). The hardware
@@ -17302,7 +17312,8 @@ FEEDBACK takes at EXT 0, 5, 8 and 10 kept their third-octave distances: 0.3970, 
 helpers use CPU. No AUTO GAIN curve changes: all 42 presets keep the same HI/ULTRA key and
 the unchanged probe and curves. `hifi`'s audio differences are -149 to -188 dBFS, but its
 `perf-ext` reports two contour-root iteration caps in **both** modes and exits with a failure;
-this is retained as a finding, not suppressed. ngspice was absent, so no new SPICE comparison
+this was retained as a finding, not suppressed. R-CONTOUR-VTRIG fixes those caps;
+the combined build must re-run the comparison. ngspice was absent, so no new SPICE comparison
 is claimed.
 
 **The paired cost check:** on the i9-13900HX, 48 kHz / 256 frames, three alternating
@@ -17315,3 +17326,13 @@ CPUs busy in samples before the calls, so these are this machine's observed cost
 promise of real time. All 130,560 measured process blocks counted no audio-thread
 allocations. The audit's round-three report holds the runs, tails, settings and listening
 pairs; no listening verdict is claimed.
+
+**Combined-build check (2026-10-30):** with R-CONTOUR-VTRIG and R-PREAMP-SOLVE together,
+`ca72-lab hifi` passes all eight scenarios. Peak audio errors span -148.8 to -187.6 dBFS;
+the worst-load case is -152.6 dBFS, with zero sample lag. This remeasurement replaces
+the isolated implementation's contour-cap failure above; it does not establish a
+universal null for chaotic feedback. The integration report holds the complete results.
+The combined `CA72_WRITE_CURVES` measurement reproduces every merged array exactly;
+against main, 42 shared HI/ULTRA curves and six LO curves change. Largest corrections
+are Feedback Funk's -1.852947 dB in HI and Droning On's +0.2524872 dB in LO. Preset LEVEL
+values stay unchanged. `ca72-lab solvers` reports no solve stopped at its cap (`[]`).
