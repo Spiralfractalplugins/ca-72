@@ -17400,3 +17400,14 @@ oversampling, scheduling or latency changes. The existing 256 KB test remains th
 acceptance guard; its stack allowance is not increased. Allocation remains outside
 audio processing. Release validation must check that guard, real-time allocation
 regressions and reference audio before this storage fix is accepted.
+
+Validation on Windows 11, Rust/MSVC 1.97.1: the unchanged guard fails on the original
+candidate and passes with heap storage, without diagnostic markers. The full CLAP
+host suite passes 14 tests (one existing manual stress test ignored). A separate
+loader of the original CI-built optimized CLAP also passes the same 256 KB lifecycle
+case; the reproduced failure concerns the unoptimized test build, not an observed
+crash of that optimized DLL. The fixed Linux build passes both real-time allocation
+tests and both split-VCA pair/handoff regressions, and 15 complete WAV captures match
+`c48879c` byte for byte across LO/HI/ULTRA, feedback, resonance and driven cases.
+Strict all-feature workspace clippy passes. CPU cost has not been remeasured for
+this storage change; the audit's timing figures remain attributed to `c48879c`.
