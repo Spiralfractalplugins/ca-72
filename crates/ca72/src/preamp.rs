@@ -358,6 +358,8 @@ pub struct Preamp {
     lamp: Circuit,
     dt: f64,
     up: Interpolator,
+    /// Consecutive zero jack samples. At 128, both finite FIR histories are zero.
+    up_zero: usize,
     down_amp: Decimator,
     down_out: Decimator,
     last: (f64, f64),
@@ -486,6 +488,7 @@ impl Preamp {
         lr(&mut l, L15, LAMP, k.r_lamp);
         l.dc()?;
         let up = Interpolator::new(SUBSTEPS);
+        assert!(2.0 * up.delay() + 1.0 < 128.0, "zero-jack FIR flush bound");
         let down_amp = Decimator::new(SUBSTEPS);
         let latency = up.delay() + down_amp.delay();
         Ok(Preamp {
@@ -495,6 +498,7 @@ impl Preamp {
             lamp: l,
             dt: 1.0 / rate,
             up,
+            up_zero: 128,
             down_amp,
             down_out: Decimator::new(SUBSTEPS),
             last: (0.0, 0.0),
@@ -570,6 +574,17 @@ impl Preamp {
     /// The jack's voltage after R9's divider (as [`Preamp::tick`] takes it) at the substeps'
     /// rate, through its interpolator: for [`Preamp::fine`].
     pub fn upsample(&mut self, v_in: f64) -> [f64; SUBSTEPS] {
+        // At 4x the two FIR histories cover fewer than 128 input samples. Once all
+        // are zero, their output is exactly +0, and the ring positions are immaterial.
+        // HI only (the plug-in maps it to Potato); ULTRA keeps its original work.
+        if v_in == 0.0 && self.up_zero == 128 && self.plain.is_some() {
+            return [0.0; SUBSTEPS];
+        }
+        self.up_zero = if v_in == 0.0 {
+            (self.up_zero + 1).min(128)
+        } else {
+            0
+        };
         let mut fine = [0.0; SUBSTEPS];
         self.up.push(v_in, &mut fine);
         fine
@@ -627,6 +642,7 @@ impl Preamp {
         }
         let h = self.dt / SUBSTEPS as f64;
         let mut fine = [0.0; SUBSTEPS];
+        self.up_zero = 0;
         self.up.push(v_in, &mut fine);
         let (mut amp, mut out) = self.last;
         for &x in &fine {
@@ -850,6 +866,46 @@ mod plain_calibration {
         for (pin, lit) in [(0.017, false), (0.03, true)] {
             let o = run(pin, 100e3);
             assert_eq!((o[0].3 > 0.5, o[1].3 > 0.5), (lit, lit), "{pin} V: {o:?}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod zero_jack_tests {
+    use super::*;
+
+    #[test]
+    fn zero_jack_shortcut_preserves_fir_tails_and_reentry_to_the_bit() {
+        let mut p = Preamp::new(PreampCircuit::default(), 48_000.0, 0.0)
+            .expect("the preamplifier operating point");
+        p.set_quality(crate::voice::Quality::Potato);
+        let mut reference = p.up.clone();
+        for i in 0..4096 {
+            // Nonzeros and signed zeros straddle the flush threshold. Quality switches
+            // reset both histories; exercise these at different points in the stream.
+            if i == 656 {
+                p.set_quality(crate::voice::Quality::HighFidelity);
+                reference.reset();
+            }
+            if i == 1833 {
+                p.set_quality(crate::voice::Quality::Potato);
+                reference.reset();
+            }
+            let x = match i % 521 {
+                128 => 0.25,
+                257 => -0.75,
+                258 => 1e-300,
+                400 => -0.0,
+                _ => 0.0,
+            };
+            let mut expected = [0.0; SUBSTEPS];
+            reference.push(x, &mut expected);
+            let actual = p.upsample(x);
+            assert_eq!(
+                actual.map(f64::to_bits),
+                expected.map(f64::to_bits),
+                "sample {i}"
+            );
         }
     }
 }
