@@ -253,6 +253,8 @@ pub struct Vco {
     /// in use.
     table: Option<std::sync::Arc<crate::expo::ConverterTable>>,
     pub table_on: bool,
+    /// Last table lookup, keyed by the exact drive, trims and temperature.
+    table_last: Option<([u64; 4], (f64, f64))>,
     // State.
     v: f64,
     hold_left: f64,
@@ -323,6 +325,7 @@ impl Vco {
             other: oversample,
             table: None,
             table_on: false,
+            table_last: None,
             dec_other: [
                 Decimator::for_oscillators(oversample),
                 Decimator::for_oscillators(oversample),
@@ -368,6 +371,7 @@ impl Vco {
         static TABLES: crate::shared::Shared<(ExpoCircuit, u64), ConverterTable> =
             crate::shared::Shared::new();
         let (expo, celsius) = (self.expo, self.celsius);
+        self.table_last = None;
         self.table = Some(TABLES.get((expo, celsius.to_bits()), || {
             ConverterTable::new(&expo, celsius)
         }));
@@ -507,13 +511,24 @@ impl Vco {
         // (Potato: from the converter's table, where it has the drive; the solves' cache
         // looked in only without it.)
         let from_table = if self.table_on {
-            self.table.as_ref().and_then(|t| {
-                t.lookup(
-                    &self.expo,
-                    self.celsius,
-                    self.expo.drive_u(i_in, self.celsius),
-                )
-            })
+            let u = self.expo.drive_u(i_in, self.celsius);
+            let key = [
+                u.to_bits(),
+                self.expo.r11.to_bits(),
+                self.expo.a8.to_bits(),
+                self.celsius.to_bits(),
+            ];
+            match self.table_last {
+                Some((k, value)) if k == key => Some(value),
+                _ => {
+                    let value = self
+                        .table
+                        .as_ref()
+                        .and_then(|t| t.lookup(&self.expo, self.celsius, u));
+                    self.table_last = value.map(|v| (key, v));
+                    value
+                }
+            }
         } else {
             None
         };
