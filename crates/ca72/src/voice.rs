@@ -830,7 +830,7 @@ fn shape_outputs(n: usize, at: f64, modulated: bool) -> [bool; 3] {
     if at >= 3.0 {
         return place(3);
     }
-    let k = at.floor() as usize;
+    let k = at as usize;
     if at == k as f64 {
         return place(k);
     }
@@ -862,7 +862,7 @@ fn shape_source(n: usize, at: f64, o: &VcoOut, rev: Option<&RevSawOut>) -> (f64,
     if at >= 3.0 {
         return place(3);
     }
-    let k = at.floor() as usize;
+    let k = at as usize;
     let w = at - k as f64;
     if w == 0.0 {
         return place(k);

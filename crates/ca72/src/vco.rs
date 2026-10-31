@@ -157,7 +157,8 @@ impl Default for ShaperParams {
 pub fn triangle(buf: f64) -> f64 {
     let t = &tables::TRI;
     let x = (buf - tables::TRI_MIN) / tables::TRI_STEP;
-    let i = (x.floor() as isize).clamp(1, t.len() as isize - 3) as usize;
+    // Below segment 1, the clamp makes truncation and floor select the same segment.
+    let i = (x as isize).clamp(1, t.len() as isize - 3) as usize;
     let f = (x - i as f64).clamp(0.0, 1.0);
     let (p0, p1, p2, p3) = (t[i - 1], t[i], t[i + 1], t[i + 2]);
     p1 + 0.5

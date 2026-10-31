@@ -1927,7 +1927,8 @@ pub fn table_hermite(t: &[f64], min: f64, step: f64, x: f64) -> (f64, f64) {
         let s = (t[n - 1] - t[n - 2]) / step;
         return (t[n - 1] + s * (x - min - step * (n - 1) as f64), s);
     }
-    let i = (u.floor() as usize).min(n - 2);
+    // u is positive here; the integer cast already takes its floor.
+    let i = (u as usize).min(n - 2);
     let f = u - i as f64;
     let m = |k: usize| {
         let a = if k == 0 { t[0] } else { t[k - 1] };
