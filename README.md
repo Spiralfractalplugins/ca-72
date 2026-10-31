@@ -19,7 +19,9 @@ It is free software under the GNU General Public License, version 3 or later. Co
 2026 Idle Foundry Ltd.
 
 **Next 0.3.x (draft):** ULTRA uses High Fidelity numerics for lower CPU cost, with the same
-circuit and 86-sample latency. HI and LO keep their samples.
+circuit and 86-sample latency. HI uses a band-limited 2x VCA on normal voices and the
+exact 4x preamplifier loop with FEEDBACK. HI and LO include the circuit fixes below;
+HI costs more than 0.3.0 (decisions.md R-HI-COST).
 
 **Status:** 0.2.6: same sound, lighter on your computer: output bit-identical to 0.2.5, HI up to
 17 % lighter on a Mac and 9 % on Windows and Linux, smoother with several instances, and a panel
@@ -902,7 +904,8 @@ The service documents and datasheets the model was derived from are not included
   No Compromises quality remains in `crates/ca72` and the lab as the numerical reference.
   Chaotic feedback can diverge sample by sample even from another seed of itself; the
   -120 dBFS limit describes the measured paths, not a null of every feedback patch.
-  HI's VCA runs at the filter's rate (4x), including the closed FEEDBACK loop; its
+  HI's open-loop VCA runs at 2x between the decimator's stages; the closed FEEDBACK
+  loop retains the exact preamplifier and VCA at 4x. Its
   preamplifier uses the exact reduced solve there and a plain model for the OVERLOAD
   lamp (R-HI-FEEDBACK).
 - **Potato mode (QUALITY at LO) is close to the circuit, not the same**

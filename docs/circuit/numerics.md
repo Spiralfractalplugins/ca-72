@@ -769,10 +769,32 @@ High Fidelity voices play in real time at 256 frames, and about 50 Potato voices
 
 ## HI's VCA and closed FEEDBACK loop (2026-10-30)
 
-HI runs its VCA on the filter's four samples before decimation, including paired POLY
-filters. With FEEDBACK and EXTERNAL INPUT on, the preamplifier's exact reduced solve runs
-between those steps, at HI's unchanged absolute and relative tolerance of 1e-5. Its
+HI's open-loop VCA runs at 2x between a 47-tap first decimator stage and the unchanged
+79-tap final stage, including paired POLY filters. With FEEDBACK and EXTERNAL INPUT on,
+the VCA and preamplifier's exact reduced solve run at the filter's four steps, at HI's unchanged absolute and relative tolerance of 1e-5. Its
 100-iteration cap and h/16 retry are unchanged; no fitted audio model enters this loop.
 Only the OVERLOAD lamp uses the plain peak detector. FEEDBACK voices run alone; the normal
 HI filters still pair. Reported latency remains 86 samples. See decisions.md R-HI-FEEDBACK
 for the measurements and the owner's choice of accuracy over the fitted preamplifier.
+
+
+### HI's open-loop cost reduction (2026-10-30)
+
+The first FIR uses a 0.1875-cycle/input cutoff to limit ultrasonic energy before the
+2x VCA. The longer FIR's three host samples replace three samples of output holdback;
+closed HI gets a matching output pad outside its loop. Bias history follows the same
+delay. Serial and paired filters use the same split helper; reported latency stays 86.
+
+Only plain 2x raw VCA calls use a 1e-5 Newton tolerance in place of 1e-9 and the local
+Early-ratio log series, 2 atanh((a-b)/(a+b)) through z^9. Other calls retain their
+original tolerance and log. This is not bit-identical. The owner's audit storage,
+`fixes/hi-cost/lanes/REPORT.md`, measures maximum gain-law movement 4.602350918e-8 dB,
+active harmonic movement 0.0002835275263 dB and transition output delta 3.4371e-9.
+These finite component/preset tests do not certify arbitrary custom circuit parameters.
+
+Converter memo keys retain all lookup arguments by exact bits and clear on prepare.
+Positive table indices use a cast without a redundant floor. Independent transistor
+exponentials preserve each scalar polynomial's arithmetic order in safe array lanes;
+strict/libm and diagnostic counting retain scalar evaluation. HI's zero-jack shortcut
+requires the finite FIR history to flush and invalidates on nonzero input. None of
+these exact steps adds a fitted audio model, new ISA requirement or runtime switch.

@@ -1265,7 +1265,7 @@ pub struct BackPart {
     vcf: Vcf,
     /// The VCA's signal path ([`Vca::signal`]) on the bias [`ControlPart`] works out: at the
     /// filter's rate in ULTRA and closed HI feedback; at 2x between the output FIRs
-    /// in open HI (LAB, docs/lab/hi-vca-2x.md).
+    /// in open HI (docs/circuit/numerics.md).
     vca: Vca,
     vca_4x: OversampledVca,
     vca_2x: OversampledVca,
@@ -2163,7 +2163,7 @@ fn oversampling(q: Quality) -> (usize, usize) {
 /// How late the voice's sound comes out at a quality, samples: the oscillators'
 /// band-limiting and decimators, and the filter's resamplers either side of it
 /// (decisions.md R-LATENCY; the circuit's own delays, the filter's phase among them, are
-/// the sound's, not this). 63.5 in Potato, 85.75 in the others in the HI 2x lab.
+/// the sound's, not this). 63.5 in Potato, 85.75 in the others with HI's split 2x VCA.
 pub fn latency(q: Quality) -> f64 {
     let (to_filter, out) = filter_resamplers(q);
     oscillator_latency(q) + to_filter + out

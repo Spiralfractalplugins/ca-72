@@ -7,7 +7,8 @@ separately approved.
 
 **Current quality mapping (2026-10-30 integration):** ULTRA uses High Fidelity, with
 No Compromises retained as the model/lab numerical reference (R-ULTRA-HIFI). HI's VCA
-and exact FEEDBACK loop run at the filter's 4x rate (R-HI-FEEDBACK). Entries below
+runs at 2x on open voices; its exact FEEDBACK loop runs at 4x (R-HI-COST,
+R-HI-FEEDBACK). Entries below
 record their dates: older sample-rate HI, delayed HI loop and bit-exact ULTRA claims
 are historical and superseded by those decisions.
 
@@ -17190,7 +17191,11 @@ render by -13.7 dBFS, the code before from itself as the new code from it. That 
 weakness of the circuit's steps at that drive, and it is not changed here.
 
 
-## R-HI-FEEDBACK. HI's VCA at the filter's rate, the exact preamplifier inside its loop
+## R-HI-FEEDBACK. HI's oversampled VCA, the exact preamplifier inside its loop
+
+**Follow-up, 2026-10-30:** R-HI-COST replaces the open-loop 4x VCA below with a
+band-limited 2x path. The exact closed 4x FEEDBACK loop remains. The figures below
+are attributed to the earlier isolated implementation, before that cost reduction.
 
 **Reason, 2026-10-30.** HI's filter already ran at 4x, but its VCA ran after the filter's
 resampler at the sample rate. It added aliasing to high notes. FEEDBACK returned a sample at
@@ -17336,3 +17341,46 @@ The combined `CA72_WRITE_CURVES` measurement reproduces every merged array exact
 against main, 42 shared HI/ULTRA curves and six LO curves change. Largest corrections
 are Feedback Funk's -1.852947 dB in HI and Droning On's +0.2524872 dB in LO. Preset LEVEL
 values stay unchanged. `ca72-lab solvers` reports no solve stopped at its cap (`[]`).
+
+
+## R-HI-COST. HI's open-loop VCA at 2x, exact FEEDBACK retained
+
+**The owner's decisions, 2026-10-30:** accept normal HI voices at about 1.02–1.07
+times 0.3.0's CPU and FEEDBACK at about 1.28–1.68 times, keeping the exact
+preamplifier in that loop. No fitted preamplifier and no profile-guided build.
+These are the accepted measured tradeoffs, not a claim of CPU parity with 0.3.0.
+
+**Why 2x:** the 4x open-loop VCA made normal HI unnecessarily costly. A 47-tap
+lower-cutoff first FIR suppresses ultrasonic input before the 2x circuit VCA; the
+unchanged 79-tap final FIR retains the output stopband. DRIVE aliasing moves from
+-61.7 to -60.0 dBc at 48 kHz and -61.0 to -58.3 at 44.1 kHz, still better than
+ULTRA's -57.1 and -56.4 dBc respectively. These figures, and the accepted CPU
+multiples, are attributed to the owner's `fixes/hi-cost/lanes/REPORT.md` and
+`fixes/hi-cost/vca2x/ROUND2-REPORT.md`: one Linux i9-13900HX laptop, bundle profile
+for CPU. They are not measurements of every platform or host.
+
+**Retained:** exact oscillator converter memo, positive-index floor removal, exact
+transistor exponential lanes and the flushed zero-jack FIR shortcut. The separate
+plain 2x VCA tolerance step (1e-9 to 1e-5) and local Early log series are not
+bit-identical: that report measures up to 2.740483856e-8 dB preset level change,
+7.852440577e-8 dB active-third-octave distance and 3.4371e-9 transition output
+delta. Maximum isolated harmonic movement is 0.0002835275263 dB; the largest
+positive movement away from the strict reference is 0.00000379 dB. The exact
+4x FEEDBACK solve, tolerances, cap and retry stay unchanged. Latency stays 86.
+
+**Rejected:** folded VCA pair (harmonics moved 10–25 dB); one-Newton VCA (isolated harmonic errors up to 8.73 dB) and
+filter predictor (non-chaotic FM null -99.09 dBFS RMS, outside its sound limit); fitted preamplifier (five
+of 54 lock notes changed); PGO (mixed training slowed HI; HI-only training improved HI but increased
+observed ULTRA POLY overruns, so it was not accepted for release); VCA coefficient cache (roughly 250 extra lines without a reliable
+bundle saving). Sharper halfbands alone admitted the ultrasonic energy that folds
+inside the 2x nonlinear solve. Lower first-stage cutoffs moved clean-saw scores;
+shortening the last FIR weakened its stopband. AVX, extra ladder/FIR lanes and
+inlining trials did not earn a shipped benefit. No experiment switch or audit
+harness is retained. Detailed trials are attributed to the owner's `fixes/hi-cost/`
+reports; numerical details are in circuit/numerics.md.
+
+**Calibration:** remeasure factory AUTO GAIN curves on the final implementation;
+retain exact assertions, the shared HI/ULTRA format and every preset LEVEL.
+Shared curve changes can affect newly selected ULTRA presets with AUTO GAIN;
+compare unchanged saved curves separately from this deliberate calibration change.
+Listening, cross-platform/host validation and the owner's merge decision remain.
