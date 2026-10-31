@@ -354,7 +354,9 @@ pub struct Preamp {
     /// The preamplifier's circuit: its netlist and operating point, and where [`Reduced`],
     /// which solves it, counts its solves (for profiles).
     net: Circuit,
-    amp: Reduced,
+    // Keep the reduced solver off a host's small stack when worker templates
+    // clone a voice. Its allocation and clones happen outside audio processing.
+    amp: Box<Reduced>,
     lamp: Circuit,
     dt: f64,
     up: Interpolator,
@@ -493,7 +495,7 @@ impl Preamp {
         let latency = up.delay() + down_amp.delay();
         Ok(Preamp {
             circuit,
-            amp: Reduced::new(&c, 1.0 / rate / SUBSTEPS as f64),
+            amp: Box::new(Reduced::new(&c, 1.0 / rate / SUBSTEPS as f64)),
             net: c,
             lamp: l,
             dt: 1.0 / rate,

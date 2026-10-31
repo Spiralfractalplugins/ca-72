@@ -17384,3 +17384,19 @@ retain exact assertions, the shared HI/ULTRA format and every preset LEVEL.
 Shared curve changes can affect newly selected ULTRA presets with AUTO GAIN;
 compare unchanged saved curves separately from this deliberate calibration change.
 Listening, cross-platform/host validation and the owner's merge decision remain.
+
+## R-HOST-STACK-REDUCED. Heap storage for the reduced preamplifier state
+
+PR #147's Windows MSVC CI aborts in the unchanged 256 KB CLAP host-thread lifecycle
+regression. An independent Windows build of `c48879c` reproduces it; diagnostic markers
+locate the overflow in `Engine::start_workers`, after voice preparation has returned.
+The reduced preamplifier increased each voice's inline size, and cloning a worker's
+template on the caller's thread can keep several voice-sized temporaries live there.
+
+`Preamp` now owns its `Reduced` solver in a `Box`, allocated during preparation. Its
+state is still deep-cloned with the voice, but is no longer part of those inline
+copies. No equation, coefficient, solver tolerance, iteration order, retry policy,
+oversampling, scheduling or latency changes. The existing 256 KB test remains the
+acceptance guard; its stack allowance is not increased. Allocation remains outside
+audio processing. Release validation must check that guard, real-time allocation
+regressions and reference audio before this storage fix is accepted.
