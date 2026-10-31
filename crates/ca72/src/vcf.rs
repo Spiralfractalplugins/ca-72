@@ -1257,6 +1257,8 @@ pub struct Vcf {
     up_n: Interpolator,
     up_g: Interpolator,
     down: Decimator,
+    /// The caller consumes the oversampled output through HI's split VCA instead.
+    pub split_output: bool,
     /// Another oversampling and its resamplers ([`Vcf::prepare`], [`Vcf::set_oversample`]).
     other: usize,
     other_rs: (Interpolator, Interpolator, Decimator),
@@ -1326,6 +1328,7 @@ impl Vcf {
             up_n,
             up_g: Interpolator::new(os),
             down: Decimator::new(os),
+            split_output: false,
             other: os,
             other_rs: (
                 Interpolator::new(os),
@@ -1528,7 +1531,9 @@ impl Vcf {
             if let Some(xs) = xs.as_deref_mut() {
                 xs[k] = v;
             }
-            if let Some(o) = self.down.push(v) {
+            if !self.split_output
+                && let Some(o) = self.down.push(v)
+            {
                 out = o;
             }
             laps.lap(Part::FilterResample);
@@ -1751,12 +1756,20 @@ impl Vcf {
             );
             let va = a.filter_mode(nsa[k], va);
             xsa[k] = va;
-            if let Some(o) = a.down.push(va) {
+            if let Some(o) = if a.split_output {
+                None
+            } else {
+                a.down.push(va)
+            } {
                 oa = o;
             }
             let vb = b.filter_mode(nsb[k], vb);
             xsb[k] = vb;
-            if let Some(o) = b.down.push(vb) {
+            if let Some(o) = if b.split_output {
+                None
+            } else {
+                b.down.push(vb)
+            } {
                 ob = o;
             }
         }

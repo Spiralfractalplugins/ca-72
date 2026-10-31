@@ -1264,9 +1264,21 @@ pub struct FrontOut {
 pub struct BackPart {
     vcf: Vcf,
     /// The VCA's signal path ([`Vca::signal`]) on the bias [`ControlPart`] works out: at the
-    /// filter's rate in HI and ULTRA (decisions.md R-HI-FEEDBACK, R-BLEP).
+    /// filter's rate in ULTRA and closed HI feedback; at 2x between the output FIRs
+    /// in open HI (LAB, docs/lab/hi-vca-2x.md).
     vca: Vca,
     vca_4x: OversampledVca,
+    vca_2x: OversampledVca,
+    split_first: crate::resample::Halfband,
+    split_last: crate::resample::Halfband,
+    split_bias: [VcaDrive; 8],
+    split_at: usize,
+    split_active: bool,
+    split_mix: f64,
+    split_warm: usize,
+    split_target: bool,
+    loop_pad: [f64; 3],
+    loop_at: usize,
     /// The filter's samples at its rate from [`Voice::filter_pair`], for
     /// [`BackPart::after_filter`].
     xs: [f64; 8],
@@ -1496,6 +1508,17 @@ impl Voice {
                         f
                     },
                     vca_4x: OversampledVca::new(&vca, ULTRA_VCA_OVERSAMPLING),
+                    vca_2x: OversampledVca::new(&vca, 2),
+                    split_first: crate::resample::Halfband::lowpass(47, 10.06, 0.1875),
+                    split_last: crate::resample::Halfband::new(79, 10.06),
+                    split_bias: [VcaDrive::default(); 8],
+                    split_at: 0,
+                    split_active: false,
+                    split_mix: 0.0,
+                    split_warm: 0,
+                    split_target: true,
+                    loop_pad: [0.0; 3],
+                    loop_at: 0,
                     xs: [0.0; 8],
                     vca,
                     ultra: false,
@@ -2140,7 +2163,7 @@ fn oversampling(q: Quality) -> (usize, usize) {
 /// How late the voice's sound comes out at a quality, samples: the oscillators'
 /// band-limiting and decimators, and the filter's resamplers either side of it
 /// (decisions.md R-LATENCY; the circuit's own delays, the filter's phase among them, are
-/// the sound's, not this). 60.5 in Potato, 85.75 in the others.
+/// the sound's, not this). 63.5 in Potato, 85.75 in the others in the HI 2x lab.
 pub fn latency(q: Quality) -> f64 {
     let (to_filter, out) = filter_resamplers(q);
     oscillator_latency(q) + to_filter + out
@@ -2155,23 +2178,24 @@ fn oscillator_latency(q: Quality) -> f64 {
 }
 
 /// The filter's resamplers' delays at a quality, samples (its input's interpolator, its
-/// output's decimator: [`crate::vcf::Vcf::latency`] together): 22.25 and 22.25.
+/// output's decimator: [`crate::vcf::Vcf::latency`] together): 22.25 and 22.25,
+/// with three more output samples for HI's split first stage or closed-loop pad.
 fn filter_resamplers(q: Quality) -> (f64, f64) {
     use crate::resample::{Decimator, Interpolator, LAST_HALFBAND};
     let os = oversampling(q).1;
     (
         Interpolator::delay_of(os),
-        Decimator::delay_of(os, LAST_HALFBAND),
+        Decimator::delay_of(os, LAST_HALFBAND) + if q == Quality::Potato { 3.0 } else { 0.0 },
     )
 }
 
 /// How many samples HI's and LO's sound (Potato's and the light model's) is held back at the
 /// plug-in's output so that it comes out with ULTRA's (decisions.md R-LATENCY): ULTRA's
-/// oscillators' sound reaches the output 26.0 samples after HI's and 39.0 after LO's at
-/// 44.1, 48 and 96 kHz, measured (the plug-in's `tests/latency.rs`, which holds it): 25.25
+/// oscillators' sound reaches the output 23.0 samples after HI's and 39.0 after LO's at
+/// 44.1, 48 and 96 kHz (the plug-in's `tests/latency.rs` holds the alignment): 22.25
 /// and 38.5 of it the oscillators' and the filters' resamplers ([`latency`], the light
 /// model's filter's), the rest the filters' own phase, a little less in the cheaper models.
-pub const LINE_UP: (usize, usize) = (26, 39);
+pub const LINE_UP: (usize, usize) = (23, 39);
 
 /// How late the contours reach what they shape, samples (decisions.md R-LATENCY), less the
 /// delay of their own sub-rate (`every` samples a tick, interpolated: `every` - 1):
@@ -2185,7 +2209,8 @@ pub const LINE_UP: (usize, usize) = (26, 39);
 /// In HI and ULTRA the VCA's bias reaches the output [`vca_bias_latency`] later, through its VCA's
 /// decimator, so its loudness contour comes that much earlier.
 ///
-/// At 48 kHz: 31.25 and 29.75 in Potato, 62.5 and 61.75 in the others.
+/// At 48 kHz: 31.25 and 29.75 in Potato, 62.5 and 61.75 in the others. The
+/// lab adds three samples to both HI signal paths and removes three from its holdback.
 fn contour_delays(audio: Quality, every: usize) -> (f64, f64) {
     let own = every as f64 - 1.0;
     let (to_filter, _) = filter_resamplers(audio);
@@ -2200,10 +2225,10 @@ fn contour_delays(audio: Quality, every: usize) -> (f64, f64) {
     )
 }
 
-/// ULTRA's VCA's oversampling (decisions.md R-BLEP): the filter's.
+/// The closed-loop VCA's oversampling (decisions.md R-BLEP): the filter's.
 const ULTRA_VCA_OVERSAMPLING: usize = 4;
 
-/// Whether the VCA runs at the filter's rate: HI (Potato), ULTRA (High Fidelity),
+/// Whether the VCA takes the filter's oversampled output: HI (Potato), ULTRA (High Fidelity),
 /// and the No Compromises reference. LO uses the light model.
 fn vca_oversampled(q: Quality) -> bool {
     matches!(
@@ -2213,11 +2238,12 @@ fn vca_oversampled(q: Quality) -> bool {
 }
 
 /// How much later than at the sample rate the VCA's bias reaches the output at a quality,
-/// samples: in ULTRA through its VCA's decimator ([`OversampledVca::bias_latency`], 23), so
-/// its loudness contour comes that much earlier; in the others none.
+/// samples: 23 through the 4x decimator, and three more for HI's alignment pad
+/// (or the 2x path's matching bias history), so its loudness contour comes earlier.
 fn vca_bias_latency(q: Quality) -> f64 {
     if vca_oversampled(q) && oversampling(q).1 == ULTRA_VCA_OVERSAMPLING {
         OversampledVca::bias_latency(ULTRA_VCA_OVERSAMPLING)
+            + if q == Quality::Potato { 3.0 } else { 0.0 }
     } else {
         0.0
     }
@@ -2434,13 +2460,18 @@ pub(crate) fn tick_looped(
         back.vca_4x.take_over(&back.vca, back.last_out);
         back.ultra = true;
     }
+    if p.quality == Quality::Potato {
+        back.route_split(false);
+    }
     back.vca_4x.set_a440(a440);
     back.vca_4x.set_plain(p.quality != Quality::NoCompromises);
     let ramp = back.vca_4x.start(d);
     let mut out = 0.0;
+    let mut xs = [0.0; 8];
     let BackPart { vcf, vca_4x, .. } = back;
     let preamp = &mut pre.preamp;
     let y = vcf.tick_fed(f.i_bus, f.g_bus, f.i0, &mut pre.i_fed, |k, v| {
+        xs[k] = v;
         let (y, o) = vca_4x.step(&ramp, k, v);
         if let Some(o) = o {
             out = o;
@@ -2451,6 +2482,17 @@ pub(crate) fn tick_looped(
     pre.overload = o.lamp;
     pre.overload_peak = pre.overload_peak.max(o.lamp);
     pre.ext_amp = o.amp;
+    let out = if p.quality == Quality::Potato {
+        let full = back.pad_loop(out);
+        let two = if back.split_mix < 1.0 {
+            back.split_signal(&xs, d, a440)
+        } else {
+            full
+        };
+        back.mix_split(two, full)
+    } else {
+        out
+    };
     back.last_out = out;
     (f, y, out / 5.0)
 }
@@ -2734,6 +2776,91 @@ impl FrontPart {
 }
 
 impl BackPart {
+    fn pad_loop(&mut self, x: f64) -> f64 {
+        let y = self.loop_pad[self.loop_at];
+        self.loop_pad[self.loop_at] = x;
+        self.loop_at = (self.loop_at + 1) % 3;
+        y
+    }
+
+    // Warm the entering history before fading. A reversal during the fade keeps both
+    // running states and reverses the same weight, including automation faster than it.
+    fn route_split(&mut self, two: bool) {
+        if two == self.split_target {
+            return;
+        }
+        if self.split_mix == 0.0 && self.split_warm == 0 && !two {
+            self.vca_2x.hand_over(&mut self.vca);
+            self.vca_4x.take_over(&self.vca, self.last_out);
+            self.loop_pad.fill(self.last_out);
+            self.split_warm = 64;
+        } else if self.split_mix == 1.0 && self.split_warm == 0 && two {
+            self.vca_4x.hand_over(&mut self.vca);
+            self.vca_2x.take_over(&self.vca, self.last_out);
+            self.split_warm = 64;
+        }
+        self.split_target = two;
+    }
+
+    fn mix_split(&mut self, two: f64, full: f64) -> f64 {
+        let t = self.split_mix;
+        let w = t * t * (3.0 - 2.0 * t);
+        let out = two + w * (full - two);
+        if self.split_warm != 0 {
+            self.split_warm -= 1;
+        } else if self.split_target {
+            self.split_mix = (t - 1.0 / 128.0).max(0.0);
+        } else {
+            self.split_mix = (t + 1.0 / 128.0).min(1.0);
+        }
+        out
+    }
+
+    fn output_signal(&mut self, p: &Panel, xs: &[f64; 8], d: &VcaDrive, a440: f64) -> f64 {
+        if p.quality != Quality::Potato {
+            return self.vca_4x.signal(xs, d);
+        }
+        self.route_split(true);
+        let two = self.split_signal(xs, d, a440);
+        if self.split_mix == 0.0 && self.split_warm == 0 {
+            return two;
+        }
+        let full = self.vca_4x.signal(xs, d);
+        let full = self.pad_loop(full);
+        self.mix_split(two, full)
+    }
+
+    // 47 taps at 4x add three host samples over the old 23 taps. The final 79
+    // stay intact; LINE_UP gives those three samples back at the plug-in output.
+    fn split_signal(&mut self, xs: &[f64; 8], d: &VcaDrive, a440: f64) -> f64 {
+        if !self.split_active {
+            self.vca_4x.hand_over(&mut self.vca);
+            self.vca_2x.take_over(&self.vca, self.last_out);
+            self.split_bias.fill(*d);
+            self.split_active = true;
+        }
+        // Six samples of bias history match the 4x path and its three-sample output pad.
+        self.split_bias[self.split_at] = *d;
+        let delay = 6;
+        let delayed = self.split_bias[(self.split_at + 8 - delay) % 8];
+        self.split_at = (self.split_at + 1) % 8;
+        self.vca_2x.set_a440(a440);
+        self.vca_2x.set_plain(true);
+        let ramp = self.vca_2x.start(&delayed);
+        let mut k = 0;
+        let mut out = 0.0;
+        for &x in &xs[..4] {
+            if let Some(v) = self.split_first.push(x) {
+                let v = self.vca_2x.raw(&ramp, k, v);
+                if let Some(o) = self.split_last.push(v) {
+                    out = o;
+                }
+                k += 1;
+            }
+        }
+        out
+    }
+
     /// The back over one sample: the front's `f` and the VCA's bias `d` (from
     /// [`ControlPart`]). The filter's output, V, and the output sample.
     pub fn tick(&mut self, p: &Panel, f: &FrontOut, d: &VcaDrive) -> (f64, f64) {
@@ -2743,6 +2870,7 @@ impl BackPart {
         self.vcf.set_oversample(oversampling(p.quality).1);
         self.vcf.set_quality(p.quality);
         self.vcf.high_pass = p.filter_hi;
+        self.vcf.split_output = p.quality == Quality::Potato;
         let ultra = vca_oversampled(p.quality) && self.vcf.oversample() == ULTRA_VCA_OVERSAMPLING;
         let a440 = self.a440.tick(p.a440);
         if ultra != self.ultra {
@@ -2755,14 +2883,15 @@ impl BackPart {
             self.ultra = ultra;
         }
         let (y, out) = if ultra {
-            // ULTRA: the VCA at the filter's rate on the filter's own samples; the filter's
-            // decimator still gives its output (the probe's, and HI's after a switch).
+            // The filter's own samples: HI decimates before its 2x VCA, ULTRA after
+            // its 4x VCA. HI's unused host-rate filter probe is not evaluated.
             let mut xs = [0.0f64; 8];
             let y = self.vcf.tick_oversampled(f.i_bus, f.g_bus, f.i0, &mut xs);
             laps.lap(crate::prof::Part::Filter);
             self.vca_4x.set_a440(a440);
             self.vca_4x.set_plain(p.quality != Quality::NoCompromises);
-            (y, self.vca_4x.signal(&xs, d))
+            let out = self.output_signal(p, &xs, d, a440);
+            (y, out)
         } else {
             let y = self.vcf.tick(f.i_bus, f.g_bus, f.i0);
             laps.lap(crate::prof::Part::Filter);
@@ -2782,12 +2911,13 @@ impl BackPart {
         self.vcf.set_oversample(oversampling(p.quality).1);
         self.vcf.set_quality(p.quality);
         self.vcf.high_pass = p.filter_hi;
+        self.vcf.split_output = p.quality == Quality::Potato;
     }
 
     /// [`BackPart::tick`] from the filter's output `y` on: the output sample.
     fn after_filter(&mut self, p: &Panel, y: f64, d: &VcaDrive) -> f64 {
         let _fast = crate::ulp::FastScope::new(p.quality != Quality::NoCompromises);
-        // Only HI comes here (a pair). Its VCA at the filter's rate on the filter's
+        // Only HI comes here (a pair). Its split VCA takes the filter's
         // own samples ([`Vcf::tick_pair_oversampled`]), switching as in `tick`.
         let ultra = vca_oversampled(p.quality) && self.vcf.oversample() == ULTRA_VCA_OVERSAMPLING;
         if ultra != self.ultra {
@@ -2802,7 +2932,8 @@ impl BackPart {
         let out = if ultra {
             self.vca_4x.set_a440(a440);
             self.vca_4x.set_plain(p.quality != Quality::NoCompromises);
-            self.vca_4x.signal(&self.xs, d)
+            let xs = self.xs;
+            self.output_signal(p, &xs, d, a440)
         } else {
             self.vca.a440 = a440;
             self.vca.plain_signal = p.quality != Quality::NoCompromises;

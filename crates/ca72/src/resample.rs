@@ -287,6 +287,29 @@ pub struct Halfband {
 }
 
 impl Halfband {
+    /// A windowed low-pass at `cutoff` cycles per input sample. HI's split VCA
+    /// uses 0.1875 before decimating: the ordinary halfband admits too much energy
+    /// above the audio band into the 2x nonlinear solve.
+    pub fn lowpass(len: usize, beta: f64, cutoff: f64) -> Halfband {
+        if cutoff == 0.25 {
+            return Self::sparse(len, beta);
+        }
+        let mut h = Self::new(len, beta);
+        let m = (len / 2) as f64;
+        let i0b = bessel_i0(beta);
+        for (i, t) in h.taps.iter_mut().enumerate() {
+            let k = i as f64 - m;
+            let sinc = if k == 0.0 {
+                2.0 * cutoff
+            } else {
+                libm::sin(2.0 * core::f64::consts::PI * cutoff * k) / (core::f64::consts::PI * k)
+            };
+            let r = k / m;
+            *t = sinc * bessel_i0(beta * libm::sqrt((1.0 - r * r).max(0.0))) / i0b;
+        }
+        h
+    }
+
     pub fn new(len: usize, beta: f64) -> Halfband {
         let taps = halfband_taps(len, beta);
         let n = taps.len();

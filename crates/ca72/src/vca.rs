@@ -1251,6 +1251,14 @@ impl OversampledVca {
         }
     }
 
+    /// One solve without output decimation, for HI between the two filter stages.
+    pub fn raw(&mut self, ramp: &[[f64; VcaDrive::LEN]; 2], k: usize, x: f64) -> f64 {
+        let [from, to] = ramp;
+        let t = (k + 1) as f64 / self.factor as f64;
+        let dk = VcaDrive::from_array(&std::array::from_fn(|i| from[i] + t * (to[i] - from[i])));
+        self.vca.signal(x, &dk)
+    }
+
     /// High Fidelity's plain solve ([`Vca::plain_signal`]) or the full one.
     pub fn set_plain(&mut self, plain: bool) {
         self.vca.plain_signal = plain;
