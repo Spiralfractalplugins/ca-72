@@ -464,8 +464,7 @@ impl BjtAt {
         // `exp(x)` and `expm1(x)` from one exponential where they agree to an ulp (away
         // from 0, where `exp(x) - 1` loses nothing), both evaluated only near 0
         // (performance).
-        let exp_expm1 = |x: f64| {
-            let e = crate::ulp::exp(x);
+        let exp_expm1 = |x: f64, e: f64| {
             if x.abs() < 0.5 {
                 (e, crate::ulp::expm1(x))
             } else {
@@ -473,10 +472,12 @@ impl BjtAt {
             }
         };
         let (xf, xr) = ((vbe / self.vt).min(80.0), (vbc / self.vt).min(80.0));
-        let (ef, em1f) = exp_expm1(xf);
+        let xe = (vbe / (self.ne * self.vt)).min(80.0);
+        let [ef, er, ee] = crate::ulp::exp_lanes([xf, xr, xe]);
+        let (ef, em1f) = exp_expm1(xf, ef);
         let i_f = self.is * em1f;
         let di_f = self.is * ef / self.vt;
-        let (er, em1r) = exp_expm1(xr);
+        let (er, em1r) = exp_expm1(xr, er);
         let i_r = self.is * em1r;
         let di_r = self.is * er / self.vt;
         let q1 = 1.0 / (1.0 - vbc / vaf);
@@ -489,8 +490,7 @@ impl BjtAt {
             0.0
         };
         let dqb_r = 0.5 * (1.0 + sq) * dq1;
-        let xe = (vbe / (self.ne * self.vt)).min(80.0);
-        let (ee, em1e) = exp_expm1(xe);
+        let (ee, em1e) = exp_expm1(xe, ee);
         let ib = i_f / self.bf + self.ise * em1e + i_r / self.br;
         let dib = [
             di_f / self.bf + self.ise * ee / (self.ne * self.vt),
