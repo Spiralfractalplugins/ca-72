@@ -2148,7 +2148,7 @@ impl Engine {
             .play
             .lock()
             .ok()
-            .map(|p| Box::new(p.voice.clone()));
+            .map(|p| p.voice.boxed_clone());
         self.plan = self.crew.plan(&voices, workers, period, template);
         if let Some(need) = self.need() {
             self.pool = self.crew.start(self.plan, need);

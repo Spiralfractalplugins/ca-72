@@ -1345,6 +1345,14 @@ fn ext_volume(volume: f64) -> (f64, f64) {
 }
 
 impl Voice {
+    /// A deep copy owned on the heap. Keep copying and boxing inside the model crate:
+    /// an unoptimized host caller otherwise holds voice-sized intermediate copies on
+    /// its small stack (the plug-in's 256 KB lifecycle regression).
+    #[inline(never)]
+    pub fn boxed_clone(&self) -> Box<Voice> {
+        Box::new(self.clone())
+    }
+
     /// A voice at `rate` Hz (48 kHz is what the models are tested at): tunes the three
     /// oscillators and balances the VCA as the factory did, and settles every state.
     pub fn new(rate: f64, panel: Panel) -> Voice {
