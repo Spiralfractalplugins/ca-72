@@ -147,5 +147,6 @@ bug_fixes = [
   "LO keeps its resonance limit intact when DRIVE updates.",
   "Factory HI AUTO GAIN is recalibrated; shared curves also change some newly selected ULTRA preset levels.",
   "Windows: worker-template cloning fits a host thread with a small stack, including debug builds.",
+  "Switching HI and ULTRA during a held note no longer resumes stale VCA output histories.",
   "RETRIGGER's tooltip explains NOTE PRIORITY; the retrigger policy stays the same.",
 ]
