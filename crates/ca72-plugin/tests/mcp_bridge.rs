@@ -6,8 +6,8 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use ca72_plugin::agent::server::Server;
@@ -59,23 +59,26 @@ impl Bridge {
     }
 }
 
-/// The test as the editor: each request answered with its method, once `go` is set.
+/// The test as the editor: requests answered while `go` is set. Holding its lock
+/// through the drain makes pausing an acknowledgement, not a racing flag update.
 fn editor(
     s: &Server,
-    go: Arc<AtomicBool>,
+    go: Arc<Mutex<bool>>,
     stop: Arc<AtomicBool>,
     done: Arc<AtomicUsize>,
 ) -> std::thread::JoinHandle<()> {
     let inbox = Arc::clone(s.inbox());
     std::thread::spawn(move || {
         while !stop.load(Ordering::Acquire) {
-            if go.load(Ordering::Acquire) {
+            let enabled = go.lock().expect("editor gate");
+            if *enabled {
                 while let Some(job) = inbox.take() {
                     done.fetch_add(1, Ordering::AcqRel);
                     let (m, c) = (job.method.clone(), job.client.clone());
                     job.answer(Ok(json!({"did": m, "client": c})));
                 }
             }
+            drop(enabled);
             std::thread::sleep(Duration::from_millis(5));
         }
     })
@@ -105,7 +108,7 @@ fn the_bridge_serves_mcp_and_survives_its_instance_and_its_client() {
     // One open: calls reach it, named by the client.
     let server = Server::start_in(&dir, "standalone", "standalone-1").expect("server");
     let (go, stop, done) = (
-        Arc::new(AtomicBool::new(true)),
+        Arc::new(Mutex::new(true)),
         Arc::new(AtomicBool::new(false)),
         Arc::new(AtomicUsize::new(0)),
     );
@@ -125,7 +128,7 @@ fn the_bridge_serves_mcp_and_survives_its_instance_and_its_client() {
         json!("standalone-1")
     );
     // The bridge killed while its request waits: the instance drops it and serves the next.
-    go.store(false, Ordering::Release);
+    *go.lock().expect("pause editor") = false;
     let before = done.load(Ordering::Acquire);
     b.send(
         "tools/call",
@@ -134,17 +137,26 @@ fn the_bridge_serves_mcp_and_survives_its_instance_and_its_client() {
     std::thread::sleep(Duration::from_millis(200));
     b.child.kill().expect("kill");
     b.child.wait().expect("wait");
-    std::thread::sleep(Duration::from_millis(400));
-    go.store(true, Ordering::Release);
-    std::thread::sleep(Duration::from_millis(100));
-    assert_eq!(
-        done.load(Ordering::Acquire),
-        before,
-        "the dropped request was not carried out"
-    );
+    // The server must have observed the close and marked its pending request
+    // dropped before the editor resumes. A fixed sleep cannot establish that
+    // when a loaded test machine delays the connection thread.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while server.clients() != 0 {
+        assert!(
+            Instant::now() < deadline,
+            "the server did not notice the close"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    *go.lock().expect("resume editor") = true;
     let mut b = Bridge::start(&dir);
     let r = b.tool("ca72_describe", json!({}));
     assert_eq!(r["structuredContent"]["did"], json!("describe"));
+    assert_eq!(
+        done.load(Ordering::Acquire),
+        before + 1,
+        "the dropped request was carried out as well as the new request"
+    );
     // The instance closes: said; the bridge ends when its input does.
     stop.store(true, Ordering::Release);
     ed.join().expect("editor");

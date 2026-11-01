@@ -201,6 +201,25 @@ impl SeatFiles {
 pub(crate) mod tests {
     use super::*;
 
+    /// A concurrent spawn can inherit these file descriptions between fork and exec,
+    /// even though their descriptors are close-on-exec. Closing this process's copy
+    /// need not release its flock until that child reaches exec. Persistent leaks
+    /// must still fail rather than being hidden by an unbounded wait.
+    fn assert_others_released(seats: &SeatFiles) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        loop {
+            let held = seats.others();
+            if held == 0 {
+                return;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the seats outlived their files and concurrent spawns: {held:#x}"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+
     /// A seat taken in one set of the files is held to another (another process's, as the
     /// kernel counts locks by open file), and free again once given back.
     #[test]
@@ -221,8 +240,71 @@ pub(crate) mod tests {
         a.give_back(k);
         assert_eq!(b.others(), 1 << j);
         drop(a);
-        assert_eq!(b.others(), 0, "the seats outlived their files");
+        assert_others_released(&b);
         assert_eq!(b.held_here(), 1 << m);
+    }
+
+    /// Hold a child before exec to reproduce the exact lock lifetime that can
+    /// overlap another harness test's Command::spawn. The child never calls Rust
+    /// code that allocates or locks between fork and exec.
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[allow(unsafe_code)] // Only the regression's bounded pre-exec POSIX handshake.
+    fn inherited_seat_locks_release_when_a_concurrent_spawn_reaches_exec() {
+        use std::io::{Read, Write};
+        use std::os::fd::AsRawFd;
+        use std::os::unix::net::UnixStream;
+        use std::os::unix::process::CommandExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let a = SeatFiles::open(dir.path()).unwrap();
+        let b = SeatFiles::open(dir.path()).unwrap();
+        let k = a.take().unwrap();
+        let (mut parent, child_signal) = UnixStream::pair().unwrap();
+        // Bound a failed handshake so a broken regression cannot hang the suite.
+        parent
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap();
+        let spawn = std::thread::spawn(move || {
+            let fd = child_signal.as_raw_fd();
+            let mut command = std::process::Command::new("/usr/bin/true");
+            // SAFETY: the closure uses only POSIX async-signal-safe I/O;
+            // its socket is captured alive across spawn and fd is valid there.
+            unsafe {
+                command.pre_exec(move || {
+                    let ready = [1u8];
+                    if libc::write(fd, ready.as_ptr().cast(), 1) != 1 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    let mut wait = libc::pollfd {
+                        fd,
+                        events: libc::POLLIN,
+                        revents: 0,
+                    };
+                    if libc::poll(&mut wait, 1, 5_000) <= 0 {
+                        return Err(std::io::Error::from_raw_os_error(libc::ETIMEDOUT));
+                    }
+                    let mut go = [0u8];
+                    if libc::read(fd, go.as_mut_ptr().cast(), 1) != 1 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    Ok(())
+                });
+            }
+            command.spawn().unwrap()
+        });
+        parent.read_exact(&mut [0]).unwrap();
+        drop(a);
+        let held_before_exec = b.others();
+        let release = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            parent.write_all(&[1]).unwrap();
+            let mut child = spawn.join().unwrap();
+            assert!(child.wait().unwrap().success());
+        });
+        assert_others_released(&b);
+        release.join().unwrap();
+        assert_eq!(held_before_exec, 1 << k, "child did not inherit the seat");
     }
 
     /// What a child process does for the tests: takes `CA72_HOLD_SEATS` seats in
