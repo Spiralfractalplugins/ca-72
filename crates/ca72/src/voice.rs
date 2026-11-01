@@ -1280,6 +1280,9 @@ pub struct BackPart {
     /// The quality that last routed the output. HI's padded full-rate path must
     /// not resume an old pad when it follows ULTRA's unpadded output.
     output_quality: Option<Quality>,
+    /// Opt-in host-rate filter voltage for lab captures; the split VCA does not
+    /// consume it, so normal HI processing skips its separate decimator.
+    filter_probe: bool,
     loop_pad: [f64; 3],
     loop_at: usize,
     /// The filter's samples at its rate from [`Voice::filter_pair`], for
@@ -1529,6 +1532,7 @@ impl Voice {
                     split_warm: 0,
                     split_target: true,
                     output_quality: None,
+                    filter_probe: false,
                     loop_pad: [0.0; 3],
                     loop_at: 0,
                     xs: [0.0; 8],
@@ -1640,8 +1644,16 @@ impl Voice {
         }
         Ok(())
     }
-    /// The last sample's keyboard voltage, V, the mixer bus's Norton current, A, and the
-    /// filter's output, V.
+    /// Enable the host-rate filter voltage in [`Voice::probe`] for diagnostic
+    /// renders. Call before preroll so its separate decimator has a full history.
+    /// This adds diagnostic work at HI without changing the audio samples.
+    pub fn set_filter_probe(&mut self, enabled: bool) {
+        self.audio.back.filter_probe = enabled;
+    }
+
+    /// The last sample's keyboard voltage, V, the mixer bus's Norton current, A,
+    /// and the filter's output, V. The third value is zero in open-loop HI unless
+    /// [`Voice::set_filter_probe`] was enabled before rendering.
     pub fn probe(&self) -> (f64, f64, f64) {
         self.audio.last
     }
@@ -2906,7 +2918,7 @@ impl BackPart {
         self.vcf.set_oversample(oversampling(p.quality).1);
         self.vcf.set_quality(p.quality);
         self.vcf.high_pass = p.filter_hi;
-        self.vcf.split_output = p.quality == Quality::Potato;
+        self.vcf.split_output = p.quality == Quality::Potato && !self.filter_probe;
         let ultra = vca_oversampled(p.quality) && self.vcf.oversample() == ULTRA_VCA_OVERSAMPLING;
         let a440 = self.a440.tick(p.a440);
         if ultra != self.ultra {
@@ -2947,7 +2959,7 @@ impl BackPart {
         self.vcf.set_oversample(oversampling(p.quality).1);
         self.vcf.set_quality(p.quality);
         self.vcf.high_pass = p.filter_hi;
-        self.vcf.split_output = p.quality == Quality::Potato;
+        self.vcf.split_output = p.quality == Quality::Potato && !self.filter_probe;
     }
 
     /// [`BackPart::tick`] from the filter's output `y` on: the output sample.

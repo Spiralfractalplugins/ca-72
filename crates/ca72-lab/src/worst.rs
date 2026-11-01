@@ -358,6 +358,7 @@ pub fn render_loop(
 /// preamplifier's output (for finding where two renders first part).
 pub fn render_probed(rate: f64, seconds: f64) -> Vec<[f64; 6]> {
     let mut v = Voice::prototype(rate);
+    v.set_filter_probe(true);
     let ev = notes(rate, seconds);
     let n = (seconds * rate) as usize;
     let mut out = Vec::with_capacity(n);

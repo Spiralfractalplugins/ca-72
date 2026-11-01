@@ -798,3 +798,10 @@ exponentials preserve each scalar polynomial's arithmetic order in safe array la
 strict/libm and diagnostic counting retain scalar evaluation. HI's zero-jack shortcut
 requires the finite FIR history to flush and invalidates on nonzero input. None of
 these exact steps adds a fitted audio model, new ISA requirement or runtime switch.
+
+Open HI skips the filter's separate host-rate output decimator because its audio
+uses the oversampled filter samples directly. Lab code that reads the filter
+voltage through `Voice::probe().2` must call `set_filter_probe(true)` before its
+preroll. The capture renderer, filter-alias diagnostics and `worst::render_probed`
+do this explicitly; the extra diagnostic decimation does not change audio samples.
+The filter-probe option remains off in normal plug-in processing.

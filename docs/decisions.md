@@ -17463,3 +17463,30 @@ handoff and allocation regressions also pass. Release acceptance additionally
 requires steady-quality reference renders, plug-in latency/allocation checks,
 and cross-platform CI on the updated source. Evidence is under
 `release-0.3.1/quality-handoff/` on the lab share.
+
+## R-HI-FILTER-PROBE. Opt in to the diagnostic filter decimator
+
+PR #147 review found that the split-VCA optimization discarded the host-rate
+filter output even when `ca72-lab stim` recorded it. On `0fde93b`, a synthetic
+eight-channel stimulus produces a six-channel render with main-output peak
+0.329394 FS but a permanently zero filter-voltage channel. That channel cannot
+support a filter comparison. This is a diagnostic regression, not evidence that
+the audible filter output is missing.
+
+`Voice::set_filter_probe(true)` now opts into the original separate filter-output
+decimator, including paired HI voices. Call it before preroll; enabling midway
+through a render does not reconstruct its previously skipped FIR history.
+The lab's stimulus capture, filter-alias routine and `worst::render_probed` opt in
+before rendering. Normal plug-in voices leave the option off and retain the
+decimator skip. The public `probe` documentation states when its third value is
+unavailable; the existing two pitch/bus values remain available.
+
+The fixed synthetic capture's filter channel peaks at 1.227938 V; its other five
+channels, including main audio, are byte-identical to the original capture. New
+model tests cover sample identity with diagnostics on/off in all three internal
+qualities at 44.1/48/96 kHz, feedback on/off, and per-voice probe settings in paired
+HI filters. A lab test runs the real stimulus-rendering function and checks both
+audio and filter channels are nonzero. Existing pair/allocation tests and strict
+all-feature workspace clippy pass. Inputs, WAVs and comparison data are under
+`release-0.3.1/filter-probe/` on the lab share. No hardware measurement or CPU
+improvement is claimed for this diagnostic repair.
