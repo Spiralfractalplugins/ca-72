@@ -1277,6 +1277,9 @@ pub struct BackPart {
     split_mix: f64,
     split_warm: usize,
     split_target: bool,
+    /// The quality that last routed the output. HI's padded full-rate path must
+    /// not resume an old pad when it follows ULTRA's unpadded output.
+    output_quality: Option<Quality>,
     loop_pad: [f64; 3],
     loop_at: usize,
     /// The filter's samples at its rate from [`Voice::filter_pair`], for
@@ -1525,6 +1528,7 @@ impl Voice {
                     split_mix: 0.0,
                     split_warm: 0,
                     split_target: true,
+                    output_quality: None,
                     loop_pad: [0.0; 3],
                     loop_at: 0,
                     xs: [0.0; 8],
@@ -2468,9 +2472,7 @@ pub(crate) fn tick_looped(
         back.vca_4x.take_over(&back.vca, back.last_out);
         back.ultra = true;
     }
-    if p.quality == Quality::Potato {
-        back.route_split(false);
-    }
+    back.route_quality(p.quality, false);
     back.vca_4x.set_a440(a440);
     back.vca_4x.set_plain(p.quality != Quality::NoCompromises);
     let ramp = back.vca_4x.start(d);
@@ -2490,8 +2492,12 @@ pub(crate) fn tick_looped(
     pre.overload = o.lamp;
     pre.overload_peak = pre.overload_peak.max(o.lamp);
     pre.ext_amp = o.amp;
-    let out = if p.quality == Quality::Potato {
-        let full = back.pad_loop(out);
+    let out = if p.quality == Quality::Potato || back.split_mix < 1.0 || back.split_warm != 0 {
+        let full = if p.quality == Quality::Potato {
+            back.pad_loop(out)
+        } else {
+            out
+        };
         let two = if back.split_mix < 1.0 {
             back.split_signal(&xs, d, a440)
         } else {
@@ -2791,6 +2797,23 @@ impl BackPart {
         y
     }
 
+    fn route_quality(&mut self, quality: Quality, two: bool) {
+        if self.output_quality.is_none() && quality != Quality::Potato {
+            // A fresh ULTRA voice starts on its original 4x path, without a fade
+            // from the unused 2x state. Steady-quality renders stay unchanged.
+            self.split_mix = 1.0;
+            self.split_target = false;
+        } else if quality == Quality::Potato
+            && self.output_quality.is_some_and(|q| q != Quality::Potato)
+        {
+            // ULTRA does not use HI's three-sample pad. Seed it with the last
+            // heard output rather than an idle history when HI takes over.
+            self.loop_pad.fill(self.last_out);
+        }
+        self.output_quality = Some(quality);
+        self.route_split(two);
+    }
+
     // Warm the entering history before fading. A reversal during the fade keeps both
     // running states and reverses the same weight, including automation faster than it.
     fn route_split(&mut self, two: bool) {
@@ -2825,10 +2848,15 @@ impl BackPart {
     }
 
     fn output_signal(&mut self, p: &Panel, xs: &[f64; 8], d: &VcaDrive, a440: f64) -> f64 {
+        self.route_quality(p.quality, p.quality == Quality::Potato);
         if p.quality != Quality::Potato {
-            return self.vca_4x.signal(xs, d);
+            let full = self.vca_4x.signal(xs, d);
+            if self.split_mix == 1.0 && self.split_warm == 0 {
+                return full;
+            }
+            let two = self.split_signal(xs, d, a440);
+            return self.mix_split(two, full);
         }
-        self.route_split(true);
         let two = self.split_signal(xs, d, a440);
         if self.split_mix == 0.0 && self.split_warm == 0 {
             return two;
@@ -2949,6 +2977,95 @@ impl BackPart {
         };
         self.last_out = out;
         out / 5.0
+    }
+}
+
+#[cfg(test)]
+mod vca_quality_switch_tests {
+    use super::*;
+
+    fn running_back(rate: f64, quality: Quality) -> (Panel, BackPart, VcaDrive) {
+        let mut p = Panel {
+            quality,
+            ..Panel::default()
+        };
+        p.loudness_contour.sustain = 1.0;
+        let mut v = Voice::new(rate, p);
+        v.note(60, true);
+        for _ in 0..rate as usize / 10 {
+            v.tick();
+        }
+        let d = v.bias.drive();
+        v.audio.back.vca_4x.set_plain(true);
+        (p, v.audio.back, d)
+    }
+
+    fn samples(rate: f64, i: usize) -> [f64; 8] {
+        std::array::from_fn(|k| {
+            (std::f64::consts::TAU * 400.0 * (i as f64 + k as f64 / 4.0) / rate).sin()
+        })
+    }
+
+    // Hold the filter samples and bias identical across the switch, isolating the
+    // output path from the oscillator/filter/contour quality changes.
+    #[test]
+    fn hi_to_ultra_keeps_the_running_output_at_the_switch() {
+        for rate in [44_100.0, 48_000.0, 96_000.0] {
+            let (mut p, mut back, d) = running_back(rate, Quality::Potato);
+            for i in 0..512 {
+                back.last_out = back.output_signal(&p, &samples(rate, i), &d, 0.0);
+            }
+            let mut continued = back.clone();
+            let before = continued.output_signal(&p, &samples(rate, 512), &d, 0.0);
+            p.quality = Quality::HighFidelity;
+            let after = back.output_signal(&p, &samples(rate, 512), &d, 0.0);
+            assert!(before.abs() > 1e-4, "test signal silent at {rate}");
+            assert!(
+                (after - before).abs() < 1e-6,
+                "{rate}: output changed from {before} to {after} at the switch"
+            );
+        }
+    }
+
+    #[test]
+    fn both_quality_directions_and_rapid_reversals_do_not_resume_stale_histories() {
+        for rate in [44_100.0, 48_000.0, 96_000.0] {
+            for initial in [Quality::Potato, Quality::HighFidelity] {
+                for interval in [17, 257, 2048] {
+                    let (mut p, mut back, d) = running_back(rate, initial);
+                    let mut steps = [0.0f64; 128];
+                    let mut at = 0;
+                    let mut last = back.last_out;
+                    for i in 0..1024 + 4 * interval {
+                        if i >= 1024 && (i - 1024) % interval == 0 {
+                            let mut continued = back.clone();
+                            let before = continued.output_signal(&p, &samples(rate, i), &d, 0.0);
+                            p.quality = if p.quality == Quality::Potato {
+                                Quality::HighFidelity
+                            } else {
+                                Quality::Potato
+                            };
+                            let after = back.output_signal(&p, &samples(rate, i), &d, 0.0);
+                            // Quality changes can alter phase by the three-sample HI
+                            // pad. Bound the event by that signal's recent slew, rather
+                            // than allowing a fixed full-scale dropout or spike.
+                            let slew = steps.iter().copied().fold(0.0f64, f64::max);
+                            assert!(
+                                (after - before).abs() < 4.0 * slew + 1e-6,
+                                "{rate} {initial:?} interval={interval} sample={i}: {before} -> {after}, slew={slew}"
+                            );
+                            back.last_out = after;
+                        } else {
+                            back.last_out = back.output_signal(&p, &samples(rate, i), &d, 0.0);
+                        }
+                        assert!(back.last_out.is_finite());
+                        steps[at] = (back.last_out - last).abs();
+                        at = (at + 1) % steps.len();
+                        last = back.last_out;
+                    }
+                }
+            }
+        }
     }
 }
 
