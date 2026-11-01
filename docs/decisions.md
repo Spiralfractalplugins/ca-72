@@ -17434,3 +17434,32 @@ formatting and the release MCP build. Fifteen new full WAV captures match
 `audit-2026-10-30/windows-stack/boxed-clone-validation.json` and
 `boxed-clone-audio/results.json` on the lab share. CI on the updated PR remains
 the cross-platform acceptance gate; no new CPU claim is made.
+
+## R-VCA-QUALITY-HANDOFF. Keep the active output state across HI/ULTRA changes
+
+Review of PR #147 at `d508638` found that HI and ULTRA both set `BackPart::ultra`,
+so that flag no longer identifies a change between their 2x and 4x VCAs. After open
+HI stops advancing the 4x path, selecting ULTRA could resume its initial or stale
+signal and FIR state. Returning to HI could likewise resume the idle 2x histories.
+An isolated test holding the filter samples and VCA bias identical reproduces the
+HI-to-ULTRA event at 44.1 kHz: about -0.07985 V becomes essentially zero. Both new
+regressions fail against the old source in a separate target directory.
+
+Quality changes now use the existing state-transfer, 64-sample warm-up and
+128-sample fade policy between the output paths, including reversals before the
+fade finishes and transitions with the feedback loop closed. On return from
+ULTRA, HI's three-sample pad starts from the last heard output. A fresh ULTRA
+voice starts directly on its original 4x path. Settled paths, equations, rates,
+reported latency and the note/retrigger policy are unchanged. Running both paths
+briefly costs extra work during a transition; no continuous extra VCA solve or
+allocation is introduced.
+
+The new regressions isolate the VCA from legitimate quality-dependent changes
+elsewhere in the voice: exact event continuity for HI-to-ULTRA, and a bound based
+on the signal's recent slew for both directions at 17-, 257- and 2048-sample
+intervals, at 44.1/48/96 kHz. The slew bound allows HI's different phase delay; it
+is not a claim that whole-voice quality changes null. Pair/single, feedback/ext
+handoff and allocation regressions also pass. Release acceptance additionally
+requires steady-quality reference renders, plug-in latency/allocation checks,
+and cross-platform CI on the updated source. Evidence is under
+`release-0.3.1/quality-handoff/` on the lab share.
