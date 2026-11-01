@@ -182,7 +182,8 @@ steps of a nine-state loop a sample, two iterations each, which cost more than t
 is left for exact work is small: the bias's chain of logarithms and exponentials (1 us,
 latency-bound), a polyphase interpolator, the noise model's decimators interleaved, the
 VCA's fast solves with an analytic Jacobian: perhaps 10 to 15 % together. The
-preamplifier needs its own solver (the nodal solver's generality is most of its cost).
+preamplifier needs its own solver (the nodal solver's generality is most of its cost; it
+has had one since decisions.md R-PREAMP-SOLVE: 7.8 to 3.0 us a sample on the worst load).
 Anything beyond that changes the models: lower oversampling, lower contour and bias rates,
 reduced models, or relaxing "no loss" from below the last bit of a 24-bit output to below
 audibility (say -120 dBFS), which would allow looser tolerances, a chord Newton and
@@ -397,6 +398,13 @@ from Potato's work" below.)
 
 ## Potato (quality modes; from 2026-09-29)
 
+(Note, 2026-10-30: "Potato" here is the model's `Quality::Potato`, the plug-in's QUALITY HI;
+[README.md](README.md) has the names. This section is the record as it was written, with
+the filter at twice the rate. Since 0.2.1 that filter runs at four times (decisions.md R71,
+2026-10-13: at twice, strong EMPHASIS and AMOUNT OF CONTOUR gave broadband noise and aliased
+tones), so "twice the rate" below, and the costs measured with it, are the model as it then
+stood. High Fidelity's filter was at four times throughout.)
+
 The goal (the owner's): a hundred voices at once in real time at 256-frame blocks, each
 under the worst case's load, fidelity kept as high as possible, measured against No
 Compromises (`ca72-lab hifi --quality potato` reports its distances on each path, not judged).
@@ -473,7 +481,8 @@ silence, the circuit from its operating point). About 8.7 us a sample in all.
 on 1024 points of the tail current's logarithm, linear between) and Newton's tolerance
 1e-6 V (from 1e-10): the filter 4.2 to 2.9 us a sample, its fidelity unchanged. At the
 sample rate (not twice it) 2.2 us, but a self-oscillating filter strays (perf-screech's
-spectra -0.2 dB from No Compromises' in the median window, not -12): kept at twice. About
+spectra -0.2 dB from No Compromises' in the median window, not -12): kept at twice (since
+R71, 2026-10-13, four times). About
 7.1 us a sample in all. `ca72-lab crowd`, paced: 28 voices on 14 threads mean 5.3 ms a
 256-frame block (396 of 938 late), 50 voices 9.8 ms: a voice among many costs about 10 us
 a sample (7 alone), and a hundred need about 3.5 times less.
@@ -756,3 +765,43 @@ Before the fix, High Fidelity had 1 and 28 late with 2 and 3 voices; one No Comp
 voice is the same within the machine's noise (alternating runs with the old waits: 15 and
 130 late, with the new: 2 and 50). So on this machine one No Compromises voice or four
 High Fidelity voices play in real time at 256 frames, and about 50 Potato voices.
+
+
+## HI's VCA and closed FEEDBACK loop (2026-10-30)
+
+HI's open-loop VCA runs at 2x between a 47-tap first decimator stage and the unchanged
+79-tap final stage, including paired POLY filters. With FEEDBACK and EXTERNAL INPUT on,
+the VCA and preamplifier's exact reduced solve run at the filter's four steps, at HI's unchanged absolute and relative tolerance of 1e-5. Its
+100-iteration cap and h/16 retry are unchanged; no fitted audio model enters this loop.
+Only the OVERLOAD lamp uses the plain peak detector. FEEDBACK voices run alone; the normal
+HI filters still pair. Reported latency remains 86 samples. See decisions.md R-HI-FEEDBACK
+for the measurements and the owner's choice of accuracy over the fitted preamplifier.
+
+
+### HI's open-loop cost reduction (2026-10-30)
+
+The first FIR uses a 0.1875-cycle/input cutoff to limit ultrasonic energy before the
+2x VCA. The longer FIR's three host samples replace three samples of output holdback;
+closed HI gets a matching output pad outside its loop. Bias history follows the same
+delay. Serial and paired filters use the same split helper; reported latency stays 86.
+
+Only plain 2x raw VCA calls use a 1e-5 Newton tolerance in place of 1e-9 and the local
+Early-ratio log series, 2 atanh((a-b)/(a+b)) through z^9. Other calls retain their
+original tolerance and log. This is not bit-identical. The owner's audit storage,
+`fixes/hi-cost/lanes/REPORT.md`, measures maximum gain-law movement 4.602350918e-8 dB,
+active harmonic movement 0.0002835275263 dB and transition output delta 3.4371e-9.
+These finite component/preset tests do not certify arbitrary custom circuit parameters.
+
+Converter memo keys retain all lookup arguments by exact bits and clear on prepare.
+Positive table indices use a cast without a redundant floor. Independent transistor
+exponentials preserve each scalar polynomial's arithmetic order in safe array lanes;
+strict/libm and diagnostic counting retain scalar evaluation. HI's zero-jack shortcut
+requires the finite FIR history to flush and invalidates on nonzero input. None of
+these exact steps adds a fitted audio model, new ISA requirement or runtime switch.
+
+Open HI skips the filter's separate host-rate output decimator because its audio
+uses the oversampled filter samples directly. Lab code that reads the filter
+voltage through `Voice::probe().2` must call `set_filter_probe(true)` before its
+preroll. The capture renderer, filter-alias diagnostics and `worst::render_probed`
+do this explicitly; the extra diagnostic decimation does not change audio samples.
+The filter-probe option remains off in normal plug-in processing.

@@ -53,11 +53,10 @@ fn feedback_is_not_heard_with_the_external_input_off() {
 /// At 25 % (the loop driven hard, not yet running away) every mode lights OVERLOAD. In ULTRA
 /// (and the lab's High Fidelity) the loop is closed at the filter's rate (decisions.md
 /// R-FEEDBACK-LOOP) and, as the hardware reference's, in phase through the audio band: the
-/// note at least twice as loud, its low end raised more than its top (no brighter). In HI
-/// (Potato) the output still comes back a sample at a time through the preamplifier's and
-/// the filter's resamplers, some 90 samples late, and the loop grows harmonics instead (R8);
-/// its preamplifier's model in that loop is checked against the circuit's in
-/// `ca72-plugin/tests/feedback_models.rs`.
+/// note at least twice as loud, its low end raised more than its top (no brighter). HI
+/// (Potato) closes the same loop (decisions.md R-HI-FEEDBACK), so it no longer grows harmonics
+/// as R8 had it, a sample at a time some 90 samples late; its exact preamplifier solve and plain lamp
+/// are checked against the circuit's lamp in `ca72-plugin/tests/feedback_models.rs`.
 #[test]
 fn feedback_overdrives_the_preamplifier_and_the_mixer() {
     // EXTERNAL INPUT's VOLUME at 0.7: R9 at about 16 % of its track (its law: voice.rs,
@@ -91,12 +90,8 @@ fn feedback_overdrives_the_preamplifier_and_the_mixer() {
             dry_lamp < 0.05 && wet_lamp > 0.5,
             "{q:?}: OVERLOAD {dry_lamp} -> {wet_lamp}"
         );
-        if q == Quality::Potato {
-            assert!(b1 > 2.0 * b0, "{q:?}: no brighter ({b0} -> {b1})");
-        } else {
-            assert!(rms(&wet) > 2.0 * rms(&dry), "{q:?}: no louder");
-            assert!(b1 < b0, "{q:?}: brighter ({b0} -> {b1})");
-        }
+        assert!(rms(&wet) > 2.0 * rms(&dry), "{q:?}: no louder");
+        assert!(b1 < b0, "{q:?}: brighter ({b0} -> {b1})");
     }
 }
 

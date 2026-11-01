@@ -154,7 +154,7 @@ fn the_engine_neither_allocates_nor_frees_while_it_plays() {
         }
         hush(&mut e, b);
         // Every kind of control: knobs, switches, selectors, the output and bend range, and
-        // QUALITY's ULTRA (the circuit's model with no compromises) on and off.
+        // QUALITY's ULTRA (the circuit's model with High Fidelity numerics) on and off.
         c.panel.cutoff = 0.5 + 0.3 * (at as f64 * 1e-4).sin();
         c.panel.noise_volume = 0.5 + 0.3 * (at as f64 * 3e-4).sin();
         c.panel.noise_on = b % 50 < 25;

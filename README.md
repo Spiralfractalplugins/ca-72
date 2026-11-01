@@ -18,6 +18,11 @@ New to the instrument? Start with the [illustrated quick-start guide](docs/quick
 It is free software under the GNU General Public License, version 3 or later. Copyright ©
 2026 Idle Foundry Ltd.
 
+**Next 0.3.x (draft):** ULTRA uses High Fidelity numerics for lower CPU cost, with the same
+circuit and 86-sample latency. HI uses a band-limited 2x VCA on normal voices and the
+exact 4x preamplifier loop with FEEDBACK. HI and LO include the circuit fixes below;
+HI costs more than 0.3.0 (decisions.md R-HI-COST).
+
 **Status:** 0.2.6: same sound, lighter on your computer: output bit-identical to 0.2.5, HI up to
 17 % lighter on a Mac and 9 % on Windows and Linux, smoother with several instances, and a panel
 that rests while you can't see it. Includes 0.2.5: a new instance starts at QUALITY LO, the light voices (projects keep their
@@ -248,9 +253,16 @@ are [standalone-spec.md](docs/standalone-spec.md) and
 - **Keys:** every MIDI note plays. Notes 41 to 84 are the instrument's 44 keys, F to C
   (with RANGE at 8'); beyond them the plug-in continues the key string's scale, a key a
   semitone, which the instrument cannot do. Like the instrument, the keyboard gives the
-  lowest note held priority and triggers once while keys are held. Far above the keys
-  (with RANGE, FREQUENCY and the PITCH wheel high as well) an oscillator stops rising, far
-  past the audio band.
+  lowest note held priority and triggers once while keys are held by default. Far above
+  the keys (with RANGE, FREQUENCY and the PITCH wheel high as well) an oscillator stops
+  rising, far past the audio band.
+- **NOTE PRIORITY** chooses which held key sounds in MONO and UNISON: **LOW** (the default),
+  **LAST** or **HIGH**. **RETRIGGER**, off by default, starts the contours again on every key
+  press, even with other keys held. Choose **LAST** for the new note's pitch to arrive with
+  its attack. With **LOW** on rising overlaps, or **HIGH** on falling overlaps, a held key
+  can keep the old pitch until it is lifted: the attack sounds before the pitch moves,
+  which can sound like a flam. Lifting a key does not start another attack. With RETRIGGER
+  off, overlapping notes carry on the contours. Both choices are saved with the preset.
 - **GLIDE** goes five times longer: right-click it and choose **LONG**; **×5** prints beside the dial.
 - **POLY** (under the panel, not the instrument's): off, the one instrument as above. On,
   each note plays a whole instrument of its own, with its own keyboard circuit, contours
@@ -495,7 +507,8 @@ are [standalone-spec.md](docs/standalone-spec.md) and
   control; players cable its PHONES output into EXTERNAL INPUT. This knob is that cable:
   turn it up, switch the MIXER's EXTERNAL INPUT on and raise its VOLUME, and the output
   overdrives the external input's preamplifier and the mixer (OVERLOAD lights). With it on
-  a voice costs about a fifth more.
+  HI closes this loop at four times the sample rate with the circuit's exact preamplifier
+  solve; FEEDBACK costs substantially more CPU (decisions.md R-HI-FEEDBACK).
 - **FILTER MODE** (at the head of the filter's switch column, LO by default): the original
   has no such switch; a modern recreation of the instrument has, and this is its high-pass,
   measured on one. At HI the output is the mixer's less the filter's: about 6 dB an octave
@@ -504,9 +517,9 @@ are [standalone-spec.md](docs/standalone-spec.md) and
 - **POWER** is the host's bypass: the output fades out over 10 ms and back in.
 - **QUALITY** (a chrome toggle above POWER: ULTRA, HI, or LO, LO by default for a new
   instance from 0.2.5, HI before; projects keep theirs, those from 0.1 open at HI; not the
-  instrument's): at ULTRA the circuit's model plays with no compromises, its most exact, at
-  high CPU cost; in 0.2.0 it took about seven times the work of HI, with one voice using
-  about a whole core of a fast computer, so
+  instrument's): at ULTRA the circuit's model uses High Fidelity numerics, within -120 dBFS
+  of its No Compromises numerical reference on the measured paths, with the same circuit,
+  oversampling and substeps. It still has a high CPU cost, so
   it is meant for offline renders (export, bounce, freeze) and small projects on powerful
   computers. Choosing it, a shutter in the panel above opens and a lamp comes up and lights
   (or, chosen with a right click on the lamp, ALWAYS OPEN: the lamp stays up and only its
@@ -884,11 +897,17 @@ The service documents and datasheets the model was derived from are not included
 ## Limitations
 
 - At HI the circuit's model plays in its real-time quality (the model's own "Potato", not the
-  plug-in's Potato mode); at ULTRA, in its most exact, No Compromises, which does not run in
-  real time on most computers ([docs/decisions.md](docs/decisions.md) R48): one or two voices
+  plug-in's Potato mode); at ULTRA, in High Fidelity, within -120 dBFS of the numerical
+  reference on the measured paths. It does not run in real time on most computers ([docs/decisions.md](docs/decisions.md) R48): one or two voices
   split over six threads each come close on a machine of 6 or more fast cores, more voices do
   not (R-THREADS). The model's
-  High Fidelity quality remains in `crates/ca72` and the lab.
+  No Compromises quality remains in `crates/ca72` and the lab as the numerical reference.
+  Chaotic feedback can diverge sample by sample even from another seed of itself; the
+  -120 dBFS limit describes the measured paths, not a null of every feedback patch.
+  HI's open-loop VCA runs at 2x between the decimator's stages; the closed FEEDBACK
+  loop retains the exact preamplifier and VCA at 4x. Its
+  preamplifier uses the exact reduced solve there and a plain model for the OVERLOAD
+  lamp (R-HI-FEEDBACK).
 - **Potato mode (QUALITY at LO) is close to the circuit, not the same**
   ([docs/decisions.md](docs/decisions.md) R47): a FEEDBACK loop can settle into another
   oscillation than the circuit's (Feedback Funk is about 1 dB quieter as its notes start, 0.1's

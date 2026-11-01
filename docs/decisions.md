@@ -5,6 +5,13 @@ was a device of the DAW it was developed in, are in [history.md](history.md). "T
 is the person who commissioned the work; an agent decision is one the owner has not
 separately approved.
 
+**Current quality mapping (2026-10-30 integration):** ULTRA uses High Fidelity, with
+No Compromises retained as the model/lab numerical reference (R-ULTRA-HIFI). HI's VCA
+runs at 2x on open voices; its exact FEEDBACK loop runs at 4x (R-HI-COST,
+R-HI-FEEDBACK). Entries below
+record their dates: older sample-rate HI, delayed HI loop and bit-exact ULTRA claims
+are historical and superseded by those decisions.
+
 ## R1. A plug-in of its own, the CA-72 by Idle Foundry
 **Owner decisions, 2026-10-01.** The circuit-derived model is released as an open-source
 plug-in, in this repository, separate from that DAW: the synth core, the SPICE runner, the
@@ -3497,7 +3504,7 @@ good as you can under that."); saved with the session, not with presets.
 **Agent decisions, 2026-10-10** (not separately approved):
 - **Where:** the branch `potato`, from `realistic-look` with `cal/hp-mode` merged (the release
   carries both, and the light voices must play FILTER MODE too). The development line is
-  another history (its base, 6126b71, is not this one's): its light model
+  another history (its base is not in this repository's published history): its light model
   (`crates/ca72/src/light.rs`) is brought over whole, its engine's integration written again
   for this engine.
 - **The switch:** QUALITY, in the panel's last column above POWER's lamp, where the column was
@@ -5262,7 +5269,7 @@ comparison tests unwanted high-band energy; it does not establish that LO matche
 every detail of ULTRA's spectrum.
 
 **Final checks and personal Mac installation, 2026-10-13:** independent DSP review
-signed off source commit `2e1520d`. All 315 non-ignored core and plug-in tests passed
+signed off the LO resonance foldover fix. All 315 non-ignored core and plug-in tests passed
 in debug; the four high-contour regressions passed with ngspice required, and the
 cutoff-fit regeneration passed explicitly. Clippy passed for the core, lab and plug-in,
 all targets, with and without all features. The old LO failed the high-band reproduction
@@ -5580,7 +5587,7 @@ between both layouts; editor checks cover actual CLAP, VST3 and standalone conte
 computer-keyboard note input. It replaces TYPE on the standalone button.
 
 **Integration follow-up, 2026-10-14.** The owner asked to include these UI fixes in
-the MIDI recovery build. Merge the keyboard feedback candidate `cf90cef` into
+the MIDI recovery build. Merge the keyboard feedback candidate with the TYPING label into
 the standalone development branch, preserving its icon, materials, pixel display,
 header alignment, grouped buttons, host-specific visibility and TYPING label.
 Retain R-TYPE's separate C-root octave and Z/X legend; TYPING continues through
@@ -8219,7 +8226,7 @@ persisted preferences. Engine history is still not restarted by INIT.
 **Owner authorisation, 2026-10-18.** Implement only issue 75's installed-version display in
 Settings. The changelog and What's New modal are outside this work.
 
-**Integration decision, 2026-10-18.** Keep `33cec21`'s Settings heading, derived from the
+**Integration decision, 2026-10-18.** Keep the installed-version candidate's Settings heading, derived from the
 existing `update::VERSION` (`CARGO_PKG_VERSION`), matching the plug-in's reported version.
 It remains visible independently of update status, including offline failure; opening the
 menu does not start an update check. The drawer still distinguishes a newer online version
@@ -10643,8 +10650,8 @@ differences below what can be heard.
    every factory preset's render changed (level within 0.1 dB). Accept it without levelling
    the presets again? (Recommended: yes.)
 
-**Evidence (the Mac, 2026-10-16; branch `lab/band-limiting`, commits `a16caea` and
-`4724718` on `bcb6c0b`):**
+**Evidence (the Mac, 2026-10-16; the switch-gated band-limiting candidate and its oscillator-cost probe,
+based on the then-current main):**
 - **Bit-identity.** `ca72-lab render` at 1x, 2x and 4x (A4 and A7) is the same to the byte as
   a build of `main`. `preset_render` renders all 19 factory presets the same to the bit at
   HI, LO and ULTRA (its QUALITY switch added on both sides for the check).
@@ -15660,7 +15667,7 @@ separately approved; HI unchanged, for the owner to decide (below).
   and makes the note at least twice as loud and no brighter (in HI, a sample late, it still
   grows harmonics, as R8 had it for every mode); the ends within the rails in all three. The
   threaded voice runs the same loop on the caller's thread (`threaded.rs`).
-- **HI.** HI's VCA runs at the sample rate; the same loop there needs it at 4x. An estimate
+- **HI (then; superseded by R-HI-FEEDBACK).** HI's VCA ran at the sample rate; the same loop there needed it at 4x. An estimate
   from the parts (another agent's, 2026-10-23) put that at 30 to 54 % more per FEEDBACK voice
   in HI. Left as it was until the owner chooses.
 
@@ -16858,3 +16865,628 @@ A fixture test checks all payload bytes, every internal checksum, source provena
 Windows upload list. CA72_SOURCE_COMMIT permits packaging existing verified CI binaries
 without incorrectly attributing their source to the packaging-fix checkout. This changes
 packaging only; binaries from the original tagged CI remain unchanged.
+
+## R-TRIPWIRE. The 1e-7 rule retired as an acceptance standard; it stays as a regression tripwire
+
+**Owner decision, 2026-10-30** (passed on by the session that started this work). "Every
+render within 1e-7 of full scale of the model as it stands" (history.md, "Three quality modes")
+is retired as an acceptance standard. It stays useful only as a regression tripwire: a
+difference says that a change moved the output, not whether the move is acceptable.
+
+**Why.** The audit of 2026-10-30, on main `cfd5859`
+(`/mnt/lab/artifacts/ca-72/audit-2026-10-30/REPORT.md`, section 4), found the rule no longer
+in force, though nothing had said so, and `docs/circuit/no-compromises-attempts.md` still read
+as if it applied.
+- **It could not weigh a change.** The record itself says the rule "measured when a change
+  first altered a bit, not how much" (numerics.md, "No Compromises"). 1e-7 is only a few times
+  the model's own rounding on the musical renders, so rounding alone could cross it: an
+  approximate `exp` was dropped at 1.3e-7. The Schur complement and modified Newton were set
+  aside as "non-exact" with nothing measured (no-compromises-attempts.md).
+- **The sound has been judged against hardware since R42,** not against an earlier render
+  ("Change the circuit, never the output").
+- **R-BLEP had already ended it in practice for HI and ULTRA.** The owner's answers of
+  2026-10-16 accepted the sound changes in both, ULTRA's "because accuracy comes first in a
+  render engine; its renders, and the lab's references for it, change". The rule itself was
+  only ever No Compromises', that is ULTRA's: HI, the model's Potato, has no limits in
+  `ca72-lab hifi`, which reports its distances and does not judge them.
+
+**What stays.** `ca72-lab perf check` and its twins are unchanged, run by hand: the reference
+is not in git and CI does not run it. This decision concerns 1e-7 alone: the tests against
+ngspice and High Fidelity's limits (`crates/ca72-lab/src/quality.rs`) are not touched. Until
+a standard is approved, CONTRIBUTING.md's rule is the one that applies: a change that alters
+the samples needs its reason and a measurement. What replaces the 1e-7 rule has not been
+decided. CI has no bit-identity check today: it compares no render with a recorded reference,
+so the tripwire is run by hand.
+
+No code changes with this entry and no sample moves. plan.md and
+no-compromises-attempts.md, which gave the rule as current, now point here; history.md and
+numerics.md keep it as the record of its day.
+
+## R-RETRIGGER-KEEP. Keep every key press striking; explain NOTE PRIORITY
+
+**Owner, 2026-10-30:** keep 0.3.0's behaviour. Every key press attacks, the standard
+multi-trigger behaviour; explain the interaction with NOTE PRIORITY where a player reads it.
+No samples change.
+
+The [KVR report (p9320313)](https://www.kvraudio.com/forum/viewtopic.php?p=9320313#p9320313)
+heard a flam with RETRIGGER on: LOW with a rising overlap, or HIGH with a falling overlap.
+Each press opens the trigger contact for the circuit's 13 ms re-arming gap, then starts
+the contours again. NOTE PRIORITY independently chooses among the keys still held, so
+that attack can sound at the old pitch. Only lifting the key that keeps priority lets
+the pitch move; the release contact adds its usual 2 ms lead. Key lifts do not re-attack.
+LAST selects the newly pressed key, bringing its pitch with the attack (and respecting GLIDE).
+
+Two designs were tried and rejected:
+
+- The sounding-key-change design tied re-attacks to changes of the sounding key. It removed the flam but also
+  re-attacked on key lifts, including returns to an earlier held key and chord releases.
+- The press-only sounding-key design attacked only on presses that changed the sounding key, never on lifts. Silencing
+  the other presses made percussive rising overlaps fade out: Ray Gun was down about 22 dB
+  and Pitch Tom about 15 dB by note 2. Their next pitches arrived without fresh contours.
+
+The owner chose to retain every press's attack and the existing sound of presets and
+projects. The RETRIGGER tip, README, quick start and MCP control guide now explain the
+choice: use NOTE PRIORITY LAST for the new note's pitch with its attack; under LOW or HIGH,
+a held key can keep the old pitch until it is lifted. This is a text change only.
+
+Hardware evidence is limited. Behringer's [Model D user manual](https://synthmanuals.com/manuals/behringer/model_d/manual_english/model_d_m_en.pdf)
+says multi-trigger on changes pitch and triggers the filter and loudness contours on a new
+note. No authoritative source was found for key-lift behaviour. This decision preserves
+CA-72's established behaviour; it does not claim a verified hardware rule for key lifts.
+
+## R-CONTOUR-SPIKE. No Compromises' contours solve from their last solve
+
+`ca72-lab worst` put the contours over a sample's 20.8 us in their worst blocks, the slowest
+part in them, in the 10 to 15 ms after a key's release with DECAY off. V-trig's root finder
+solved each dump node (R1401's far end) at each of its evaluations, and each of those solves
+began at V-trig's voltage with CR7 [CR4] volts forward. There a Newton step moves one n Vt
+(49 mV): some sixty steps a node, each two evaluations by differences, up to 6,843 steps in a
+tick and 184,955 in the worst block. Potato left that path on 2026-09-29 and High Fidelity
+took Potato's lean solves the next day; No Compromises stayed on it to keep its samples.
+
+No Compromises now takes the same path: the dump node from its last solution with its slope
+analytic, Q20 and Q12 from their last solve within the tick. It and High Fidelity also start
+each junction behind a resistance (Q7, Q8, the reset feeds, Q12's base) and the dump node from
+its last solve within the tick rather than the last tick's. The equations, the tolerances
+(1e-12 V and 1e-11 V) and libm stay as they were, so this is a change of iterates, not an
+approximation. Potato's ticks are unchanged.
+
+**Measured against main (cfd5859), 48 kHz.** Over 60 s of the worst case in No Compromises the
+contours moved at most 1.0e-13 V and the audio 3.1e-10 of full scale, and over 55 gate trains
+at most 1.1e-13 V with all 6,711 onsets on the same samples. High Fidelity moved at most
+2.0e-14 V and 8.6e-9. `ca72-lab hifi` measures as before. Three alternating pairs on a machine
+other agents were using, threaded, the median: the contours' worst block 40.2 to 18.0 us a
+sample, the blocks they alone overran 31 to 0, the worst case's late blocks 200 to 7 of 11,250
+and its worst block 242 % to 132 %. At 20 notes a second ULTRA's contours took 3.10 us a sample
+from 3.86.
+
+**Potato's samples.** A voice settles its contours in No Compromises' numerics before its mode
+applies, so a Potato voice's rest moved by rounding: at most 8.9e-16 V at the contours and
+1.7e-14 of full scale in the audio. With both builds settled in Potato's numerics, the worst
+case's 20 s and the 55 gate trains are identical to the bit. Keeping the old bits would keep
+the slow path for the settling alone.
+
+V-trig's own root still stops short at 80 iterations on some releases (21 times in the worst
+case's 60 s, twice in perf-ext, one for each note): its first Newton step from V-trig high
+lands on CR2's [CR9's] exponential and creeps back at one n Vt a step. Those samples are as
+they were here; curing them moves the contours by up to 1.9 mV, past High Fidelity's limit
+against the old samples, and is the owner's to choose.
+
+## R-CONTOUR-VTRIG. V-trig's root bisects off CR2's exponential
+
+On a release with SUSTAIN high V-trig's root stopped at its 80 iterations short of the root:
+from V-trig high, with CR2 [CR9] still off, Newton's first step (7.66 V to 1.22 V, say) landed
+far up that diode's exponential, beyond where the law holds its exponent, and each step back
+climbed one n Vt. It did so 21 times in a minute of the worst case, 70 over 55 gate trains and
+twice in perf-ext, in No Compromises and High Fidelity alike, and once in Potato (R-CONTOUR-SPIKE
+left it so). In a coupled tick the next pass finished the solve. In an uncoupled one V-trig stood
+about 43 mV low, leaving up to 1.8 mV on the loudness contour for up to 90 ms over 10 uV, and
+`ca72-lab hifi` and `perf record` refused the render.
+
+**The owner's decision, 2026-10-30:** it is a real failure, so it is fixed; High Fidelity's 1e-5 V
+limit against the old samples does not apply, the old samples being unconverged.
+
+Where V-trig's residual reaches an ampere (nothing here carries one) its root finder now gets no
+slope and bisects, the dump node's idiom, in every mode. Limiting that diode's step as SPICE
+does took fewer iterations on average (6 against 10 at the wall) but more at worst in No
+Compromises (33 against 20) and more code; a threshold of 0.1 A saved two. Solves that never
+reach the wall run as before.
+
+**Measured against R-CONTOUR-SPIKE's commit, 48 kHz.** No solve stops at its cap in any of those
+loads, in any mode, nor over the gate trains at 44.1 kHz (4 before); `hifi` passes and `perf
+record` records. In every solve that met the wall (1,846 to 3,761 a load) the root is within
+7.2e-15 V of plain bisection of the same equations. V-trig's longest solve went from 80
+iterations to 20.
+
+- No Compromises and High Fidelity, the worst case's minute: the contours moved at most 1.8 mV
+  (four stretches of about 80 ms over 10 uV; ten of the 21 stops moved them by over 1 uV), all 98
+  attacks on the same samples, no attack's peak by more than 60 uV, level in 50 ms windows at
+  most 0.11 dB. The audio moved at most 0.17 of full scale, near 5.6 s, and that is a phase: there
+  the filter is oscillating by itself (EMPHASIS 0.99) and 0.1 mV on its contour over two stretches
+  of 80 ms integrates to 0.2 rad, its level within 0.07 dB and its frequency unchanged, and the
+  difference reaches the output only as the tremolo opens the VCA. The phase then grows to 0.8 rad
+  with no difference on the contours and is lost when the filter locks. Elsewhere in the minute the
+  audio moved at most 5.7e-5, in most windows less than a render's own spread when each elementary
+  function moves an ulp.
+- Gate trains, No Compromises and High Fidelity: at most 1.9 mV and 1.8e-4 of full scale, all
+  6,711 onsets on the same samples.
+- Potato: its one stop (33.96 s) moved the contours by 0.14 V for 40 ms, past High Fidelity's
+  limit but within what Potato's falls already are from No Compromises' (median 0.31 V). This fall
+  ends further from No Compromises', 0.55 V against 0.46 V at most: the unconverged V-trig had
+  happened to shorten Potato's usual lag. The audio's largest move, 0.25 at 47.7 s, is no measure
+  of this: an ulp alone moves it 0.25 there. The gate trains moved at most 4.4e-15 V, on the same
+  1,774 onsets.
+- LO does not use these contours: its render is identical.
+- Factory presets, as each is saved: 42 of 42 identical, on a line of keys. POLY's chords
+  (`preset_render`): HI 41 identical and Feedback Funk at -197 dB; ULTRA 25 identical and 17 moved,
+  by -91.5 dB peak or less but for Feedback Funk at -65.6 dB, level unchanged in all. That preset's
+  old render was the outlier: moved an ulp it lands within 2.7e-7 of the new one, so that release's
+  old result hung on rounding.
+- Time, over three to five alternating pairs on a machine others were using: the contours as
+  before within the noise (1.89 us a sample in No Compromises, 1.24 to 1.26 in High Fidelity, 0.46
+  to 0.44 in Potato), the worst block no longer (threaded, No Compromises 6.78 to 6.72 ms, High
+  Fidelity 5.21 to 4.99). Three fixed runs stalled for tens to hundreds of milliseconds; the pairs
+  after them did not.
+
+ngspice's comparison (`contours_match_the_circuit`) has not run on this: it was not installed.
+## R-LO-SET-DRIVE. LO's DRIVE leaves the ring its share of the pair's limit
+
+**Owner's decision, 2026-10-30,** after the audit of LO's filter FM. `Light::set_drive` wrote the
+input pair's limit outright, and the engine calls it every block, so past EMPHASIS's threshold,
+where `control()` raises that limit for the ring's level (`RING_LEVEL`), each block dropped it to
+DRIVE's alone until the next 16-sample control update. The ring was clamped periodically:
+components at the harmonics ± 2 fs/256, and a level depending on where a note fell against the
+blocks. With 256-frame blocks a note on a multiple of 16 samples never shows it, which is why a
+preset comparison whose notes all fall there at 48 kHz found nothing.
+
+The limit is now DRIVE's times a kept `ring_lift`, worked out in one place and only when it moves.
+A patch that returned early from `set_drive` when DRIVE stood still was rejected: it cured the
+held case, but DRIVE automated past the threshold kept every clamp.
+
+`res7_saw_n72` (saw, CUTOFF 3, EMPHASIS 7, key 72), inharmonic total in dBc, by the note's
+offset in samples past a 16-sample boundary:
+
+| Offset | 0 | 1 | 4 | 8 | 10 | 15 |
+|---|---|---|---|---|---|---|
+| 44.1 kHz before | -54.6 | -46.1 | -41.0 | -36.3 | -34.8 | -32.3 |
+| 44.1 kHz after | -54.6 | -54.6 | -54.6 | -54.6 | -54.6 | -54.6 |
+| 48 kHz before | -60.8 | -45.6 | -40.8 | -36.1 | -34.7 | -32.6 |
+| 48 kHz after | -60.8 | -60.8 | -60.8 | -60.8 | -60.8 | -60.8 |
+
+- **DRIVE moving:** DRIVE swept 2 to 4 dB, a new value each 256-frame block, offset 10, on the
+  light voice alone: -42.4 to -48.9 dBc at 44.1 kHz, -43.3 to -51.7 at 48 kHz, where aligned
+  blocks give -48.9 and -51.5. The early return stays at -42.4 and -43.3.
+- **DRIVE and the ring's level:** over EMPHASIS 6 to 10, CUTOFF 2, 3 and 5, DRIVE 0 to 24 dB, with
+  and without an oscillator, an aligned note is the same to the bit as before, and every other
+  offset now plays its level: the spread between offsets 0 and 10 falls from 2.3 dB to 0.001 dB.
+- **Presets:** with the notes on the grid, none of the 42 changes. Off it, seven do, each to the
+  level it has on the grid: Bubble Computer +0.36 dB at offset 15 (within 0.05 dB of it), Driven
+  Kick +0.21, Acid Squelch +0.09, White Lotus +0.05, Feedback Funk +0.04, Night Surf +0.01, Swarm
+  Riser +0.00.
+- **HI and ULTRA** don't use this voice: all 42 presets, off the grid, are the same to the byte.
+
+The regression test, `set_drive_keeps_the_rings_limit`, plays those offsets with DRIVE told each
+block and without, to the bit, and moves DRIVE under the ring; main fails it at offset 1, the early
+return at the move (1.088 to 1).
+## R-LO-FILTER-FM. LO's cutoff law takes an audio-rate line at twice the voice's rate
+
+**Found in the efficiency audit of 2026-10-30:** LO is clean on plain notes but folded under
+audio-rate filter modulation. With oscillator 3 two octaves above oscillator 1 on the same key
+every true product is a harmonic of the key, so anything else is foldover. A sawtooth modulator
+at FILTER MODULATION with the wheel forward stood at -27.6 dBc inharmonic at 48 kHz on C5 and
+-26.2 on C6, the loudest below 12 kHz at -36.8 dBc at 2,477 Hz (48000 - 87 x 523.25).
+
+Measured stage by stage in the render path. Oscillator 3's own line is clean: it holds -119 dBc
+below 12 kHz, and an ideal additive line moves the output by about a decibel at 48 kHz. The
+ladder and its decimator are clean: with an ideal line and an ideal bus at the filter's rate
+the output is -87 dBc, and a brickwall decimation of the ladder's output reads as the real one
+does. **The
+cutoff's law is the cause:** its exponential run at the voice's rate turns that clean line into
+a stage gain with -22.3 dBc of foldover at C5 and -18.6 at C6. Holding it across the ladder's
+eight steps is a second, smaller cause. Separately, at 48 kHz, C5 and C6:
+
+| The ladder's coefficients | Held | Interpolated |
+|---|---|---|
+| Law at the voice's rate, aliased | -27.6, -26.2 | -29.0, -28.1 |
+| Alias-free | -38.6, -37.9 | -52.4, -51.4 |
+
+So interpolating the line alone is not the fix. A straight line across the ladder's steps with
+the law on every step reached -36.1 and -34.8 at 48 kHz: its images near the rate carry the
+line's top harmonics almost as loud as the harmonics themselves. A four-point interpolator
+reached -40.0 and -40.5.
+
+**The change.** The line now goes through a 2x sparse interpolator (the 79-tap halfband the bus
+already goes through first) and the cutoff's law runs on both of its samples; the ladder's g and
+k follow them in straight lines across the eight steps. Two evaluations of the law read as
+eight do, within 0.6 dB for a sawtooth at 44.1 and 48 kHz (a narrow pulse would gain up to 3
+dB). The bus reaches the ladder 23.6 samples after the oscillators; the line now reaches it about 20.5 after, so
+**the plug-in's latency is unchanged** (86 samples) and the line stands nearer the bus than it
+did: LO's locked FM timbre no longer moves with the sample rate, its harmonics within 0.7 dB of
+the voice's own at 192 kHz at every rate, where they were up to 3.5 dB away.
+
+| Inharmonic dBc | 44.1 kHz | 48 kHz | 96 kHz |
+|---|---|---|---|
+| Saw modulator, C5 | -39.9 to -49.2 | -27.6 to -51.0 | -52.2 to -62.0 |
+| Saw modulator, C6 | -35.7 to -47.5 | -26.2 to -49.6 | -31.5 to -59.6 |
+| Triangle modulator, C5 | -52.9 to -53.9 | -58.8 to -57.9 | -68.6 to -76.0 |
+| Square modulator, C5 | -32.3 to -42.5 | -34.9 to -40.1 | -37.0 to -58.3 |
+
+What stays is the bus: its interpolator's transition band, 24 to 28 kHz at 48 kHz, passes images
+of its top harmonics. A steady filter never hears them, since the decimator removes them, but a
+moving one mixes them down, at about -50 dBc with a sawtooth modulator. Mending that means a
+longer interpolator for the bus, which would change every patch, and is not done here.
+
+**Plain patches are bit-identical**, FILTER MODULATION off or the wheel down: the ladder's loop
+stands as it was, and 36 of the 42 factory presets render to the same samples at LO across C1 to
+C7. The six with FILTER MODULATION on and the wheel forward change: Tenor Pluck, Smoke Flute and
+White Lotus by a null of -61, -55 and -46 dB; Saw Monolith by -28; Gatekeeper and Droning On, whose
+lines are the fast ones, by -21 and -13, their levels within 0.04 dB. Their LO AUTO GAIN curves
+are measured again, Droning On's by up to 0.25 dB. Against ULTRA's third-octave spectrum the six
+move by 0.14 dB at most, so the change is not a step towards ULTRA by that measure: it removes
+foldover, which that measure hardly sees.
+
+Cost, ten alternating pairs on a machine not fully quiet: nothing for a plain voice (+0.3 %,
+within the pairs' +-2 %); +10.8 % for one voice with FILTER MODULATION on (344 to 382 ns a sample),
++9.2 % on the plug-in's own `process` with oscillator and filter modulation both at audio rate.
+`a_fast_line_through_the_cutoff_folds_nothing_loud` fails without the change, at -32.4 dBc.
+## R-PREAMP-SOLVE. The preamplifier's linear nodes eliminated ahead of Newton's method
+
+**Audit, 2026-10-30:** ULTRA's external preamplifier, 19 solved nodes and 36 parts through
+the general nodal solver, was the real matrix cost: 39 % of a sample in FEEDBACK, and
+numerics.md had long said it needed its own solver. Schur elimination had been set aside by
+rule as "non-exact", never measured.
+
+`preamp/reduced.rs` solves the same equations. Only the transistors' nine internal nodes touch
+anything nonlinear; the other ten fall into four groups, and since Newton's step solves linear
+equations exactly, the next iterate does not depend on their present values at all. They are
+worked out at each iterate only because the stopping rule looks at every node. The device
+equations, GMIN, the trapezoidal rule, the predictor, the limiting, the all-nodes stopping
+rule, the cap of 100, the shorter retry and the four substeps are unchanged. The part values
+are read from the `Circuit`, which stays as the netlist, the operating point, the profiles'
+counts and the tests' reference. The nine nodes are a ring that eliminates in about 100
+operations in a fixed order, without the general solver's pivot search (which moved a pivot
+on 0.24 % of its solves on the worst load). R9, SW10 and a shorter step recompute their
+groups on the audio thread, in fixed arrays, without allocating.
+
+**The samples change, by rounding.** The plain form of this algebra was not good enough: a group's
+voltage taken from a transistor node's puts an ulp of 12 V through an ohm into one row with no
+row left to balance it, 1.3e-9 V at AMP, ten thousand times the circuit's own rounding; and C26's
+history as a charge over the step rounds the same way at every step, a drift the feedback
+multiplies by 232. Both passed -120 dBFS easily. They were found by holding the
+difference to the general solver's rounding, and are why `Group` keeps only differences.
+
+Measured against `cfd5859`, Linux on an i9-13900HX, on a machine that was not quiet (mean load
+12), pairs alternating under one lock, medians:
+
+| | Before | After |
+|---|---|---|
+| Preamplifier, worst load, us a sample (`ca72-lab solvers`, with its timers) | 7.81 | 2.98 |
+| The same, us an iteration: load, linear solve | 0.47, 0.27 | 0.19, 0.07 |
+| Newton iterations a sample, and solves by iterations | 9.52 | 9.52, every bin the same |
+| FEEDBACK 6 / 8.5 ULTRA, us a sample, one core, free-running | 15.11 / 16.38 | 11.20 / 11.04 |
+| FEEDBACK 6 / 8.5 High Fidelity, the same | 10.20 / 10.82 | 8.36 / 8.64 |
+| FEEDBACK 6 / 8.5 ULTRA, paced, mean % of a 256-frame block | 74.2 / 75.9 | 54.1 / 54.7 |
+| The same, 99th percentile | 101 / 106 | 71 / 70 |
+| The same, blocks late of 1,829 | 22.5 / 21.5 | 1 / 2 |
+
+Held notes, with no preamplifier in the path, did not move. The threaded worst case did not
+either (mean 2.93 to 2.81 ms, 99th percentile 4.8 ms both): other threads set it.
+
+Accuracy: of the EXTERNAL INPUT's 46 non-chaotic renders against the code before, 45 are within
+-236 dBFS and the worst, High Fidelity's chirp at EXT 8, within -166, against -160 for the same
+render's own twins an ulp apart; 44 take exactly the same iterations and the other two
+differ by 0.001 %. At the solver, every node stays within about the general solver's own
+rounding (`preamp::reduced`'s tests). Of 360 FEEDBACK render pairs at equal seeds, 336 stay
+within -123 dBFS, the hardware takes at EXT 0, 5, 8 and 10 within -162, their distance to the
+hardware the same to two decimals. The other 24 are chaotic: EMPHASIS 8 with FEEDBACK 10 at EXT 10
+parts from 1.02 s, and FEEDBACK 1.5 at EXT 10 on some seeds from 4.7 s, by -64 dBFS at most.
+Their third-octave bands, level and oscillation match within the seeds' own spread, as do all
+30 steps of a FEEDBACK sweep across EXT 10. `ca72-lab hifi` prints the same figures in all its
+scenarios, its failure on perf-ext's contour root included, which is older than this. All
+42 factory presets are the same to the bit at HI, and at ULTRA but for Feedback Funk at -326 dB.
+
+A hard source at EXT 10 (a 2.5 V chirp at the jack from no source resistance) fails some forty steps
+in two seconds, here and before: from there a change of one ulp at the input alone parts the
+render by -13.7 dBFS, the code before from itself as the new code from it. That is an old
+weakness of the circuit's steps at that drive, and it is not changed here.
+
+
+## R-HI-FEEDBACK. HI's oversampled VCA, the exact preamplifier inside its loop
+
+**Follow-up, 2026-10-30:** R-HI-COST replaces the open-loop 4x VCA below with a
+band-limited 2x path. The exact closed 4x FEEDBACK loop remains. The figures below
+are attributed to the earlier isolated implementation, before that cost reduction.
+
+**Reason, 2026-10-30.** HI's filter already ran at 4x, but its VCA ran after the filter's
+resampler at the sample rate. It added aliasing to high notes. FEEDBACK returned a sample at
+a time through the preamplifier's and filter's resamplers, about 90 samples late, instead of
+closing at the filter's rate as ULTRA's does (R-FEEDBACK-LOOP). At EXT 10 it oscillated near
+39 Hz against the hardware's 55 Hz. A fitted preamplifier made this cheaper, but changed the
+lock note at five of the 54 measured settings. The hardware takes alone did not expose that.
+
+**Owner's decision, 2026-10-30:** accuracy, option A with the plain lamp. Use the exact reduced
+preamp solver (R-PREAMP-SOLVE), not the fitted audio model. Accept roughly 1.9 times a
+0.3.0 HI FEEDBACK voice's cost. This is production work; the exploratory branches and their
+harnesses do not form part of it.
+
+**Built:**
+
+- HI's VCA takes the filter's four samples before decimation, including the paired POLY
+  filters. Its bias still comes at the sample rate, interpolated across the four steps.
+  The loudness contour's delay is 29.75 samples at 48 kHz instead of 52.75, accounting for
+  the VCA's decimator; the sound's line-up and reported 86-sample latency stay as they were.
+- With FEEDBACK and EXTERNAL INPUT on, the preamplifier's reduced circuit solve runs at
+  every filter step. HI retains its absolute and relative tolerance of 1e-5, four substeps,
+  100-iteration limit and h/16 retry. Only the lamp uses the plain peak detector; its output
+  does not feed the audio. ULTRA retains its solve and lamp, LO its light model.
+- FEEDBACK voices run alone. Pairing the interleaved filter, VCA and preamplifier added
+  roughly 100 lines without a measurable saving in the preceding Linux experiment. Normal
+  HI filters still pair; the split API also runs a looped voice whole. The pair tests cover
+  FEEDBACK and EXTERNAL INPUT switched mid-note, both voices leaving and rejoining, ULTRA
+  and mixed qualities, all to the bit against playing alone.
+- The HI factory AUTO GAIN curves are remeasured with `CA72_WRITE_CURVES`. The assertions
+  remain bit-exact, including the ignored all-presets check. All 42 HI curves move: Feedback
+  Funk by up to 1.852947 dB, every other one by at most 0.020684 dB (Wide Crash). LO's curves
+  stay exact. Preset LEVEL values are not changed.
+- **Owner's follow-up, 2026-10-30:** keep the shared HI/ULTRA curve format, since HI now
+  lands on ULTRA; a third preset curve field is not justified. For that isolated HI change, ULTRA's byte identity was
+  required with AUTO GAIN off and for saved sessions; R-ULTRA-HIFI supersedes that
+  identity requirement for the combined build. A freshly chosen factory preset at
+  ULTRA can change only through the remeasured shared correction. The report lists each
+  such render and measures every HI curve's error against an ULTRA measurement of the same
+  preset, flagging any error over 0.1 dB.
+
+**Measurement:** the full tables, manifests, scripts, timing conditions and level-matched
+48 kHz, 24-bit WAVs are in the owner's audit storage, `fixes/hi-preamp/ROUND3-REPORT.md` and
+`fixes/hi-preamp/round3/`.
+
+- Saw C8 at 48 kHz: inharmonic power -45.6 to -72.5 dBc (ULTRA -73.6). The upper-range POLY
+  pair: -45.6 to -70.8 dBc (ULTRA -68.5). The narrow pulse and triangle retain upstream
+  aliasing; this does not repair those stages.
+- Distance to hardware at EXT 0 / 5 / 8 / 10: 0.40 / 0.49 / 1.24 / 0.62 dB, without
+  refitting HI. EXT 10 holds 55.3 Hz on all three notes, as ULTRA and the hardware do.
+- The 54-point sweep, eight seeds each at ENTROPY 0.2 %: all points within the nodal
+  reference's or candidate's own seed spread (1.1 times it plus 0.02 dB), strongest lock
+  note the same at 53 of 54. The exception splits across notes in the reference too.
+  Median distance 0.00 dB, worst 1.29; worst mean level change 0.01 dB. Notes were not
+  delayed to manufacture different initial conditions.
+
+- CPU, three alternating rounds under the lock: non-FEEDBACK paired means +34.5 % pooled
+  (+29.1 % paced, +42.1 % free-running). FEEDBACK 6 costs 1.89 times 0.3.0 HI, FEEDBACK 8.5
+  about 1.40 times. Load ranged from about 2 to 69. In the quieter round POLY 8 with FEEDBACK
+  used 48.1 % of a 256-frame period, p99 60.2 %, no late blocks; in the loaded rounds its
+  mean was 87 to 107 %, with 1,632 late blocks between them. This is not a real-time
+  capacity guarantee. No audio-thread allocation in all 126 timing runs.
+- In that isolated HI implementation, LO's 42 factory renders are byte-identical to
+  the reduced-preamp baseline; so are all 42 ULTRA panels with
+  AUTO GAIN off and all 42 with their original saved curves/state. Nine freshly loaded
+  ULTRA presets change through the shared curves, by less than 0.000433 dB at their stored
+  DRIVE. The shared curves' error against an independent ULTRA measurement exceeds 0.1 dB
+  somewhere on DRIVE in Driven Kick, Split Snare, Tight Hat, Loose Hat, Wide Crash, Swarm
+  Riser and Velocihator (mostly pre-existing; worst 1.197431 dB). At stored DRIVE only
+  Driven Kick exceeds it, +0.231413 dB. No extra levelling was applied.
+- The scoped `ca72`, `ca72-plugin` and `ca72-lab` suite: 880 passed, none failed, 96 ignored;
+  all 42 curves pass the exact recheck. Scoped clippy passes with the existing unused
+  `editor.rs::audio_refused` test helper warning; `-D warnings` still rejects that warning.
+
+**Limits:** one Linux laptop, with other agents active. Timing under the shared lock is
+not a quiet-machine guarantee. No human listening, host, Mac, Windows or ARM validation.
+ngspice is absent: the report names the circuit-reference tests that return without running
+the simulator. The reduced solver's numerics still need the cross-platform and ngspice
+review recorded in R-PREAMP-SOLVE.
+
+## R-ULTRA-HIFI. ULTRA uses High Fidelity's numerics
+
+**The owner, 2026-10-30:** approved making QUALITY ULTRA use `Quality::HighFidelity`
+instead of `Quality::NoCompromises`. The word ULTRA stays. This supersedes R48's
+"no compromises" promise and the old renders' bit identity, not its circuit: the same
+oscillator and filter oversampling, contour substeps and VCA at 4x remain. This numerical switch alone keeps HI and LO
+samples; the combined branch also includes the separate HI and LO sound changes above. No Compromises remains the model's and the lab's numerical reference;
+`ca72-lab hifi` still compares each path against it.
+
+**Why:** the audit's feedback trials cost 67.4 % of a 256-frame period before and 46.6 %
+after, with 17 late blocks becoming none in 5,487. The numerical difference on the lab's
+measured paths was about -150 dBFS, with the same distance to the hardware. High Fidelity
+uses the keyboard's 1e-5 tolerance, fast math and the VCA's plain solve (and its existing
+lean circuit solves). No new approximation is introduced here. Its stated limit is within
+-120 dBFS of the reference on those paths. A chaotic feedback patch can diverge from
+itself sample by sample; its seed ensemble, not that null alone, judges its sound.
+
+**The engine:** `panel_of` chooses High Fidelity at ULTRA, without an environment switch.
+`Voice::splits` admits both circuit qualities: without this second change the engine would
+silently lose ULTRA's five helpers. The threaded parts already follow the panel's quality;
+the pool, seats, worker budget and crews follow the ULTRA control and need no new gate.
+FEEDBACK still plays whole. The latency is still 85.75 samples rounded to 86; both circuit
+qualities have the same resamplers and VCA-bias delay. AUTO GAIN still shares HI's curve:
+its key ignores ULTRA and its probe measures the circuit at Potato, as before.
+
+The README and first-time note now say High Fidelity and its numerical limit, without the
+old claim of the model exactly or a fixed seven-times cost. The note still warns about
+live dropouts. The lab's `filteralias` defaults to the new ULTRA and accepts
+`CA72_QUALITY=nc` for its former No Compromises reference (labelled reference); the other
+reference comparisons are retained. Latency's attack comparison and the helpers' lending
+test cover both numerical modes; ULTRA's prototype and engine split tests cover the
+shipping mode, including actual helper CPU time on Linux.
+
+**The isolated implementation's sound check (Linux, 2026-10-30, before integration):** all 42 factory presets at ULTRA,
+forced POLY (four voices, two seconds) and as saved (4.5 seconds), changed level by at most
+0.0000015 dB; the worst null was -135 dB relative to the old render. All 42 presets at HI
+and LO were byte-identical to the published 0.3.0 binary (1.5 seconds each). The hardware
+FEEDBACK takes at EXT 0, 5, 8 and 10 kept their third-octave distances: 0.3970, 0.5065,
+1.2410 and 0.6377 dB. The latency and split samples pass; Linux's scheduler confirms the
+helpers use CPU. No AUTO GAIN curve changes: all 42 presets keep the same HI/ULTRA key and
+the unchanged probe and curves. `hifi`'s audio differences are -149 to -188 dBFS, but its
+`perf-ext` reports two contour-root iteration caps in **both** modes and exits with a failure;
+this was retained as a finding, not suppressed. R-CONTOUR-VTRIG fixes those caps;
+the combined build must re-run the comparison. ngspice was absent, so no new SPICE comparison
+is claimed.
+
+**The paired cost check:** on the i9-13900HX, 48 kHz / 256 frames, three alternating
+before/after rounds under the shared benchmark lock, ULTRA's paced mean fell 15.6 to
+34.0 % across eight scenarios. FEEDBACK 6: 73.5 to 48.5 % of a period, 128 to 1 late in
+5,487 blocks; FEEDBACK 8.5: 70.6 to 48.0 %, 21 to none. POLY 8: 109.5 to 91.4 %, but its
+p99 still 137.6 % of a period. Free-running means fell 8.8 to 32.5 %; one modaudio pair
+was unusually slow in both builds and is retained. Foreign jobs kept 1.12 to 23.03 logical
+CPUs busy in samples before the calls, so these are this machine's observed costs, not a
+promise of real time. All 130,560 measured process blocks counted no audio-thread
+allocations. The audit's round-three report holds the runs, tails, settings and listening
+pairs; no listening verdict is claimed.
+
+**Combined-build check (2026-10-30):** with R-CONTOUR-VTRIG and R-PREAMP-SOLVE together,
+`ca72-lab hifi` passes all eight scenarios. Peak audio errors span -148.8 to -187.6 dBFS;
+the worst-load case is -152.6 dBFS, with zero sample lag. This remeasurement replaces
+the isolated implementation's contour-cap failure above; it does not establish a
+universal null for chaotic feedback. The integration report holds the complete results.
+The combined `CA72_WRITE_CURVES` measurement reproduces every merged array exactly;
+against main, 42 shared HI/ULTRA curves and six LO curves change. Largest corrections
+are Feedback Funk's -1.852947 dB in HI and Droning On's +0.2524872 dB in LO. Preset LEVEL
+values stay unchanged. `ca72-lab solvers` reports no solve stopped at its cap (`[]`).
+
+
+## R-HI-COST. HI's open-loop VCA at 2x, exact FEEDBACK retained
+
+**The owner's decisions, 2026-10-30:** accept normal HI voices at about 1.02–1.07
+times 0.3.0's CPU and FEEDBACK at about 1.28–1.68 times, keeping the exact
+preamplifier in that loop. No fitted preamplifier and no profile-guided build.
+These are the accepted measured tradeoffs, not a claim of CPU parity with 0.3.0.
+
+**Why 2x:** the 4x open-loop VCA made normal HI unnecessarily costly. A 47-tap
+lower-cutoff first FIR suppresses ultrasonic input before the 2x circuit VCA; the
+unchanged 79-tap final FIR retains the output stopband. DRIVE aliasing moves from
+-61.7 to -60.0 dBc at 48 kHz and -61.0 to -58.3 at 44.1 kHz, still better than
+ULTRA's -57.1 and -56.4 dBc respectively. These figures, and the accepted CPU
+multiples, are attributed to the owner's `fixes/hi-cost/lanes/REPORT.md` and
+`fixes/hi-cost/vca2x/ROUND2-REPORT.md`: one Linux i9-13900HX laptop, bundle profile
+for CPU. They are not measurements of every platform or host.
+
+**Retained:** exact oscillator converter memo, positive-index floor removal, exact
+transistor exponential lanes and the flushed zero-jack FIR shortcut. The separate
+plain 2x VCA tolerance step (1e-9 to 1e-5) and local Early log series are not
+bit-identical: that report measures up to 2.740483856e-8 dB preset level change,
+7.852440577e-8 dB active-third-octave distance and 3.4371e-9 transition output
+delta. Maximum isolated harmonic movement is 0.0002835275263 dB; the largest
+positive movement away from the strict reference is 0.00000379 dB. The exact
+4x FEEDBACK solve, tolerances, cap and retry stay unchanged. Latency stays 86.
+
+**Rejected:** folded VCA pair (harmonics moved 10–25 dB); one-Newton VCA (isolated harmonic errors up to 8.73 dB) and
+filter predictor (non-chaotic FM null -99.09 dBFS RMS, outside its sound limit); fitted preamplifier (five
+of 54 lock notes changed); PGO (mixed training slowed HI; HI-only training improved HI but increased
+observed ULTRA POLY overruns, so it was not accepted for release); VCA coefficient cache (roughly 250 extra lines without a reliable
+bundle saving). Sharper halfbands alone admitted the ultrasonic energy that folds
+inside the 2x nonlinear solve. Lower first-stage cutoffs moved clean-saw scores;
+shortening the last FIR weakened its stopband. AVX, extra ladder/FIR lanes and
+inlining trials did not earn a shipped benefit. No experiment switch or audit
+harness is retained. Detailed trials are attributed to the owner's `fixes/hi-cost/`
+reports; numerical details are in circuit/numerics.md.
+
+**Calibration:** remeasure factory AUTO GAIN curves on the final implementation;
+retain exact assertions, the shared HI/ULTRA format and every preset LEVEL.
+Shared curve changes can affect newly selected ULTRA presets with AUTO GAIN;
+compare unchanged saved curves separately from this deliberate calibration change.
+Listening, cross-platform/host validation and the owner's merge decision remain.
+
+## R-HOST-STACK-REDUCED. Heap storage for the reduced preamplifier state
+
+PR #147's Windows MSVC CI aborts in the unchanged 256 KB CLAP host-thread lifecycle
+regression. An independent Windows build of `c48879c` reproduces it; diagnostic markers
+locate the overflow in `Engine::start_workers`, after voice preparation has returned.
+The reduced preamplifier increased each voice's inline size, and cloning a worker's
+template on the caller's thread can keep several voice-sized temporaries live there.
+
+`Preamp` now owns its `Reduced` solver in a `Box`, allocated during preparation. Its
+state is still deep-cloned with the voice, but is no longer part of those inline
+copies. No equation, coefficient, solver tolerance, iteration order, retry policy,
+oversampling, scheduling or latency changes. The existing 256 KB test remains the
+acceptance guard; its stack allowance is not increased. Allocation remains outside
+audio processing. Release validation must check that guard, real-time allocation
+regressions and reference audio before this storage fix is accepted.
+
+Initial validation on Windows 11, Rust/MSVC 1.97.1, with debug information disabled:
+the unchanged guard fails on the original
+candidate and passes with heap storage, without diagnostic markers. The full CLAP
+host suite passes 14 tests (one existing manual stress test ignored). A separate
+loader of the original CI-built optimized CLAP also passes the same 256 KB lifecycle
+case; the reproduced failure concerns the unoptimized test build, not an observed
+crash of that optimized DLL. The fixed Linux build passes both real-time allocation
+tests and both split-VCA pair/handoff regressions, and 15 complete WAV captures match
+`c48879c` byte for byte across LO/HI/ULTRA, feedback, resonance and driven cases.
+Strict all-feature workspace clippy passes. CPU cost has not been remeasured for
+this storage change; the audit's timing figures remain attributed to `c48879c`.
+
+The next Windows CI run (`a3ead7b`, run 41251415146) still overflowed. A native
+build with normal debug information reproduces it; markers again locate it in
+the worker-template clone. The earlier debug-info-disabled pass was insufficient
+coverage of CI's configuration. `Voice::boxed_clone` now keeps the deep clone and
+its boxing together inside the model crate, across a non-inlined call boundary,
+instead of returning the full voice through the unoptimized plug-in caller's
+temporaries. It adds no allocation beyond the existing boxed template, and changes
+neither the copied state nor audio processing. The model crate retains its existing
+test-profile optimization. Do not reduce debug information or enlarge the guard to
+make this pass; validate the normal CI profile with incremental compilation off.
+
+Validation at `2cc499f`: native Windows/MSVC 1.97.1, default debug information,
+`CARGO_INCREMENTAL=0`, and no diagnostic markers: the unchanged 256 KB guard
+passes; the full CLAP host suite at default parallelism passes 14 tests, with its
+one existing manual test ignored. Linux passes all 14 real-time allocation tests,
+both worker/split-voice bit-identity tests, strict all-feature workspace clippy,
+formatting and the release MCP build. Fifteen new full WAV captures match
+`c48879c` byte for byte. Evidence is under
+`audit-2026-10-30/windows-stack/boxed-clone-validation.json` and
+`boxed-clone-audio/results.json` on the lab share. CI on the updated PR remains
+the cross-platform acceptance gate; no new CPU claim is made.
+
+## R-VCA-QUALITY-HANDOFF. Keep the active output state across HI/ULTRA changes
+
+Review of PR #147 at `d508638` found that HI and ULTRA both set `BackPart::ultra`,
+so that flag no longer identifies a change between their 2x and 4x VCAs. After open
+HI stops advancing the 4x path, selecting ULTRA could resume its initial or stale
+signal and FIR state. Returning to HI could likewise resume the idle 2x histories.
+An isolated test holding the filter samples and VCA bias identical reproduces the
+HI-to-ULTRA event at 44.1 kHz: about -0.07985 V becomes essentially zero. Both new
+regressions fail against the old source in a separate target directory.
+
+Quality changes now use the existing state-transfer, 64-sample warm-up and
+128-sample fade policy between the output paths, including reversals before the
+fade finishes and transitions with the feedback loop closed. On return from
+ULTRA, HI's three-sample pad starts from the last heard output. A fresh ULTRA
+voice starts directly on its original 4x path. Settled paths, equations, rates,
+reported latency and the note/retrigger policy are unchanged. Running both paths
+briefly costs extra work during a transition; no continuous extra VCA solve or
+allocation is introduced.
+
+The new regressions isolate the VCA from legitimate quality-dependent changes
+elsewhere in the voice: exact event continuity for HI-to-ULTRA, and a bound based
+on the signal's recent slew for both directions at 17-, 257- and 2048-sample
+intervals, at 44.1/48/96 kHz. The slew bound allows HI's different phase delay; it
+is not a claim that whole-voice quality changes null. Pair/single, feedback/ext
+handoff and allocation regressions also pass. Release acceptance additionally
+requires steady-quality reference renders, plug-in latency/allocation checks,
+and cross-platform CI on the updated source. Evidence is under
+`release-0.3.1/quality-handoff/` on the lab share.
+
+## R-HI-FILTER-PROBE. Opt in to the diagnostic filter decimator
+
+PR #147 review found that the split-VCA optimization discarded the host-rate
+filter output even when `ca72-lab stim` recorded it. On `0fde93b`, a synthetic
+eight-channel stimulus produces a six-channel render with main-output peak
+0.329394 FS but a permanently zero filter-voltage channel. That channel cannot
+support a filter comparison. This is a diagnostic regression, not evidence that
+the audible filter output is missing.
+
+`Voice::set_filter_probe(true)` now opts into the original separate filter-output
+decimator, including paired HI voices. Call it before preroll; enabling midway
+through a render does not reconstruct its previously skipped FIR history.
+The lab's stimulus capture, filter-alias routine and `worst::render_probed` opt in
+before rendering. Normal plug-in voices leave the option off and retain the
+decimator skip. The public `probe` documentation states when its third value is
+unavailable; the existing two pitch/bus values remain available.
+
+The fixed synthetic capture's filter channel peaks at 1.227938 V; its other five
+channels, including main audio, are byte-identical to the original capture. New
+model tests cover sample identity with diagnostics on/off in all three internal
+qualities at 44.1/48/96 kHz, feedback on/off, and per-voice probe settings in paired
+HI filters. A lab test runs the real stimulus-rendering function and checks both
+audio and filter channels are nonzero. Existing pair/allocation tests and strict
+all-feature workspace clippy pass. Inputs, WAVs and comparison data are under
+`release-0.3.1/filter-probe/` on the lab share. No hardware measurement or CPU
+improvement is claimed for this diagnostic repair.

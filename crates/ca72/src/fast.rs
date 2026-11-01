@@ -115,8 +115,58 @@ pub fn tanh(x: f64) -> f64 {
     t.copysign(x)
 }
 
+/// Independent exponentials, each retaining [`exp`]'s scalar operation order.
+#[cfg_attr(feature = "count", allow(dead_code))]
+#[inline(always)]
+pub(crate) fn exp_lanes<const N: usize>(x: [f64; N]) -> [f64; N] {
+    if x.iter().any(|x| !x.is_finite() || x.abs() >= 700.0) {
+        return x.map(exp);
+    }
+    const SHIFT: f64 = 6755399441055744.0;
+    let kb = x.map(|x| x * INV_LN2_64 + SHIFT);
+    let kf = kb.map(|kb| kb - SHIFT);
+    let k = kb.map(|kb| kb.to_bits() as i32 as i64);
+    let r: [f64; N] = std::array::from_fn(|i| (x[i] - kf[i] * LN2_64_HI) - kf[i] * LN2_64_LO);
+    let p = r.map(|r| {
+        let r2 = r * r;
+        r + r2 * (0.5 + r * (1.0 / 6.0)) + r2 * r2 * (1.0 / 24.0 + r * (1.0 / 120.0))
+    });
+    let t = k.map(|k| EXP2_64[(k & 63) as usize]);
+    std::array::from_fn(|i| {
+        let y = t[i] + t[i] * p[i];
+        f64::from_bits((y.to_bits() as i64 + ((k[i] >> 6) << 52)) as u64)
+    })
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn exponential_lanes_match_scalar_bits() {
+        for i in 0..200_000 {
+            let x = -699.0 + 1398.0 * ((i as f64 * 0.754_877_666_2) % 1.0);
+            let a = [x, -x, x * 0.001];
+            assert_eq!(
+                super::exp_lanes(a).map(f64::to_bits),
+                a.map(super::exp).map(f64::to_bits)
+            );
+        }
+        for x in [
+            0.0,
+            -0.0,
+            700.0,
+            -700.0,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NAN,
+        ] {
+            let a = [x, x.next_up(), x.next_down()];
+            assert_eq!(
+                super::exp_lanes(a).map(f64::to_bits),
+                a.map(super::exp).map(f64::to_bits)
+            );
+        }
+    }
+
     /// Within 2 ulp of libm's exp from -700 to 700, and tanh within 2e-14 relatively over
     /// +-25 (and exactly odd).
     #[test]

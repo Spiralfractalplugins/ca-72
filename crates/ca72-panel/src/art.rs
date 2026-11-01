@@ -3187,12 +3187,16 @@ pub fn tip_bounds(fonts: &Fonts, t: &str, size: f64) -> [f64; 4] {
 /// A tip's box's width and height, and its gap above the point it names.
 fn tip_box(fonts: &Fonts, t: &str, size: f64) -> (f64, f64, f64) {
     let pad = size * 0.4;
-    let w = fonts.advance(t, size, Weight::Regular, 0.0) + 2.0 * pad;
-    (w, size * 1.5, size * 0.3)
+    let w = t
+        .split('\n')
+        .map(|line| fonts.advance(line, size, Weight::Regular, 0.0))
+        .fold(0.0, f64::max)
+        + 2.0 * pad;
+    (w, size * 1.5 * t.split('\n').count() as f64, size * 0.3)
 }
 
 /// A hover tip: `text` in a box of the tip's colours (`TIP`, `TIP_BORDER`), `size` its
-/// lettering's height in panel units, centred above (x, y).
+/// lettering's height in panel units, centred above (x, y). Newlines separate lines.
 pub fn tip(fonts: &Fonts, x: f64, y: f64, t: &str, size: f64) -> Layer {
     let (w, h, gap) = tip_box(fonts, t, size);
     let (x0, y0) = (-w / 2.0, -h - gap);
@@ -3207,13 +3211,15 @@ pub fn tip(fonts: &Fonts, x: f64, y: f64, t: &str, size: f64) -> Layer {
         N(size * 0.25),
         N(size / 12.0)
     );
-    put!(
-        s,
-        "<text x='0' y='{}' text-anchor='middle' font-size='{}' fill='{TIP_TEXT}'>{}</text>",
-        N(y0 + h / 2.0 + size * 0.36),
-        N(size),
-        escape(t)
-    );
+    for (i, line) in t.split('\n').enumerate() {
+        put!(
+            s,
+            "<text x='0' y='{}' text-anchor='middle' font-size='{}' fill='{TIP_TEXT}'>{}</text>",
+            N(y0 + size * (0.75 + 1.5 * i as f64) + size * 0.36),
+            N(size),
+            escape(line)
+        );
+    }
     Layer {
         origin: (x, y),
         bounds: tip_bounds(fonts, t, size),

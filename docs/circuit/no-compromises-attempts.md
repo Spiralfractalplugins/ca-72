@@ -1,5 +1,12 @@
 # No Compromises: what was tried for real time
 
+**A record of 2026-09-29, kept as it was written** (one note under "Tools" is of 2026-09-30).
+No Compromises was the plug-in's QUALITY ULTRA before R-ULTRA-HIFI; ULTRA now uses
+High Fidelity, with No Compromises retained as the numerical reference. The figures below are that day's, on the
+machine named below, and the model and its threads have changed since. Two things it says no
+longer hold, each corrected where it stands: the keyboard as the only thread overrunning
+("Where it stands"), and the 1e-7 rule ("Constraints").
+
 A list for a fresh look (2026-09-29): what was done to make the Minimoog model run in real
 time in its No Compromises mode, what worked, what did not, and what was left. The full
 record, with every figure, is in [numerics.md](numerics.md) ("No Compromises") and
@@ -17,6 +24,9 @@ enough; these notes are for ideas, not a plan.
   reference machine).
 
 **Constraints**
+
+(2026-10-30: the first of these, the 1e-7 rule, is retired as an acceptance standard and stays
+only as a regression tripwire: [decisions.md](../decisions.md), R-TRIPWIRE.)
 
 - Output must stay within 1e-7 of full scale of a recorded reference. `ca72-lab perf check
   target/mm-perf/nc-ref-vca` judges this.
@@ -48,6 +58,13 @@ enough; these notes are for ideas, not a plan.
   (`crates/ca72/src/keyboard.rs`, solved by the general nodal solver in
   `crates/ca72/src/mna.rs`), in its heaviest blocks: up to about 24 µs a sample
   against the 20.8 a sample lasts.
+  - **Corrected 2026-10-30: no longer so.** On `ca72-lab worst` at `cfd5859`, built with
+    `--features profile`, on an Intel i9-13900HX laptop (not the machine above, so not
+    comparable with these figures), the heaviest blocks are the contours' thread's: 30 to
+    34 µs a sample at its peak, with the keyboard at about 13 in those same blocks, and over
+    the 20.8 budget alone. 17 of 2,813 blocks were late, the worst 197 %. The keyboard's own
+    heaviest blocks come elsewhere and reach about 21 µs, so it still can overrun, but it is
+    not the only thread that does, nor the heaviest.
   - Circuit size: 31 solved nodes, 58 parts (36 resistors, 3 capacitors, 5 diodes, 6
     junction capacitances, 3 diffusion charges, 3 BJTs, 2 JFETs). It is one connected
     component; 14 of its nodes touch only linear parts.

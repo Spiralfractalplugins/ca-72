@@ -586,6 +586,7 @@ pub struct Vca {
     /// which [`Vca::signal`] keeps here, not four passes from rest.
     pub plain_signal: bool,
     out_warm: Cell<Option<f64>>,
+    split_signal: bool,
     /// Potato's bias ([`DriveTable`]; `None` until prepared) and whether it is in use.
     potato: Option<std::sync::Arc<DriveTable>>,
     pub potato_on: bool,
@@ -625,6 +626,7 @@ impl Vca {
             warm: Cell::new([PairWarm::COLD; 3]),
             plain_signal: false,
             out_warm: Cell::new(None),
+            split_signal: false,
             potato: None,
             potato_on: false,
         };
@@ -902,7 +904,13 @@ impl Vca {
         };
         let b1 = r_src * p1.b + 2.0 * tis.rb * p1.b + tis.re * b.i_a;
         let mut warm = self.warm.get();
-        let tol = if self.plain_signal { 1e-9 } else { 1e-15 };
+        let tol = if self.split_signal && self.plain_signal {
+            1e-5
+        } else if self.plain_signal {
+            1e-9
+        } else {
+            1e-15
+        };
         let (u1, _) = degenerated_warm_to(a1, b1, 2.0 * p1.vt, &mut warm[0], tol);
         let ic16 = p1.alpha * 0.5 * b.i_a * (1.0 + u1);
         let ic15 = p1.alpha * 0.5 * b.i_a * (1.0 - u1);
@@ -944,7 +952,7 @@ impl Vca {
                 let (o, v) = (o17_at(u3), v_c12_at(u3));
                 let qb17 = 1.0 / (1.0 - (o - v_c13) / pnp.vaf);
                 let qb12 = 1.0 / (1.0 - (v - v_c14_rest) / pnp.vaf);
-                let delta = p3.vt0 * crate::ulp::log(qb12 / qb17);
+                let delta = p3.vt0 * early_log(qb12, qb17, self.split_signal && self.plain_signal);
                 let (u1, du_da) =
                     degenerated_warm_to(a3 + delta, b3, 2.0 * p3.vt, &mut warm[2], tol);
                 let d_delta = p3.vt0
@@ -961,7 +969,7 @@ impl Vca {
             for _ in 0..4 {
                 let qb17 = 1.0 / (1.0 - (o17 - v_c13) / pnp.vaf);
                 let qb12 = 1.0 / (1.0 - (v_c12 - v_c14_rest) / pnp.vaf);
-                let delta = p3.vt0 * crate::ulp::log(qb12 / qb17);
+                let delta = p3.vt0 * early_log(qb12, qb17, self.split_signal && self.plain_signal);
                 u3 = degenerated_warm_to(a3 + delta, b3, 2.0 * p3.vt, &mut warm[2], tol).0;
                 let ic17 = p3.alpha * half_c * (1.0 + u3);
                 let ic12 = p3.alpha * half_c * (1.0 - u3);
@@ -1251,6 +1259,15 @@ impl OversampledVca {
         }
     }
 
+    /// One solve without output decimation, for HI between the two filter stages.
+    pub fn raw(&mut self, ramp: &[[f64; VcaDrive::LEN]; 2], k: usize, x: f64) -> f64 {
+        let [from, to] = ramp;
+        let t = (k + 1) as f64 / self.factor as f64;
+        let dk = VcaDrive::from_array(&std::array::from_fn(|i| from[i] + t * (to[i] - from[i])));
+        self.vca.split_signal = self.factor == 2;
+        self.vca.signal(x, &dk)
+    }
+
     /// High Fidelity's plain solve ([`Vca::plain_signal`]) or the full one.
     pub fn set_plain(&mut self, plain: bool) {
         self.vca.plain_signal = plain;
@@ -1324,6 +1341,18 @@ impl OversampledVca {
     /// ULTRA).
     pub fn hand_over(&self, to: &mut Vca) {
         to.take_signal_states(&self.vca);
+    }
+}
+
+// The open 2x path's Early ratios are close to one in this circuit.
+#[inline]
+fn early_log(a: f64, b: f64, split: bool) -> f64 {
+    if split {
+        let z = (a - b) / (a + b);
+        let z2 = z * z;
+        2.0 * z * (1.0 + z2 * (1.0 / 3.0 + z2 * (1.0 / 5.0 + z2 * (1.0 / 7.0 + z2 / 9.0))))
+    } else {
+        crate::ulp::log(a / b)
     }
 }
 

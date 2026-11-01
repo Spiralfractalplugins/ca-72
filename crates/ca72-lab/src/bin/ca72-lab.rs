@@ -556,16 +556,22 @@ fn filteralias(rest: &[String]) -> Res {
             false,
         ),
     ];
-    let last = "ultra";
+    // Keep No Compromises available for the numerical reference.
+    let q = match std::env::var("CA72_QUALITY").as_deref() {
+        Ok("nc" | "no-compromises") => Quality::NoCompromises,
+        Ok("hifi") | Err(_) => Quality::HighFidelity,
+        Ok(other) => return Err(format!("filteralias: unknown CA72_QUALITY {other}")),
+    };
+    let last = if q == Quality::HighFidelity {
+        "ultra"
+    } else {
+        "reference"
+    };
     for &rate in &rates {
         for (name, panel, note, drive, from_osc) in &patches {
             let mut v = Voice::new(rate, *panel);
-            // (`CA72_QUALITY=hifi`: High Fidelity, ULTRA but for the VCA's plain signal path.)
-            v.panel.quality = if std::env::var("CA72_QUALITY").as_deref() == Ok("hifi") {
-                Quality::HighFidelity
-            } else {
-                Quality::NoCompromises
-            };
+            v.set_filter_probe(true);
+            v.panel.quality = q;
             v.set_drive(*drive);
             v.note(*note, true);
             let warm = (0.5 * rate) as usize;
@@ -747,6 +753,7 @@ fn stim(rest: &[String]) -> Res {
     panel.quality = q;
     let t0 = std::time::Instant::now();
     let mut voice = Voice::new(f64::from(rate), panel);
+    voice.set_filter_probe(true);
     voice.set_seed(72);
     if let Some(k) = key {
         voice.note(k, true);
@@ -1887,9 +1894,45 @@ fn worst(rest: &[String]) -> Res {
 
 #[cfg(test)]
 mod tests {
-    use super::set_control;
+    use super::{set_control, stim, wav_f32};
     use ca72::voice::Panel;
     use serde_json::json;
+
+    #[test]
+    fn hi_stim_capture_keeps_its_filter_voltage_channel() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("input.wav");
+        let patch = dir.path().join("patch.json");
+        let output = dir.path().join("output.wav");
+        // Synthetic capture input: the held MIDI key supplies the note; all
+        // external stimuli are zero. No licensed hardware recording is needed.
+        std::fs::write(&input, wav_f32(8, 48_000, &vec![0; 4800 * 8 * 4])).unwrap();
+        std::fs::write(&patch, "{}").unwrap();
+        let args = [
+            input.to_str().unwrap(),
+            patch.to_str().unwrap(),
+            output.to_str().unwrap(),
+            "--quality",
+            "potato",
+            "--no-vpo",
+            "--key",
+            "60",
+            "--preroll",
+            "0.02",
+        ]
+        .map(str::to_owned);
+        stim(&args).unwrap();
+        let (rate, channels) = ca72_analysis::wav::read(&std::fs::read(output).unwrap()).unwrap();
+        assert_eq!(rate, 48_000);
+        assert_eq!(channels.len(), 6);
+        for channel in [0, 2] {
+            let peak = channels[channel]
+                .iter()
+                .map(|x| x.abs())
+                .fold(0.0f32, f32::max);
+            assert!(peak > 1e-3, "capture channel {channel} is silent");
+        }
+    }
 
     /// Every key the patch format documents is taken, each patch in `patches/` parses, and a
     /// misspelt key, a wrong type or a knob out of its range is refused.

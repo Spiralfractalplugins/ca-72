@@ -4897,7 +4897,15 @@ impl Editing {
                     x,
                     y + top,
                 );
-                Some(if c.place == DrawerPlace::Lfo {
+                Some(if c.param == "retrigger" {
+                    let text = format!(
+                        "RETRIGGER: {} · On: each key strikes.\nNOTE PRIORITY LAST: new pitch with attack.\nLOW/HIGH: a held key may keep the old pitch until lifted.",
+                        p.text(v)
+                    );
+                    let b =
+                        art::tip_bounds(self.renderer.fonts(), &text, self.renderer.text_size());
+                    (text, x.clamp(-b[0], art::W - b[2]), tip.2)
+                } else if c.place == DrawerPlace::Lfo {
                     self.clear_of_scopes(tip)
                 } else {
                     tip
@@ -6933,15 +6941,17 @@ pub(crate) mod window {
     }
 }
 
-/// ULTRA's note's lines (decisions.md R48; the owner approved this text on 2026-10-16,
-/// R-THREADS): ULTRA's cost against HI (3.7 to 6.4 times over the factory presets, more with
-/// FEEDBACK), and on a computer that splits an ULTRA voice over six threads (`splits`) that one
-/// voice plays live there; else what one voice takes.
+/// ULTRA's note's lines (decisions.md R-ULTRA-HIFI): its numerical limit and, on a computer
+/// that splits a voice over six threads (`splits`), what can be played live.
 fn ultra_note_lines(splits: bool) -> Vec<(&'static str, Tone)> {
     let mut lines = vec![
-        ("ULTRA · NO COMPROMISES", Tone::Accent),
+        ("ULTRA · HIGH FIDELITY", Tone::Accent),
         (
-            "THE CIRCUIT'S MODEL EXACTLY, AT ABOUT SEVEN TIMES THE WORK OF HI.",
+            "THE CIRCUIT'S MODEL, WITHIN -120 dBFS OF ITS NUMERICAL REFERENCE.",
+            Tone::Plain,
+        ),
+        (
+            "ON MEASURED PATHS; CHAOTIC FEEDBACK CAN DIVERGE.",
             Tone::Plain,
         ),
     ];
@@ -10059,7 +10069,7 @@ mod tests {
         assert_eq!((e.motion.lamp, e.motion.coil), (0.0, 1.0));
         assert_eq!(e.scene.opening.coil, 1.0);
         assert!(e.ultra_note);
-        assert_eq!(e.ultra_note().lines[0].0, "ULTRA · NO COMPROMISES");
+        assert_eq!(e.ultra_note().lines[0].0, "ULTRA · HIGH FIDELITY");
         press(&mut e);
         assert!(!e.ultra_note && e.settings.ultra_note_read);
         e.move_opening(t0 + Duration::from_secs(8), ultra);
@@ -12886,6 +12896,50 @@ mod tests {
         release(&mut e);
     }
 
+    /// RETRIGGER's explanation stays readable at the smallest window in either lettering.
+    #[test]
+    fn retrigger_tip_explains_priority_and_fits() {
+        for skin in [Skin::Worn, Skin::Drawn] {
+            for lettering in [Lettering::Standard, Lettering::Large] {
+                for on in [false, true] {
+                    let (mut e, _, _) = editing_of(
+                        Ca72Params {
+                            retrigger: BoolParam::new("Retrigger", on),
+                            ..Ca72Params::default()
+                        },
+                        Library::at(std::env::temp_dir().join("ca72-editor-tests-no-library")),
+                    );
+                    e.set_look(skin);
+                    e.set_lettering(lettering);
+                    e.resize(MIN_WIDTH);
+                    e.fit(1.0, MIN_WIDTH, height_for(MIN_WIDTH));
+                    let p = at(&e, centre("retrigger"));
+                    go(&mut e, p);
+                    e.update_scene();
+                    let (text, x, y) = e.tip().expect("RETRIGGER's tip");
+                    assert!(text.starts_with(if on {
+                        "RETRIGGER: On"
+                    } else {
+                        "RETRIGGER: Off"
+                    }));
+                    assert!(text.contains("On: each key strikes."));
+                    assert!(text.contains("NOTE PRIORITY LAST: new pitch with attack"));
+                    assert!(
+                        text.contains("LOW/HIGH: a held key may keep the old pitch until lifted.")
+                    );
+                    let layer = art::tip(e.renderer.fonts(), x, y, &text, e.renderer.text_size());
+                    let b = layer.bounds;
+                    assert_eq!(layer.body.matches("<text ").count(), 3);
+                    assert!(
+                        x + b[0] >= 0.0 && x + b[2] <= art::W,
+                        "{skin:?}, {lettering:?}: {b:?}"
+                    );
+                    assert!(y + b[1] >= e.renderer.top(), "tip above the window");
+                }
+            }
+        }
+    }
+
     #[test]
     fn every_control_operates_a_parameter() {
         let p = Ca72Params::default();
@@ -15312,12 +15366,12 @@ mod tests {
         ] {
             assert_eq!(
                 n.lines[0],
-                ("ULTRA · NO COMPROMISES".to_owned(), Tone::Accent)
+                ("ULTRA · HIGH FIDELITY".to_owned(), Tone::Accent)
             );
             assert!(
                 text(n)
                     .iter()
-                    .any(|t| t.contains("ABOUT SEVEN TIMES THE WORK OF HI"))
+                    .any(|t| t.contains("WITHIN -120 dBFS OF ITS NUMERICAL REFERENCE"))
             );
             assert!(text(n).iter().any(|t| t == says), "{:?}", text(n));
             let dim: Vec<_> = n.lines.iter().rev().take(2).collect();

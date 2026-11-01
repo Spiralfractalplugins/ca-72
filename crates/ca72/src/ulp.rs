@@ -136,6 +136,16 @@ pub fn exp(x: f64) -> f64 {
     nudged(libm::exp(x))
 }
 
+/// Independent exponentials, preserving the active scope and each scalar result.
+#[inline(always)]
+pub(crate) fn exp_lanes<const N: usize>(x: [f64; N]) -> [f64; N] {
+    #[cfg(not(feature = "count"))]
+    if FAST.with(std::cell::Cell::get) {
+        return crate::fast::exp_lanes(x);
+    }
+    x.map(exp)
+}
+
 /// tanh as [`exp`] is: libm's, or the fast one inside a High Fidelity or Potato part's tick
 /// ([`crate::fast::tanh`], within 2e-14 of libm's relatively, about twice its speed). For the
 /// transistor pairs' anchors ([`crate::devices::PairWarm`]: decisions.md R13); elsewhere

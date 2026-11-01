@@ -6,6 +6,13 @@ made along the way are in [history.md](../history.md). These documents were writ
 the model was a device of the digital audio workstation (DAW) it was developed in, and
 still mention that DAW here and there.
 
+**"Potato" has two meanings.** `Quality::Potato`, `--quality potato` and "Potato" in these
+documents are the circuit's model at its real-time setting: the plug-in's QUALITY HI.
+"Potato mode", `CA72_POTATO` and the plug-in's `potato_*.rs` tests are QUALITY LO, the light
+model (`ca72::light::Light`, decisions.md R47), which is not the circuit's. High Fidelity is
+QUALITY ULTRA; No Compromises remains the numerical reference in the model and lab
+(decisions.md R-ULTRA-HIFI).
+
 | Document | Contents |
 |---|---|
 | [plan.md](plan.md) | The three concerns (specification, offline reference, real-time), stages, acceptance |

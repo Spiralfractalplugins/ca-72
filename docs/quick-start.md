@@ -78,6 +78,11 @@ lower both.
 across the stereo field using **WIDTH**, **INNER**, and **EVEN / CENTER**. In MONO, with
 WIDTH up, detached notes move through those places too.
 
+For a fresh attack on every key press, turn **RETRIGGER** on. Choose **NOTE PRIORITY LAST**
+for the new note's pitch to arrive with its attack. With **LOW** on rising overlaps, or
+**HIGH** on falling overlaps, a held key can keep the old pitch until you lift it; the
+attack comes first. RETRIGGER off keeps overlapping notes legato.
+
 **DOUBLE** gives each note two voices, **DETUNE** apart (0 to 100 cents), and roughly
 doubles their work. If chords crackle, try SCATTER, fewer VOICES, or QUALITY LO. Changing
 mode or switching DOUBLE releases sounding notes.
@@ -87,8 +92,9 @@ mode or switching DOUBLE releases sounding notes.
 ![The QUALITY toggle and its three settings, from the highest CPU cost at ULTRA to the lightest at LO](images/quick-start/06-quality.png)
 
 Start at **QUALITY LO**, the light model and the default. **HI** uses the circuit model
-for real-time playing and costs more CPU. **ULTRA** is the most exact and most expensive:
-use it for offline export, bounce or freeze, or small projects on a powerful computer.
+for real-time playing and costs more CPU. **ULTRA** uses the circuit with High Fidelity
+numerics, within -120 dBFS of its numerical reference on the measured paths, at the highest
+CPU cost: use it for offline export, bounce or freeze, or small projects on a powerful computer.
 Costs vary with the patch and computer. Quality stays with your project or standalone
 session, outside presets and Init; switching into or out of LO releases held notes.
 

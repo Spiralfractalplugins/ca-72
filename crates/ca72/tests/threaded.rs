@@ -83,6 +83,7 @@ fn threads_give_the_same_samples_as_one() {
             11 => both(&|p| p.quality = Quality::HighFidelity),
             13 => both(&|p| p.quality = Quality::Potato),
             17 => both(&|p| p.quality = Quality::NoCompromises),
+            19 => both(&|p| p.quality = Quality::HighFidelity),
             _ => {}
         }
         // (Keys beyond the 44 too: the plug-in's extension of the string.)

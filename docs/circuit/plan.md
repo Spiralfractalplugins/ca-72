@@ -85,7 +85,8 @@ Each stage ends with tests that pass and its evidence recorded (in the DAW's rep
    times not reached and not reachable without changing the output (numerics.md,
    "Performance").
 8. **Quality modes** (the owner's direction, 2026-09-29; history.md, "Three quality
-   modes"): No Compromises (within 1e-7 of full scale; one instance in real time at
+   modes"): No Compromises (within 1e-7 of full scale, retired as an acceptance standard on
+   2026-10-30: decisions.md R-TRIPWIRE; one instance in real time at
    256-frame blocks in the worst case, the external input and CV included), High Fidelity
    (the difference below -120 dBFS, pitch within 0.01 cent), Potato (a hundred fully
    automated instances). First: the owner's comparison with recordings, a worst-case

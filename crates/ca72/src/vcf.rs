@@ -1257,6 +1257,8 @@ pub struct Vcf {
     up_n: Interpolator,
     up_g: Interpolator,
     down: Decimator,
+    /// The caller consumes the oversampled output through HI's split VCA instead.
+    pub split_output: bool,
     /// Another oversampling and its resamplers ([`Vcf::prepare`], [`Vcf::set_oversample`]).
     other: usize,
     other_rs: (Interpolator, Interpolator, Decimator),
@@ -1326,6 +1328,7 @@ impl Vcf {
             up_n,
             up_g: Interpolator::new(os),
             down: Decimator::new(os),
+            split_output: false,
             other: os,
             other_rs: (
                 Interpolator::new(os),
@@ -1528,7 +1531,9 @@ impl Vcf {
             if let Some(xs) = xs.as_deref_mut() {
                 xs[k] = v;
             }
-            if let Some(o) = self.down.push(v) {
+            if !self.split_output
+                && let Some(o) = self.down.push(v)
+            {
                 out = o;
             }
             laps.lap(Part::FilterResample);
@@ -1721,8 +1726,24 @@ impl Vcf {
         xa: (f64, f64, f64),
         xb: (f64, f64, f64),
     ) -> (f64, f64) {
+        Vcf::tick_pair_oversampled(a, b, xa, xb, (&mut [0.0; 8], &mut [0.0; 8]))
+    }
+
+    /// [`Vcf::tick_pair`], each filter's samples at the loop's rate also written to `xs`, before
+    /// its decimator, as [`Vcf::tick_oversampled`].
+    pub fn tick_pair_oversampled(
+        a: &mut Vcf,
+        b: &mut Vcf,
+        xa: (f64, f64, f64),
+        xb: (f64, f64, f64),
+        xs: (&mut [f64; 8], &mut [f64; 8]),
+    ) -> (f64, f64) {
+        let (xsa, xsb) = xs;
         if !(a.potato && b.potato && a.recip && b.recip && a.oversample == b.oversample) {
-            return (a.tick(xa.0, xa.1, xa.2), b.tick(xb.0, xb.1, xb.2));
+            return (
+                a.tick_oversampled(xa.0, xa.1, xa.2, xsa),
+                b.tick_oversampled(xb.0, xb.1, xb.2, xsb),
+            );
         }
         let (nsa, gsa) = a.resampled(xa.0, xa.1);
         let (nsb, gsb) = b.resampled(xb.0, xb.1);
@@ -1734,11 +1755,21 @@ impl Vcf {
                 (b, (nsb[k], gsb[k].max(0.0), xb.2), &mut ib),
             );
             let va = a.filter_mode(nsa[k], va);
-            if let Some(o) = a.down.push(va) {
+            xsa[k] = va;
+            if let Some(o) = if a.split_output {
+                None
+            } else {
+                a.down.push(va)
+            } {
                 oa = o;
             }
             let vb = b.filter_mode(nsb[k], vb);
-            if let Some(o) = b.down.push(vb) {
+            xsb[k] = vb;
+            if let Some(o) = if b.split_output {
+                None
+            } else {
+                b.down.push(vb)
+            } {
                 ob = o;
             }
         }
@@ -1896,7 +1927,8 @@ pub fn table_hermite(t: &[f64], min: f64, step: f64, x: f64) -> (f64, f64) {
         let s = (t[n - 1] - t[n - 2]) / step;
         return (t[n - 1] + s * (x - min - step * (n - 1) as f64), s);
     }
-    let i = (u.floor() as usize).min(n - 2);
+    // u is positive here; the integer cast already takes its floor.
+    let i = (u as usize).min(n - 2);
     let f = u - i as f64;
     let m = |k: usize| {
         let a = if k == 0 { t[0] } else { t[k - 1] };

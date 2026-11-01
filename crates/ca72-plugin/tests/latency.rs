@@ -191,7 +191,7 @@ fn oscillator_path(mode: &str, rate: f64) -> f64 {
         v.panel.quality = if mode == "HI" {
             Quality::Potato
         } else {
-            Quality::NoCompromises
+            Quality::HighFidelity
         };
         v.note(57, true);
         let mut i = 0usize;
@@ -302,6 +302,10 @@ fn attack(q: Quality, rate: f64, quiet: bool) -> Vec<f64> {
 
 #[test]
 fn hi_s_attacks_come_out_with_ultra_s() {
+    assert_eq!(
+        ca72::voice::latency(Quality::HighFidelity),
+        ca72::voice::latency(Quality::NoCompromises)
+    );
     // Where each attack first reaches 1, 10 and 50 % of HI's peak (interpolated between
     // samples): a sawtooth, and the VCA's thump alone as it starts (its half way, half a
     // second on, is the VCAs' own: HI's bias from a table). The same level for both: ULTRA's
@@ -310,26 +314,28 @@ fn hi_s_attacks_come_out_with_ultra_s() {
     for rate in [44_100.0, 48_000.0, 96_000.0] {
         let at = (0.25 * rate) as usize;
         for quiet in [true, false] {
-            let u = attack(Quality::NoCompromises, rate, quiet);
-            let h = attack(Quality::Potato, rate, quiet);
-            let shares: &[f64] = if quiet {
-                &[0.01, 0.1]
-            } else {
-                &[0.01, 0.1, 0.5]
-            };
-            for &share in shares {
-                let level = share * peak(&h, at);
-                let off = onset_at(&h, at, level) + LINE_UP.0 as f64 - onset_at(&u, at, level);
-                assert!(
-                    off.abs() <= 0.5,
-                    "{rate} Hz, {}, {} %: HI {off:+.2} samples off ULTRA",
-                    if quiet {
-                        "the VCA's thump"
-                    } else {
-                        "a sawtooth"
-                    },
-                    share * 100.0
-                );
+            for q in [Quality::NoCompromises, Quality::HighFidelity] {
+                let u = attack(q, rate, quiet);
+                let h = attack(Quality::Potato, rate, quiet);
+                let shares: &[f64] = if quiet {
+                    &[0.01, 0.1]
+                } else {
+                    &[0.01, 0.1, 0.5]
+                };
+                for &share in shares {
+                    let level = share * peak(&h, at);
+                    let off = onset_at(&h, at, level) + LINE_UP.0 as f64 - onset_at(&u, at, level);
+                    assert!(
+                        off.abs() <= 0.5,
+                        "{rate} Hz, {}, {} %: HI {off:+.2} samples off ULTRA",
+                        if quiet {
+                            "the VCA's thump"
+                        } else {
+                            "a sawtooth"
+                        },
+                        share * 100.0
+                    );
+                }
             }
         }
     }
@@ -361,7 +367,7 @@ fn the_engine_lines_hi_and_lo_up_with_ultra() {
     let n = (0.5 * RATE) as usize;
     for (m, q, held) in [
         ("HI", Quality::Potato, LINE_UP.0),
-        ("ULTRA", Quality::NoCompromises, 0),
+        ("ULTRA", Quality::HighFidelity, 0),
     ] {
         let c = patch(m, false);
         let e = play(&c, at, 0.5, &[]);

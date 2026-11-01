@@ -354,8 +354,8 @@ pub enum FilterMode {
 }
 
 /// QUALITY (decisions.md R47, R48): LO, the light model (Potato mode); HI, the
-/// circuit's model at its real-time setting; ULTRA, the circuit's model with no compromises
-/// (the model's own No Compromises), for offline renders and small projects on powerful
+/// circuit's model at its real-time setting; ULTRA, the circuit's model with High Fidelity numerics
+/// (within -120 dBFS of the numerical reference), for offline renders and small projects on powerful
 /// computers. In this order, low to high, as a host lists them.
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QualityMode {
@@ -795,7 +795,7 @@ pub struct Ca72Params {
     pub inner: FloatParam,
     /// QUALITY, LO by default for a new instance (R-LO-DEFAULT; HI until 0.2.4): at LO the
     /// voices are played by the light model, Potato mode, for computers the circuit's is too
-    /// heavy for (decisions.md R47); at ULTRA by the circuit's model with no compromises (R48).
+    /// heavy for (decisions.md R47); at ULTRA by the circuit's model with High Fidelity numerics (R48).
     /// Not a preset's (`library::KEPT`): it suits the computer, not the sound; saved with the
     /// session. After AUTO GAIN: a session saved before it reads it HI (`filter_state`).
     #[id = "quality"]
@@ -816,7 +816,9 @@ pub struct Ca72Params {
     pub note_priority: EnumParam<NotePriority>,
     /// RETRIGGER, off by default: each key pressed starts the contours again, other keys held
     /// or not (the switch under GLIDE and DECAY; off, single triggering, the instrument's). A
-    /// preset's, as NOTE PRIORITY. After it: a session or a preset saved before reads it off.
+    /// preset's, as NOTE PRIORITY. LAST brings the new pitch with the attack; LOW or HIGH can
+    /// keep a held key's old pitch until it is lifted. Key lifts do not restart the contours.
+    /// After it: a session or a preset saved before reads it off.
     #[id = "retrigger"]
     pub retrigger: BoolParam,
 

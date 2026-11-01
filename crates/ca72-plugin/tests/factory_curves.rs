@@ -36,6 +36,14 @@ fn measured(s: &Sound, lo: bool) -> [f32; STEPS] {
 fn every_factory_preset_carries_its_curves() {
     assert!(!factory().is_empty());
     for s in factory() {
+        let hi = controls_of(s);
+        let ultra = ca72_plugin::engine::Controls { ultra: true, ..hi };
+        assert_eq!(
+            ca72_plugin::drive::sound(&hi),
+            ca72_plugin::drive::sound(&ultra),
+            "{}: ULTRA keeps HI's curve",
+            s.name
+        );
         for (q, db) in [("HI", s.drive_curve), ("LO", s.drive_curve_lo)] {
             let db = db.unwrap_or_else(|| panic!("{}: no {q} curve", s.name));
             assert!(

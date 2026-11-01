@@ -193,10 +193,10 @@ const QUIET_STEPS: usize = 4;
 const SUBSTEPS: usize = 8;
 
 /// Newton's tolerance for the keyboard circuit in each quality mode (absolute, V, and
-/// relative; `Circuit::tolerance`). In High Fidelity and Potato 1e-5 V and 1e-6: its solves
-/// seldom need the second iteration that confirms the first, whose own error is of the
-/// order of the correction's square (the heaviest blocks' iterations 39 % fewer, the
-/// pitch within 4e-8 cent of No Compromises', `ca72-lab hifi`).
+/// relative; `Circuit::tolerance`). In High Fidelity 1e-5 V and 1e-6: its solves seldom
+/// need the second iteration that confirms the first, whose own error is of the order of
+/// the correction's square (the heaviest blocks' iterations 39 % fewer, the pitch within
+/// 4e-8 cent of No Compromises', `ca72-lab hifi`). In Potato 1e-4 V and 1e-5.
 fn tolerance(q: Quality) -> (f64, f64) {
     match q {
         Quality::NoCompromises => (1e-9, 1e-9),

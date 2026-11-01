@@ -1,5 +1,5 @@
-//! The preamplifier's models inside FEEDBACK's loop (decisions.md R8, R11), against the
-//! circuit's (High Fidelity's solve, what R8 approved): each FEEDBACK preset's panel at
+//! HI's exact preamplifier and plain lamp inside FEEDBACK's closed loop (decisions.md
+//! R-HI-FEEDBACK), against the same solve with the circuit's lamp: each preset's panel at
 //! FEEDBACK 3, 6 and 10 and EXTERNAL INPUT VOLUME 0, 5 and 10, a bass line of one note at a
 //! time (a new note every half second, held seven eighths of it), 48 kHz, POLY off, rendered
 //! with several seeds (ENTROPY's floor: each a slightly different instrument). Inside the loop
@@ -11,7 +11,8 @@
 //!
 //! By hand: `cargo test --release -p ca72-plugin --test feedback_models -- --ignored
 //! --nocapture` (`CA72_MODEL`: delayed, the default, or plain; `CA72_SEEDS`, 4;
-//! `CA72_SECONDS`, 4; `CA72_ONLY`, a part of a preset's name).
+//! `CA72_SECONDS`, 4; `CA72_ONLY`, a part of a preset's name). Both legacy model choices
+//! now use the exact solve with the plain lamp; `Circuit` uses the nodal lamp too.
 
 #![allow(clippy::unwrap_used)]
 
@@ -37,6 +38,9 @@ fn play(
     let s = &common::preset(preset);
     let mut c = controls_of(s);
     c.poly = false;
+    // (HI: LO's light voices have no preamplifier to compare.)
+    c.potato = false;
+    c.ultra = false;
     c.feedback = ca72::voice::feedback_law(knob / 10.0);
     c.panel.ext_volume = volume / 10.0;
     let mut e = Engine::new();
