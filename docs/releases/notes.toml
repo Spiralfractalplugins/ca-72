@@ -132,3 +132,21 @@ bug_fixes = [
   "An agent that stops reading replies no longer prevents closing the standalone or switching AGENTS off.",
   "Modulation-depth pop-ups hide when you press a main control and stay hidden while you drag it.",
 ]
+
+[[release]]
+version = "0.3.1"
+features = []
+performance_improvements = [
+  "ULTRA uses less CPU with revised numerics; its sound can differ from 0.3.0, especially with FEEDBACK.",
+  "HI reduces high-note and driven-output aliasing; it uses more CPU, especially with FEEDBACK.",
+  "LO reduces aliasing from audio-rate filter modulation. Latency stays 86 samples in every quality mode.",
+  "Circuit solving and exact oscillator conversion caching avoid repeated calculations.",
+]
+bug_fixes = [
+  "Contour and trigger solves no longer hit the previous numerical spikes and caps.",
+  "LO keeps its resonance limit intact when DRIVE updates.",
+  "Factory HI AUTO GAIN is recalibrated; shared curves also change some newly selected ULTRA preset levels.",
+  "Windows: worker-template cloning fits a host thread with a small stack, including debug builds.",
+  "Switching HI and ULTRA during a held note no longer resumes stale VCA output histories.",
+  "RETRIGGER's tooltip explains NOTE PRIORITY; the retrigger policy stays the same.",
+]
