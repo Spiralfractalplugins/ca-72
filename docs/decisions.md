@@ -17401,7 +17401,8 @@ acceptance guard; its stack allowance is not increased. Allocation remains outsi
 audio processing. Release validation must check that guard, real-time allocation
 regressions and reference audio before this storage fix is accepted.
 
-Validation on Windows 11, Rust/MSVC 1.97.1: the unchanged guard fails on the original
+Initial validation on Windows 11, Rust/MSVC 1.97.1, with debug information disabled:
+the unchanged guard fails on the original
 candidate and passes with heap storage, without diagnostic markers. The full CLAP
 host suite passes 14 tests (one existing manual stress test ignored). A separate
 loader of the original CI-built optimized CLAP also passes the same 256 KB lifecycle
@@ -17411,3 +17412,25 @@ tests and both split-VCA pair/handoff regressions, and 15 complete WAV captures 
 `c48879c` byte for byte across LO/HI/ULTRA, feedback, resonance and driven cases.
 Strict all-feature workspace clippy passes. CPU cost has not been remeasured for
 this storage change; the audit's timing figures remain attributed to `c48879c`.
+
+The next Windows CI run (`a3ead7b`, run 41251415146) still overflowed. A native
+build with normal debug information reproduces it; markers again locate it in
+the worker-template clone. The earlier debug-info-disabled pass was insufficient
+coverage of CI's configuration. `Voice::boxed_clone` now keeps the deep clone and
+its boxing together inside the model crate, across a non-inlined call boundary,
+instead of returning the full voice through the unoptimized plug-in caller's
+temporaries. It adds no allocation beyond the existing boxed template, and changes
+neither the copied state nor audio processing. The model crate retains its existing
+test-profile optimization. Do not reduce debug information or enlarge the guard to
+make this pass; validate the normal CI profile with incremental compilation off.
+
+Validation at `2cc499f`: native Windows/MSVC 1.97.1, default debug information,
+`CARGO_INCREMENTAL=0`, and no diagnostic markers: the unchanged 256 KB guard
+passes; the full CLAP host suite at default parallelism passes 14 tests, with its
+one existing manual test ignored. Linux passes all 14 real-time allocation tests,
+both worker/split-voice bit-identity tests, strict all-feature workspace clippy,
+formatting and the release MCP build. Fifteen new full WAV captures match
+`c48879c` byte for byte. Evidence is under
+`audit-2026-10-30/windows-stack/boxed-clone-validation.json` and
+`boxed-clone-audio/results.json` on the lab share. CI on the updated PR remains
+the cross-platform acceptance gate; no new CPU claim is made.
