@@ -67,7 +67,11 @@ fn at_the_ends(r: &mut Lcg) -> Controls {
     p.mod_mix = r.either(0.0, 1.0);
     p.osc_mod = r.end();
     p.filter_mod = r.end();
-    p.filter_hi = r.end();
+    p.filter_mode = if r.end() {
+        ca72::vcf::FilterMode::Hi
+    } else {
+        ca72::vcf::FilterMode::Lo
+    };
     p.pitch_wheel = r.either(-1.0, 1.0);
     p.mod_wheel = r.either(0.0, 1.0);
     p.ext_volume = r.either(0.0, 1.0);

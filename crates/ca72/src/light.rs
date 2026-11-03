@@ -2107,7 +2107,7 @@ impl Light {
         let (a, x0, y0) = self.coupling;
         let lo = a * (y0 + y - x0);
         self.coupling = (a, y, lo);
-        let y = if self.panel.filter_hi {
+        let y = if self.panel.filter_mode == crate::vcf::FilterMode::Hi {
             let (a, x0, y0) = self.mode;
             let d = self.direct * bus;
             let direct = a * (y0 + d - x0);
@@ -2447,6 +2447,7 @@ pub fn oscillator_alone(rate: f64, hz: f64, wave: Waveform, n: usize) -> Vec<f32
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::vcf::FilterMode;
 
     #[test]
     fn reverse_hybrid_keeps_the_same_calibrated_network_in_lo() {
@@ -2687,7 +2688,11 @@ mod tests {
             let mut p = measuring();
             p.cutoff = cutoff;
             p.emphasis = emphasis;
-            p.filter_hi = emphasis == 0.99;
+            p.filter_mode = if emphasis == 0.99 {
+                FilterMode::Hi
+            } else {
+                FilterMode::Lo
+            };
             l.set_panel(&p);
             l.note(60, true);
             run(&mut l, 960);
@@ -3145,7 +3150,7 @@ mod tests {
             let mut p = measuring();
             p.cutoff = cutoff;
             p.emphasis = emphasis;
-            p.filter_hi = hi;
+            p.filter_mode = if hi { FilterMode::Hi } else { FilterMode::Lo };
             l.set_panel(&p);
             l.note(45, true);
             run(&mut l, 24_000);

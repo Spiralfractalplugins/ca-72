@@ -47,7 +47,7 @@ fn pair_matches_alone(qa: Quality, qb: Quality, seconds: f64, one_emphasis: bool
         match i {
             100 => each(&|v| v.note(45, true)),
             9_000 => each(&|v| v.note(52, true)),
-            20_000 => each(&|v| v.panel.filter_hi = true),
+            20_000 => each(&|v| v.panel.filter_mode = ca72::vcf::FilterMode::Hi),
             30_000 => each(&|v| v.note(52, false)),
             _ => {}
         }
@@ -195,7 +195,7 @@ fn looped_pair_matches_alone(qa: Quality, qb: Quality, seconds: f64) {
         };
         match i {
             100 => each(&|v| v.note(45, true)),
-            8_000 => each(&|v| v.panel.filter_hi = true),
+            8_000 => each(&|v| v.panel.filter_mode = ca72::vcf::FilterMode::Hi),
             14_000 => each(&|v| v.panel.ext_on = false),
             20_000 => each(&|v| v.panel.ext_on = true),
             _ => {}

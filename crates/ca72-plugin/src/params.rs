@@ -1650,7 +1650,12 @@ impl Ca72Params {
             mod_mix: ten(&self.mod_mix),
             osc_mod: self.osc_mod.value(),
             filter_mod: self.filter_mod.value(),
-            filter_hi: self.filter_mode.value() == FilterMode::Hi,
+            filter_mode: if self.filter_mode.value() == FilterMode::Hi {
+                ca72::vcf::FilterMode::Hi
+            } else {
+                ca72::vcf::FilterMode::Lo
+            },
+            filter_poles: ca72::vcf::POLES,
             pitch_wheel: value(&self.pitch_wheel),
             mod_wheel: value(&self.mod_wheel),
             ext_volume: ten(&self.ext_volume),

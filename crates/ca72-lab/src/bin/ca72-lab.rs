@@ -1466,14 +1466,22 @@ fn set_control(p: &mut ca72::voice::Panel, k: &str, v: &serde_json::Value) -> Re
         "osc_mod" => p.osc_mod = switch()?,
         "filter_mod" => p.filter_mod = switch()?,
         "filter_mode" => {
-            p.filter_hi = match v.as_str() {
-                Some("lo") => false,
-                Some("hi") => true,
+            p.filter_mode = match v.as_str() {
+                Some("lo") => ca72::vcf::FilterMode::Lo,
+                Some("hi") => ca72::vcf::FilterMode::Hi,
+                Some("band") => ca72::vcf::FilterMode::Band,
+                Some("high") => ca72::vcf::FilterMode::High,
                 _ => {
                     return Err(format!(
-                        "panel key \"filter_mode\" is \"lo\" or \"hi\", not {v}"
+                        "panel key \"filter_mode\" is \"lo\", \"band\", \"high\" or \"hi\", not {v}"
                     ));
                 }
+            }
+        }
+        "filter_poles" => {
+            p.filter_poles = match v.as_u64() {
+                Some(n @ 1..=4) => n as u8,
+                _ => return Err(format!("panel key \"filter_poles\" is 1 to 4, not {v}")),
             }
         }
         "noise" => {

@@ -1231,6 +1231,24 @@ pub const MODE_RT: f64 = 23.6e3;
 /// Hz (6.8 Hz: 13 degrees and 0.8 dB short at 15 Hz, HI's lows 3 dB short at 30 Hz).
 pub const MODE_HZ: f64 = 3.0;
 
+/// FILTER MODE, which the original does not have: what the filter's output is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FilterMode {
+    /// The low-pass, as drawn: the output from the stage FILTER POLES picks.
+    #[default]
+    Lo,
+    /// The hardware reference's high-pass, 0.3's HI (decisions.md R46): the mixer's output less
+    /// the low-pass. No longer on the panel; a session or preset saved with it keeps it.
+    Hi,
+    /// A band-pass mixed from the ladder's stages, FILTER POLES its slopes.
+    Band,
+    /// STEEP HIGH: a high-pass mixed from the ladder's stages, 6 dB an octave a pole.
+    High,
+}
+
+/// FILTER POLES's default: the fourth stage, the filter as drawn.
+pub const POLES: u8 = 4;
+
 /// The filter in real time.
 #[derive(Debug, Clone)]
 pub struct Vcf {
