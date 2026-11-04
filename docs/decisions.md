@@ -17577,4 +17577,8 @@ larger); every tip, menu and field stays inside its window, and menus' hit areas
 same layout as their drawing. The official looks' golden frames (`examples/golden`) differ in 18 of 32:
 all 16 LARGE frames at the captions and OSC. 3 CONTROL (and, in the two at scale 1.0 with the
 tip, the tip), and the two STANDARD frames at scale 1.0 with the tip, at the tip alone; the 14
-other STANDARD frames are identical.
+other STANDARD frames are identical. `approved.png` and `approved-large.png` are unchanged and
+still pass. `cargo test -p ca72-panel`: 160 passed, 9 ignored; `cargo test -p ca72-plugin
+--features standalone-production`: 738 passed, 76 ignored; clippy on both crates (all targets, all
+features, `-D warnings`) and `cargo fmt --all` clean. Not tried: a real 4K monitor, a host,
+Windows or macOS scaling, a human comfort trial.
