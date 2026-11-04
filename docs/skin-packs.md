@@ -5,11 +5,11 @@ the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/
 them, copy them and build on them under any terms you like. The CA-72 itself, its code and its
 official artwork are under the GNU General Public License, version 3 or later.*
 
-**Status: a prototype (decisions.md R-SKIN-PACKS).** The format, the checks and the CA-72's
-support for packs exist on the `skin-system` branch, with tests. Nothing has been released:
-there is no store, no seller agreement and no review process yet. Manual, unsigned packs remain
-the main route. The first-party public key is to ship in 0.3.0 so Idle Foundry can publish signed
-packs later without a plug-in update. The format may still change before its first release.
+**Status (decisions.md R-SKIN-PACKS).** The CA-72 reads skin packs from 0.3.0 on, and Idle
+Foundry's first-party public key is built in from 0.3.0, so Idle Foundry can publish signed
+packs without a plug-in update. Manual, unsigned packs installed by hand remain the main route:
+there is no store, no seller agreement and no review process yet. Packs say which revision of the panel's
+controls they were made for, and can name the earliest CA-72 they need (see Compatibility).
 
 A skin pack changes how the CA-72's editor looks: where each control is on the panel, how each
 looks, every legend, rule and title printed on it, the pictures its realistic look is made of,
