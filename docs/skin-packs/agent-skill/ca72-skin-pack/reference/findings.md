@@ -1,7 +1,7 @@
 # What the check finds
 
-*CC0 1.0. Checked against the CA-72's `skin-packs` prototype, October 2026. Codes are stable;
-messages may change.*
+*CC0 1.0. Checked against the CA-72 0.3.1's checks, November 2026. Codes are stable; messages
+may change.*
 
 Each line of the check's output is `<severity> [<code>] <file>: <why>`. Then `LOADS: ...` or
 `REJECTED: ...`. The process exits 1 when the pack is rejected.
@@ -13,6 +13,7 @@ these first and check again: later problems may only show once earlier ones are 
 
 | Code | Usual cause | Fix |
 |---|---|---|
+| `manifest.missing`, `manifest.encoding` | No `skin.toml` at the pack's top, or not UTF-8 | Put the manifest at the top of the folder (or of the pack file's one folder) |
 | `manifest.syntax`, `manifest.fields`, `look.fields`, `layout.syntax` | Bad TOML; a manifest field the format doesn't have (the manifest is strict); a known field with a value of the wrong type | Correct the TOML. (An unknown *layout* or `[look]` field is only noted: see the notes below) |
 | `manifest.store` | `price`, `currency`, `sku`, `license_key` or `drm` | Remove it. Never add one |
 | `manifest.id` | Id not lower-case dotted; `com.idlefoundry.*` without a first-party signature; a built-in look's id | Use the user's own `org.<name>.<pack>` |
@@ -22,14 +23,21 @@ these first and check again: later problems may only show once earlier ones are 
 | `manifest.name`, `manifest.summary`, `manifest.version`, `manifest.plugin`, `manifest.format` | Name 1 to 64 characters, summary 1 to 280, `major.minor.patch`, `plugin = "ca-72"`, `format = 1` | Correct the value |
 | `licence.expression` | Not an SPDX expression the checks know, nor `LicenseRef-<name>` | Use a listed identifier exactly (`CC-BY-4.0`, not `CC BY 4.0`) |
 | `licence.text` | A `LicenseRef-` licence without its text, or a `license_files` entry not in the pack | Add the text file and name it |
+| `credits.name` | A creator's name empty or over 120 characters | Correct it |
+| `notice.file`, `notice.licence` | A `[[notices]]` entry whose file isn't a text file in the pack, or whose licence isn't an expression the checks know | Add the notice's file; correct its licence |
 | `asset.missing`, `asset.duplicate`, `asset.licence`, `asset.hash` | An `[[assets]]` path that isn't there, given twice, a bad licence, or a `sha256` that no longer matches | Fix the entry; drop `sha256` while still editing |
 | `look.missing`, `look.base`, `look.file`, `look.picture`, `look.art`, `look.face-tint` | No `[look]`; base not `classic`/`realistic`; a named file missing; an unknown picture slot or unreadable picture; art not SVG; a tint outside 0 to 2 | Correct `[look]` |
-| `layout.control` | A control missing, unknown, placed twice, one of the strip's, or a field its kind doesn't take | Every one of the 44, once, with its kind's fields ([layout.md](layout.md)) |
+| `look.strip-art`, `look.keyboard-art`, `look.drawer-art` | The strip's, keyboard view's or drawer's drawing missing, not SVG, or refused as a drawing is | Correct the file, as for `svg.refused` |
+| `look.colour`, `look.knob-caps`, `look.keyboard-case`, `look.drawer-lettering`, `look.drawer-legends`, `look.drawer-titles` | A `[look.colours]` value not `#rrggbb`; one of those `[look]` options not one of its words | Use the values `docs/skin-packs.md` lists |
+| `look.pixels` | The slots' pictures together, each decoded at its slot's size, past the picture limit | Use fewer or smaller pictures; SVG pictures are decoded at their slot's size too |
+| `layout.control` | A control missing, unknown, placed twice, one of the strip's, or a field its kind doesn't take | Every control the starter places, once, with its kind's fields ([layout.md](layout.md)) |
+| `layout.controls`, `layout.panel` | `controls` below 1; a `[panel]` face outside 700 to 1200 or wood outside 60 to 200 (or 0) | Keep the starter's `controls`; correct `[panel]` |
 | `layout.overlap` | Two click areas overlap, or one overlaps POWER | Move them apart: knobs need 124 between centres (big 146, selectors 120) plus room for their print |
 | `layout.outside` | A control, fixture, plate, screw or PHONES reaches past x 0 to 3108, y -130 to 795 | Move it in, allowing for its click area or radius |
 | `layout.line`, `layout.text`, `layout.title`, `layout.count`, `layout.number`, `layout.format` | A rule outside or of width beyond 0.5 to 20; a legend empty, over 48 characters or sized beyond 6 to 80; a title's span reversed or its top outside; too many; not a number; `format` not 1 | Correct the entry |
-| `svg.refused` | `<text>`, `<style>`, a script, an outside reference, a DTD, animation, an element not on the list, an `id` used twice; or a count or the cost to draw (60 million pixel-equivalents) past its limit | Rewrite without it; for cost, run `svg_cost` and cut what it shows ([drawing.md](drawing.md)) |
-| `svg.slow`, `svg.size` | The timed test drawing took over 250 ms; no size | Run `svg_cost`; fewer tall lines, smaller filters and layers; give `viewBox` |
+| `svg.refused` | `<text>`, `<style>`, a script, an outside reference, a DTD, animation, an element not on the list, an `id` used twice; or a count, the cost to draw (60 million pixel-equivalents) or the buffers it needs (16 million pixels each, 256 MB together) past its limit | Rewrite without it; for cost, run `svg_cost` and cut what it shows ([drawing.md](drawing.md)) |
+| `svg.slow`, `svg.size` | The timed test drawing took over 2 s; no size | Run `svg_cost`; fewer tall lines, smaller filters and layers; give `viewBox` |
+| `svg.panicked` | Drawing it as a test crashed the renderer | Simplify the drawing (filters, masks, nesting) until it passes, and tell the user: it is worth reporting to the CA-72 |
 | `manifest.requires` | `requires` not `"ca-72 >= major.minor.patch"`, or naming a CA-72 later than this one | Remove it unless the pack truly needs a later CA-72 |
 | `file.type`, `file.executable` | A file type not allowed, or code/an archive whatever its name | Remove it (and keep previews outside the pack) |
 | `path.*`, `pack.*` (`pack.pixels`: over 16 million picture pixels, embedded ones included), `file.size`, `text.encoding`, `picture.png` | Names, depth, links, sizes, counts (in a folder or a pack file), non-UTF-8 text, a broken PNG | Rename, flatten, shrink or re-save |

@@ -5,7 +5,10 @@
 //! the next process call (before change 12 it read the value from before the edit, so a click on
 //! a switch did nothing, and a quick drag ended one move short); a host that sends nothing back
 //! still has the edit set at the next process call; the host's own change at that call's first
-//! sample follows the edit; and an edit made just before processing stops is kept.
+//! sample follows the edit; and an edit made just before processing stops is kept. A host that
+//! stops calling `process()` without stopping processing (REAPER, a silent track while stopped:
+//! issue #146, change 17) has the edit set at once, as the editor draws it, and an edit held
+//! just before it stopped set as the editor idles.
 //!
 //! And a key the host gives the editor's view (`IPlugView::onKeyDown()`, change 13: Cubase keeps
 //! the keyboard from a plug-in's window and gives it its keys this way) reaches the editor, the
@@ -25,6 +28,7 @@ use std::num::NonZeroU32;
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use nih_plug::prelude::*;
 use nih_plug::wrapper::vst3::vst3_sys;
@@ -193,6 +197,9 @@ enum Host {
     Cubase,
     /// It sends nothing back.
     Silent,
+    /// REAPER 7.83 (issue #146): it sends each `performEdit()` to the processor at the next
+    /// process call, as Cubase does, and reads nothing back within `endEdit()`.
+    Reaper,
 }
 
 /// The host's record of the editor's edits.
@@ -229,7 +236,7 @@ impl IComponentHandler for Handler {
     }
 
     unsafe fn perform_edit(&self, id: u32, value: f64) -> tresult {
-        if self.host == Host::Cubase {
+        if matches!(self.host, Host::Cubase | Host::Reaper) {
             self.ledger.lock().unwrap().send(id, value);
         }
         kResultOk
@@ -473,7 +480,48 @@ impl Instance {
     fn read_back(&self) -> Vec<(u32, f64)> {
         std::mem::take(&mut self.ledger.lock().unwrap().read_back)
     }
+
+    /// Make `edit` of LEVEL with each of `values` in turn, each just after a process call, until
+    /// one leaves the parameter as it was (the editor's edit held for the next call, the host's
+    /// own value left for it), and return that value. The wrapper does so only while it takes the
+    /// host to be calling: should the test's thread stall between the call and the edit for
+    /// longer than the wrapper waits (0.25 s, change 17), the edit is set at once, and it is made
+    /// again with the other value, which shows the next edit held or set (LEVEL is to be neither
+    /// value as the tries begin). A wrapper that sets every edit at once fails the test.
+    fn hold(&self, values: [f32; 2], edit: impl Fn(f32)) -> f32 {
+        for value in values.into_iter().cycle().take(TRIES) {
+            self.process();
+            edit(value);
+            if self.params.level.value() != value {
+                return value;
+            }
+        }
+        panic!("no edit was held in {TRIES} tries");
+    }
+
+    /// A drag of LEVEL in the editor to `value`, let go: a whole gesture between two process
+    /// calls.
+    fn drag(&self, value: f32) {
+        let setter = ParamSetter::new(self.context.as_ref());
+        setter.begin_set_parameter(&self.params.level);
+        setter.set_parameter(&self.params.level, value);
+        setter.end_set_parameter(&self.params.level);
+    }
+
+    /// The host's own `setParamNormalized()`.
+    fn host_sets(&self, param: &str, value: f64) {
+        // SAFETY: as in `new`.
+        unsafe {
+            assert_eq!(
+                self.controller.set_param_normalized(id(param), value),
+                kResultOk
+            )
+        };
+    }
 }
+
+/// How many times [`Instance::hold()`] tries.
+const TRIES: usize = 10;
 
 impl Drop for Instance {
     fn drop(&mut self) {
@@ -553,6 +601,122 @@ fn the_hosts_own_change_at_the_first_sample_follows_the_edit() {
     i.process();
     assert_eq!(i.seen(), (true, 0.75));
     assert_eq!(i.reported("level"), 0.75);
+}
+
+/// Longer than the wrapper waits for a process call before it takes the host to have stopped
+/// calling (0.25 s at this block's length: PATCHES.md, change 17).
+const QUIET: Duration = Duration::from_millis(400);
+
+/// REAPER 7.83's drag of a knob (issue #146): REAPER stops calling a silent track's plug-ins
+/// while its transport is stopped, without `setProcessing(false)`. The edit was held for a
+/// process call that never came, so the editor, drawing the knob at the parameter's value once
+/// it was let go, drew it back where it had been. Now the edit is set at once: the parameter has
+/// it as the knob is let go, and keeps it when the host calls again with its own echo of it.
+#[test]
+fn a_drag_stays_where_it_was_let_go_in_a_host_that_stopped_calling_process() {
+    let i = Instance::new(Host::Reaper);
+    i.process();
+    std::thread::sleep(QUIET);
+    let setter = ParamSetter::new(i.context.as_ref());
+    setter.begin_set_parameter(&i.params.level);
+    setter.set_parameter(&i.params.level, 0.25);
+    assert_eq!(i.params.level.value(), 0.25);
+    setter.set_parameter(&i.params.level, 0.75);
+    setter.end_set_parameter(&i.params.level);
+    assert_eq!(i.params.level.value(), 0.75);
+    assert_eq!(i.reported("level"), 0.75);
+    i.process();
+    assert_eq!(i.seen(), (true, 0.75));
+    assert_eq!(i.params.level.value(), 0.75);
+}
+
+/// A click on a switch in the same REAPER: the switch has it at once.
+#[test]
+fn a_click_sets_the_switch_in_a_host_that_stopped_calling_process() {
+    let i = Instance::new(Host::Reaper);
+    std::thread::sleep(QUIET);
+    i.click(false);
+    assert!(!i.params.switch.value());
+    assert_eq!(i.reported("switch"), 0.0);
+    i.process();
+    assert_eq!(i.seen(), (false, 0.5));
+}
+
+/// A drag begun while the host still called, its edit held, and let go after the host stopped
+/// calling: the later edit, set at once, takes the held one's place (there is one a parameter),
+/// and is the one kept when the host calls again (this host sending nothing back to set it).
+#[test]
+fn a_drag_begun_while_the_host_called_ends_where_it_was_let_go_after_it_stopped() {
+    let i = Instance::new(Host::Silent);
+    let setter = ParamSetter::new(i.context.as_ref());
+    setter.begin_set_parameter(&i.params.level);
+    let held = i.hold([0.25, 0.1], |v| setter.set_parameter(&i.params.level, v));
+    assert_eq!(i.reported("level"), f64::from(held));
+    std::thread::sleep(QUIET);
+    setter.set_parameter(&i.params.level, 0.75);
+    setter.end_set_parameter(&i.params.level);
+    assert_eq!(i.params.level.value(), 0.75);
+    i.process();
+    assert_eq!(i.seen(), (true, 0.75));
+}
+
+/// An edit held while the host still called, then the host's own value after it stopped (its
+/// generic controls, its scripts): the held edit is set before the host's value, not over it at
+/// the next call. Without that, the parameter went back to the held edit as the host called.
+#[test]
+fn an_edit_held_before_the_host_stopped_does_not_undo_the_hosts_value_after() {
+    let i = Instance::new(Host::Silent);
+    i.hold([0.25, 0.1], |v| i.drag(v));
+    std::thread::sleep(QUIET);
+    i.host_sets("level", 0.75);
+    assert_eq!(i.params.level.value(), 0.75);
+    i.process();
+    assert_eq!(i.seen(), (true, 0.75));
+    assert_eq!(i.reported("level"), 0.75);
+}
+
+/// REAPER's drag let go during a note's tail, as the track falls silent and REAPER stops
+/// calling (issue #146 again): the edit, held for a call that does not come, is set once the
+/// host has been quiet as long as the wrapper waits, as the editor idles (the CA-72's, each
+/// frame), with no further process call or edit.
+#[test]
+fn a_drag_let_go_just_before_the_host_stopped_calling_is_set_as_the_editor_idles() {
+    let i = Instance::new(Host::Reaper);
+    let held = i.hold([0.25, 0.1], |v| i.drag(v));
+    std::thread::sleep(QUIET);
+    i.context.idle();
+    assert_eq!(i.params.level.value(), held);
+    assert_eq!(i.reported("level"), f64::from(held));
+    i.process();
+    assert_eq!(i.seen(), (true, held));
+}
+
+/// A host calling again after a quiet spell: the editor's edits are held for its process calls
+/// once more, a value never changing in the middle of one (change 12).
+#[test]
+fn an_edit_is_held_again_once_the_host_calls_process_again() {
+    let i = Instance::new(Host::Reaper);
+    std::thread::sleep(QUIET);
+    i.click(false);
+    assert!(!i.params.switch.value());
+    // (Each try a process call first: the host calling again.)
+    let held = i.hold([0.25, 0.1], |v| i.drag(v));
+    assert_eq!(i.reported("level"), f64::from(held));
+    i.process();
+    assert_eq!(i.seen(), (false, held));
+}
+
+/// The host's own `setParamNormalized()` while it has stopped calling (REAPER's generic controls,
+/// its scripts): set, where before it was dropped for the processor to be sent the change, as it
+/// still is while the host calls.
+#[test]
+fn the_hosts_value_is_set_in_a_host_that_stopped_calling_process() {
+    let i = Instance::new(Host::Silent);
+    i.hold([0.75, 0.1], |v| i.host_sets("level", f64::from(v)));
+    std::thread::sleep(QUIET);
+    i.host_sets("level", 0.25);
+    assert_eq!(i.params.level.value(), 0.25);
+    assert_eq!(i.reported("level"), 0.25);
 }
 
 /// An edit made just before the host stops processing, with no process call after it, is set

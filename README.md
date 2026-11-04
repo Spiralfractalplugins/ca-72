@@ -180,7 +180,9 @@ Existing sessions retain their choices, including disabled MIDI. To enable the n
 default in an existing session, choose **Automatic (first available input)** and Apply
 once. Open selectors update as devices arrive or disappear. Discovery errors keep
 the last good MIDI list and appear in settings; a successful empty inventory reports
-that no inputs are available. Refresh retries discovery.
+that no inputs are available. Refresh retries discovery. How far your keyboard's
+pitch wheel bends (MIDI BEND RANGE, 2 semitones by default) is set by right-clicking the
+panel's PITCH wheel, not here (see **Wheels** under Instrument controls).
 Input/output changes briefly stop playback and retain the sound and editor.
 **TEMPO**, the last row, is the arpeggiator's tempo in the standalone (which has no host to
 give one), the same as the screen at the top left of the panel shows: 120 BPM until you choose
@@ -360,7 +362,14 @@ are [standalone-spec.md](docs/standalone-spec.md) and
   is a host parameter that can be automated or learned, and is saved with presets and
   projects. It sends no MIDI out.
 - **Wheels:** MIDI pitch bend moves the pitch by MIDI BEND RANGE semitones (2 by
-  default). SETTINGS > MOD WHEEL SOURCE chooses what moves the MODULATION wheel: CC 1
+  default, 0 to 8.07, the PITCH wheel's full travel): a full throw of your keyboard's wheel
+  bends by that much. In a plug-in your host sets it as a parameter. In the standalone,
+  right-click the PITCH wheel: under BEND RANGE choose 1, 2, 3, 5 or 7 semitones or the
+  wheel's full travel, or TYPE SEMITONES… and type a range (a number beyond 0 to 8.07 is
+  held at the nearer end); the range in use is marked. It is your keyboard's, not the
+  sound's: the factory presets, presets you save and Init leave it as it is, and the
+  session keeps it. RPN 0 does not change it, and MPE's per-note bend has its own range.
+  SETTINGS > MOD WHEEL SOURCE chooses what moves the MODULATION wheel: CC 1
   by default, another available CC, channel aftertouch, or the strongest polyphonic
   aftertouch of the notes held. The common choices include breath (CC 2), foot (CC 4),
   expression (CC 11) and timbre (CC 74); OTHER… reaches the other available numbers.
@@ -553,7 +562,9 @@ The editor works like the panel:
 - **RANGE and WAVEFORM:** drag or scroll, click either side to step, or click a printed
   position to go straight to it.
 - **Switches:** click.
-- **Wheels:** drag. The PITCH wheel settles into its centre detent when let go near it.
+- **Wheels:** drag. The PITCH wheel settles into its centre detent when let go near it. In
+  the standalone its right-click menu also sets MIDI BEND RANGE (see **Wheels** under
+  Instrument controls).
 - **Size:** until you choose a size, the editor opens at 80 % of the screen's usable width.
   Drag the grip at the
   bottom right corner to change it, or choose a size from the settings key's **WINDOW ›
@@ -702,7 +713,8 @@ hand controller's GLIDE and DECAY switches, and POLY, UNISON, VOICES, ENTROPY, W
 INNER, SCATTER, DETUNE (DOUBLE), DRIVE, AUTO GAIN, LEVEL and LOCK. Right-click the
 MODULATION wheel and choose MIDI LEARN to set this computer's wheel source to a CC,
 on every channel. Its menu also opens the source choices in Settings. Not learned:
-PITCH (MIDI pitch bend moves it), POWER (your host's bypass), MIDI BEND RANGE, nor the presets.
+PITCH (MIDI pitch bend moves it; in the standalone its menu sets MIDI BEND RANGE), POWER (your
+host's bypass), MIDI BEND RANGE, nor the presets.
 
 **Controllers that are not learned by sound controls:** the wheel's chosen CC on every
 channel, CC 0 and 32 (bank select), CC 6, 38 and 96–101 (data entry, RPN and NRPN), and
@@ -754,6 +766,32 @@ follows it there.
 **Escape in REAPER on Windows.** REAPER closes its plug-in window at Escape, which stops MIDI
 Learn waiting too, unless that window's **Send all keyboard input to plug-in** is on; the
 arrows, Enter and Delete reach the MIDI list either way.
+
+## Skins
+
+The settings key's **LOOK** chooses the editor's look: **REALISTIC**, **CLASSIC**, or a skin
+pack you have installed (a folder or a `.ifskin` file in Idle Foundry's `Skins` folder; see
+[Skin packs](docs/skin-packs.md), "Installing"). A pack is artwork and data only: it changes
+how the editor looks, never the sound, presets or MIDI.
+
+**Making one with an AI agent.** The [CA-72 skin pack agent skill](docs/skin-packs/agent-skill)
+teaches a coding agent (Claude Code, Codex and others) to make a pack from your description of
+the look you want: install it as its README says, give the agent a clone of this repository,
+and describe the look ("a dark navy panel with brass knobs, the section titles smaller"). It
+starts from the CC0 [starter](docs/skin-packs/starter), checks the pack as the plug-in will
+after every change and at the editor's smallest and largest sizes, records what it generated,
+and hands you a `.ifskin` with its previews.
+
+- **It can change:** where each of the panel's controls is, a knob's size, a switch's size,
+  colour and orientation; the panel's legends, rules and section titles (their words, places
+  and sizes); the panel's height; a drawing over the panel; in the realistic look, the pictures
+  the controls and surfaces are made of (brass knobs, a navy face); the strip's dressing (its
+  drawing, face, tabs' and displays' colours); and the typeface, if its licence allows.
+- **It can't change:** the sound or anything a session saves; the colour of the panel's
+  lettering (always the plug-in's cream ink) or of the classic look's controls; the dial numbers
+  and selectors' legends; where the strip's controls are; the name plate's words. It won't copy
+  the official panel's GPL layout or pictures into a pack under another licence, use another
+  maker's names or logos, sign a pack, or claim a pack is cleared for sale.
 
 ## Agents and audio references
 
