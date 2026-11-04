@@ -2794,6 +2794,17 @@ impl Editing {
         }
     }
 
+    /// MIDI BEND RANGE set to `semitones`, within 0 and the PITCH wheel's full travel, a gesture
+    /// of its own (the standalone's PITCH wheel menu: decisions.md R-BEND-RANGE).
+    fn set_bend_range(&self, semitones: f64) {
+        let p = &self.params.midi_bend_range;
+        let v = semitones.clamp(0.0, ca72::modulation::PITCH_WHEEL_SEMITONES) as f32;
+        let s = self.setter();
+        s.begin_set_parameter(p);
+        s.set_parameter(p, v);
+        s.end_set_parameter(p);
+    }
+
     /// A value to be typed into readout `r` (decisions.md R52): not AUTO GAIN's, which reads
     /// what is measured, nor DETUNE's in SCATTER or VOICES's where it does nothing
     /// ([`voices_inert`]), their knobs doing nothing either.
@@ -3541,6 +3552,14 @@ impl Editing {
                 s.end_set_parameter(p);
                 return;
             }
+            Pressed::BendRange(Some(hundredths)) => {
+                self.set_bend_range(f64::from(hundredths) / 100.0);
+                return;
+            }
+            Pressed::BendRange(None) => {
+                self.start_bend_entry();
+                return;
+            }
             Pressed::Rect(n, variable) => {
                 self.set_wave_mode(n, variable);
                 return;
@@ -3971,6 +3990,12 @@ impl Editing {
             Some(Target::Control(i) | Target::Legend(i, _)) => Some(Place::Panel(i)),
             _ => None,
         };
+        // (The PITCH wheel's offers MIDI BEND RANGE in the standalone, whose player has no
+        // host to set it: decisions.md R-BEND-RANGE.)
+        self.learning.bend_range = self
+            .playing
+            .standalone
+            .then(|| self.params.midi_bend_range.unmodulated_plain_value());
         // (Each source on a knob a head with DEPTH… and REMOVE; a strip knob's LFO head:
         // decisions.md R-LFO.)
         let rows = match target {
@@ -12087,6 +12112,214 @@ mod tests {
                     .expect("CC range image");
             }
         }
+    }
+
+    /// With CA72_BEND_RANGE_PNG, a folder: the editor's frame written there in both looks, as
+    /// `bend-range-<name>-<look>.png` (decisions.md R-BEND-RANGE's evidence).
+    fn bend_range_png(e: &mut Editing, name: &str) {
+        let Some(out) = std::env::var_os("CA72_BEND_RANGE_PNG") else {
+            return;
+        };
+        let out = std::path::Path::new(&out);
+        std::fs::create_dir_all(out).expect("evidence folder");
+        for (skin, look) in [(Skin::Worn, "realistic"), (Skin::Drawn, "classic")] {
+            e.set_look(skin);
+            e.draw();
+            e.composed
+                .as_ref()
+                .expect("a frame")
+                .save_png(out.join(format!("bend-range-{name}-{look}.png")))
+                .expect("PNG");
+        }
+    }
+
+    /// The standalone's PITCH wheel menu offers MIDI BEND RANGE under BEND RANGE (decisions.md
+    /// R-BEND-RANGE): its common ranges and the wheel's full travel, the one it is marked and not
+    /// chosen again, one of none of them listed in its place; a choice sets the parameter in one
+    /// gesture. A plug-in's has none: its host sets the parameter.
+    #[test]
+    fn the_standalones_pitch_wheel_menu_sets_midi_bend_range() {
+        let (mut e, host, params) = editing_standalone();
+        let ptr = params.midi_bend_range.as_ptr();
+        let p = at(&e, centre("pitch_wheel"));
+        right_click(&mut e, p);
+        let m = e.learning.menu().expect("a menu").clone();
+        assert_eq!(m.title, "PITCH: MIDI PITCH BEND MOVES IT");
+        let full = "8.07 SEMITONES \u{b7} THE WHEEL'S FULL TRAVEL";
+        assert_eq!(
+            m.items,
+            [
+                ("NOT LEARNED BY MIDI LEARN", false),
+                ("MIDI ASSIGNMENTS\u{2026}", true),
+                ("BEND RANGE", false),
+                ("1 SEMITONE", true),
+                ("2 SEMITONES", false),
+                ("3 SEMITONES", true),
+                ("5 SEMITONES", true),
+                ("7 SEMITONES", true),
+                (full, true),
+                ("TYPE SEMITONES\u{2026}", true),
+            ]
+            .map(|(t, on)| (t.to_owned(), on))
+        );
+        assert_eq!((m.heads.clone(), m.marked.clone()), (vec![2], vec![4]));
+        let (_, h) = m.extent(e.renderer.fonts());
+        assert!(m.y >= 0.0 && m.y + h <= art::H + 1e-6, "inside the window");
+        bend_range_png(&mut e, "menu");
+        // (The label names the wheel's travel as the parameter's top is.)
+        assert_eq!(
+            params.midi_bend_range.preview_plain(1.0),
+            ca72::modulation::PITCH_WHEEL_SEMITONES as f32
+        );
+        for (label, semitones) in [
+            ("7 SEMITONES", 7.0),
+            ("1 SEMITONE", 1.0),
+            (full, ca72::modulation::PITCH_WHEEL_SEMITONES as f32),
+        ] {
+            let p = at(&e, centre("pitch_wheel"));
+            right_click(&mut e, p);
+            menu_item(&mut e, label);
+            assert!(!e.learning.menu_open(), "{label}");
+            let value = params.midi_bend_range.preview_normalized(semitones);
+            assert_eq!(
+                host.take(),
+                vec![Call::Begin(ptr), Call::Set(ptr, value), Call::End(ptr)],
+                "{label}"
+            );
+        }
+        // (The full travel is the parameter's top.)
+        assert_eq!(
+            params
+                .midi_bend_range
+                .preview_normalized(ca72::modulation::PITCH_WHEEL_SEMITONES as f32),
+            1.0
+        );
+        // 2 is the default, exactly as a new instance has it.
+        assert_eq!(
+            params.midi_bend_range.preview_normalized(2.0),
+            params.midi_bend_range.default_normalized_value()
+        );
+        // A range none of the menu's: listed where it falls, marked; 0 first; the full travel
+        // marked as the others are.
+        let c = nih_plug::context::process::TestProcessContext::<crate::Ca72>::new(
+            Arc::clone(&params) as Arc<dyn Params>,
+            48_000.0,
+            ProcessMode::Realtime,
+        );
+        for (semitones, label, k) in [
+            (4.5, "4.5 SEMITONES", 6),
+            (0.0, "0 SEMITONES", 3),
+            (12.0, full, 8),
+        ] {
+            assert!(c.automate(ptr, params.midi_bend_range.preview_normalized(semitones)));
+            let p = at(&e, centre("pitch_wheel"));
+            right_click(&mut e, p);
+            let m = e.learning.menu().expect("a menu").clone();
+            assert_eq!(m.items[k], (label.to_owned(), false), "{semitones}");
+            assert_eq!(m.marked, vec![k], "{semitones}");
+            let listed = if semitones == 12.0 { 10 } else { 11 };
+            assert_eq!(m.items.len(), listed, "{semitones}");
+            assert!(keyed(&mut e, Key::Escape));
+        }
+        assert!(host.take().is_empty(), "opening the menu sets nothing");
+        // A plug-in's PITCH wheel menu is as it was: no BEND RANGE.
+        let (mut e, host, _) = editing();
+        let p = at(&e, centre("pitch_wheel"));
+        right_click(&mut e, p);
+        assert_eq!(
+            menu_items(&e),
+            [
+                ("NOT LEARNED BY MIDI LEARN".to_owned(), false),
+                ("MIDI ASSIGNMENTS\u{2026}".to_owned(), true),
+            ]
+        );
+        assert!(host.take().is_empty());
+    }
+
+    /// TYPE SEMITONES… opens the knobs' entry field at the PITCH wheel (R-KNOB-ENTRY): the range
+    /// it is shown and selected, in semitones; Enter sets an edited number in one gesture,
+    /// clamped to 0 and the wheel's full travel as a knob's value is to its stops; anything else,
+    /// Escape, or Enter unedited sets nothing (decisions.md R-BEND-RANGE).
+    #[test]
+    fn the_standalones_bend_range_is_typed_in_the_knobs_entry_field() {
+        let (mut e, host, params) = editing_standalone();
+        let ptr = params.midi_bend_range.as_ptr();
+        let pitch = ca72_panel::controls::index("pitch_wheel").expect("PITCH");
+        let open = |e: &mut Editing| {
+            let p = at(e, centre("pitch_wheel"));
+            right_click(e, p);
+            menu_item(e, "TYPE SEMITONES\u{2026}");
+            assert!(!e.learning.menu_open());
+        };
+        open(&mut e);
+        let entry = e.knob_entry.as_ref().expect("the field");
+        assert_eq!(entry.text(), "2");
+        assert!(!entry.is_value_of(pitch), "not the wheel's own value");
+        let field = e.entry_field(entry);
+        assert_eq!(field.unit, "semitones, 0 to 8.07");
+        assert!(field.selected);
+        let (x, y) = centre("pitch_wheel");
+        let [x0, y0, x1, y1] = field.bounds;
+        assert!(x0 >= 0.0 && x1 <= art::W && y0 >= 0.0, "inside the window");
+        assert!(
+            (x0..=x1).contains(&x) || (y0..=y1).contains(&y),
+            "at the wheel"
+        );
+        e.draw();
+        assert_eq!(e.scene.entry.as_ref(), Some(&field), "drawn");
+        for ch in "4.5".chars() {
+            keyed(&mut e, Key::Character(ch.to_string()));
+        }
+        bend_range_png(&mut e, "typed");
+        assert!(keyed(&mut e, Key::Escape));
+        assert!(host.take().is_empty());
+        let full = params
+            .midi_bend_range
+            .preview_normalized(ca72::modulation::PITCH_WHEEL_SEMITONES as f32);
+        for (text, value) in [
+            (
+                "4.25",
+                Some(params.midi_bend_range.preview_normalized(4.25)),
+            ),
+            ("12", Some(full)),
+            ("1e30", Some(full)),
+            ("-3", Some(0.0)),
+            ("0", Some(0.0)),
+            ("+7", Some(params.midi_bend_range.preview_normalized(7.0))),
+            ("x", None),
+            ("", None),
+            ("NaN", None),
+            ("inf", None),
+            ("2 st", None),
+        ] {
+            open(&mut e);
+            for ch in text.chars() {
+                keyed(&mut e, Key::Character(ch.to_string()));
+            }
+            if text.is_empty() {
+                keyed(&mut e, Key::Backspace);
+            }
+            assert!(host.take().is_empty(), "{text:?} waits for Enter");
+            assert!(keyed(&mut e, Key::Enter));
+            assert!(e.knob_entry.is_none(), "{text:?} closes");
+            let calls = host.take();
+            match value {
+                Some(v) => assert_eq!(
+                    calls,
+                    vec![Call::Begin(ptr), Call::Set(ptr, v), Call::End(ptr)],
+                    "{text:?}"
+                ),
+                None => assert!(calls.is_empty(), "{text:?} refused"),
+            }
+        }
+        // Enter unedited, and Escape after an edit, set nothing.
+        open(&mut e);
+        assert!(keyed(&mut e, Key::Enter));
+        open(&mut e);
+        keyed(&mut e, Key::Character("5".into()));
+        assert!(keyed(&mut e, Key::Escape));
+        assert!(e.knob_entry.is_none());
+        assert!(host.take().is_empty());
     }
 
     /// The strip's controls have the menu too (a tab's above it, the control ringed on the

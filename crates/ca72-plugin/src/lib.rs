@@ -1541,6 +1541,49 @@ mod tests {
         }
     }
 
+    /// A full MIDI pitch-bend throw, up and down, moves the PITCH wheel by MIDI BEND RANGE's
+    /// semitones, whatever sets it (the host, or the standalone's PITCH wheel menu: decisions.md
+    /// R-BEND-RANGE): the menu's ranges, one typed between them, 0, and above the wheel's travel
+    /// its full travel. At 2, as a new instance has it.
+    #[test]
+    fn a_full_midi_bend_moves_the_pitch_by_midi_bend_range() {
+        let bend = |range: Option<f32>, value: f32| {
+            let mut p = initialised(false);
+            let mut c = hostless(&p);
+            if let Some(range) = range {
+                let q = &p.params.midi_bend_range;
+                assert!(c.automate(q.as_ptr(), q.preview_normalized(range)));
+            }
+            block(&mut p, &mut c, 64);
+            p.midi(
+                NoteEvent::MidiPitchBend {
+                    timing: 0,
+                    channel: 0,
+                    value,
+                },
+                &mut c,
+            );
+            p.engine.wheels().0 * PITCH_WHEEL_SEMITONES
+        };
+        for (range, semitones) in [
+            (None, 2.0),
+            (Some(2.0), 2.0),
+            (Some(0.0), 0.0),
+            (Some(1.0), 1.0),
+            (Some(3.0), 3.0),
+            (Some(4.25), 4.25),
+            (Some(5.0), 5.0),
+            (Some(7.0), 7.0),
+            (Some(PITCH_WHEEL_SEMITONES as f32), PITCH_WHEEL_SEMITONES),
+            (Some(12.0), PITCH_WHEEL_SEMITONES),
+        ] {
+            let (up, down) = (bend(range, 1.0), bend(range, 0.0));
+            assert!((up - semitones).abs() < 1e-5, "{range:?}: {up}");
+            assert!((down + semitones).abs() < 1e-5, "{range:?}: {down}");
+            assert_eq!(bend(range, 0.5), 0.0, "{range:?} at rest");
+        }
+    }
+
     #[test]
     fn the_hosts_midi_reaches_the_wheels_on_any_channel() {
         let mut p = Ca72::default();
