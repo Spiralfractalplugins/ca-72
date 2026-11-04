@@ -1249,6 +1249,59 @@ pub enum FilterMode {
 /// FILTER POLES's default: the fourth stage, the filter as drawn.
 pub const POLES: u8 = 4;
 
+/// How long a change of FILTER MODE or FILTER POLES crossfades from the old output to the new,
+/// seconds: the outputs are different signals, and a switch between them at once clicks.
+pub const SHAPE_FADE: f64 = 0.005;
+
+/// The band-pass's gains, by FILTER POLES (1 and 2 alike): the open ladder's peak at 0 dB
+/// (G (1 - G), G^2 (1 - G) and G^2 (1 - G)^2 of a stage's G = 1 / (1 + s) peak at 1/2,
+/// 2 / (3 sqrt 3) and 1/4).
+const BAND_GAIN: [f64; 4] = [2.0, 2.0, 2.598_076_211_353_316, 4.0];
+
+/// The mixes from the ladder's stages (decisions.md R-POLES), from `d`, each stage's input
+/// less its output in its pair's tanh, its capacitor's current (the input pair's output for
+/// the first's input): with s0 the first stage's drive and s1..s4 the stages' outputs, d[j] =
+/// s(j) - s(j+1). STEEP HIGH is (1 - G)^n of the drive, the nth difference of s; BAND is
+/// G (1 - G) (1 and 2 poles), G^2 (1 - G) (3) or G^2 (1 - G)^2 (4) of it.
+pub(crate) fn mix(mode: FilterMode, poles: u8, d: [f64; 4]) -> f64 {
+    let n = poles.clamp(1, 4);
+    match mode {
+        FilterMode::High => match n {
+            1 => d[0],
+            2 => d[0] - d[1],
+            3 => d[0] - 2.0 * d[1] + d[2],
+            _ => d[0] - 3.0 * d[1] + 3.0 * d[2] - d[3],
+        },
+        _ => {
+            BAND_GAIN[usize::from(n) - 1]
+                * match n {
+                    1 | 2 => d[1],
+                    3 => d[2],
+                    _ => d[2] - d[3],
+                }
+        }
+    }
+}
+
+/// What the filter's output is: FILTER MODE and FILTER POLES.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Shape {
+    mode: FilterMode,
+    poles: u8,
+}
+
+impl Shape {
+    const DRAWN: Shape = Shape {
+        mode: FilterMode::Lo,
+        poles: POLES,
+    };
+
+    /// The output as drawn, the fourth stage's (and HI from it).
+    fn drawn(self) -> bool {
+        matches!(self.mode, FilterMode::Lo | FilterMode::Hi) && self.poles == POLES
+    }
+}
+
 /// The filter in real time.
 #[derive(Debug, Clone)]
 pub struct Vcf {
@@ -1304,10 +1357,16 @@ pub struct Vcf {
     /// and its resampler's outputs then: once the resampler's whole line holds it, the same
     /// outputs again (decisions.md R11).
     g_held: (f64, usize, [f64; 8]),
-    /// FILTER MODE at HI (decisions.md R46): the output is the mixer's less the filter's.
-    pub high_pass: bool,
-    /// The direct branch's coupling: its capacitor's voltage and its last input, V.
+    /// FILTER MODE and FILTER POLES ([`Vcf::set_shape`]), and the one being faded from with
+    /// what is left of its share.
+    shape: Shape,
+    fade: Option<(Shape, f64)>,
+    /// The direct branch's coupling (FILTER MODE's HI): its capacitor's voltage and its last
+    /// input, V.
     mode: (f64, f64),
+    /// The mixes' fourth stage ([`Vcf::shaped`]): the third stage's output and an unloaded
+    /// fourth stage's following it, in their pairs' tanh, at the last step's end.
+    free: (f64, f64),
 }
 
 /// The loop Jacobian's entries that are not always zero ([`VcfCircuit::eval_full`]), row by
@@ -1365,8 +1424,10 @@ impl Vcf {
             jac: [[0.0; STATES]; STATES],
             gout: [0.0; STATES],
             g_held: (f64::NAN, 0, [0.0; 8]),
-            high_pass: false,
+            shape: Shape::DRAWN,
+            fade: None,
             mode: (0.0, 0.0),
+            free: (0.0, 0.0),
         }
     }
 
@@ -1467,6 +1528,8 @@ impl Vcf {
         self.down.reset();
         self.g_held = (f64::NAN, 0, [0.0; 8]);
         self.mode = (0.0, 0.0);
+        self.fade = None;
+        self.free = (0.0, 0.0);
     }
 
     /// Delay through the resamplers, in output samples.
@@ -1577,16 +1640,126 @@ impl Vcf {
         }
     }
 
-    /// FILTER MODE over one step, at the loop's rate so that the two branches line up: the
-    /// direct branch's coupling (trapezoidal, as the loop) charged in LO as well, as its
-    /// capacitor would be; LO's output `v` as it is, or HI.
+    /// FILTER MODE and FILTER POLES (decisions.md R46, R-POLES), from the next step: a change
+    /// crossfades from the old output to the new over [`SHAPE_FADE`], unless the filter has not
+    /// run since it was made or reset (a session's or preset's starts as saved). `poles` is 1
+    /// to 4.
+    pub fn set_shape(&mut self, mode: FilterMode, poles: u8) {
+        let shape = Shape {
+            mode,
+            poles: poles.clamp(1, 4),
+        };
+        if shape != self.shape {
+            self.fade = self.f_prev.map(|_| (self.shape, 1.0));
+            self.shape = shape;
+        }
+    }
+
+    /// FILTER MODE at HI (0.3's high-pass, decisions.md R46).
+    pub fn high_pass(&self) -> bool {
+        self.shape.mode == FilterMode::Hi
+    }
+
+    /// The output over one step from the loop's (`v`, the fourth stage's through the gain
+    /// recovery amplifier), at the loop's rate so that HI's two branches line up: the direct
+    /// branch's coupling (trapezoidal, as the loop) charged in every mode, as its capacitor
+    /// would be; then [`Vcf::shaped`], crossfaded from the last shape while a change fades.
     fn filter_mode(&mut self, i_n: f64, v: f64) -> f64 {
         let x = MODE_RT * i_n;
         let a = core::f64::consts::PI * MODE_HZ * self.h;
         let (q, x0) = self.mode;
         let q = (q * (1.0 - a) + a * (x + x0)) / (1.0 + a);
         self.mode = (q, x);
-        if self.high_pass { x - q - v } else { v }
+        self.follow_free();
+        let now = self.shaped(self.shape, v, x - q);
+        match self.fade {
+            None => now,
+            Some((from, left)) => {
+                let then = self.shaped(from, v, x - q);
+                let left = left - self.h / SHAPE_FADE;
+                self.fade = (left > 0.0).then_some((from, left));
+                let left = left.max(0.0);
+                then * left + now * (1.0 - left)
+            }
+        }
+    }
+
+    /// The mixes' fourth stage over one step: the drawn fourth stage is loaded by the output's
+    /// followers (R31/R38 through C5/C1), which takes from its bass, so that a mix of it with
+    /// the stages below leaves their bass behind (STEEP HIGH at 4 poles 30 dB down only two
+    /// octaves under a low corner). The mixes take this one instead: the fourth stage as the
+    /// others are, its own pair's slope at rest, following the third (trapezoidal, as the
+    /// loop, with its prewarping). It runs in every mode, so that a change into a mix starts
+    /// from where it is.
+    fn follow_free(&mut self) {
+        let bias = &self.bias.2;
+        let p = self.warp.map_or(1.0, |(_, p)| p);
+        let third = crate::fast::tanh(self.y[2] / (2.0 * bias.vt_stage[2] + bias.v_stage[2]));
+        let tau =
+            2.0 * bias.c_stage[3] * (2.0 * bias.vt_stage[3] + bias.v_stage[3]) / (p * bias.e[3]);
+        let a = self.h / (2.0 * tau);
+        let (before, out) = self.free;
+        let out = (out * (1.0 - a) + a * (third + before)) / (1.0 + a);
+        self.free = (third, out);
+    }
+
+    /// The output in `shape` (decisions.md R-POLES) from the loop's `v` and HI's direct branch
+    /// `direct`, at the loop's state after its step. LO at 4 poles is `v` itself (and HI
+    /// `direct - v`, as 0.3's). The emphasis is still taken from the fourth stage, as drawn:
+    /// the loop resonates at every setting, and is the same whatever the setting.
+    ///
+    /// The other settings are read by a gain recovery amplifier like the drawn one, that
+    /// loads nothing. Its level is the drawn output's: the followers' R31/R38 load the fourth
+    /// stage (at the lowest cutoffs, where the ladder's current is a few microamperes, it
+    /// loses 4 dB to them), so the others are taken down by as much. LO at 1 to 3 poles: the
+    /// drawn amplifier's followers' bases (W) moved by the difference between that stage's
+    /// capacitor and the fourth's, through C5/C1's charge as it is, and the output by the
+    /// amplifier's current's change through its loads (R3, and R7 less what of it the
+    /// emphasis path takes back). BAND and STEEP HIGH: the mixes of the stages' capacitor
+    /// currents ([`mix`]), nothing at DC, through the amplifier into the same loads.
+    fn shaped(&self, shape: Shape, v: f64, direct: f64) -> f64 {
+        let lo = if shape.drawn() {
+            v
+        } else {
+            let y = &self.y;
+            let c = &self.circuit;
+            let bias = &self.bias.2;
+            // The fourth stage's pair's slope at rest, 1 / (2Vt + its drop), and the share
+            // of its passband the followers leave it.
+            let volts = 2.0 * bias.vt_stage[3] + bias.v_stage[3];
+            let (_, dib) = table_hermite(&OUT_DIB, OUT_DIB_MIN, OUT_DIB_STEP, 0.0);
+            let loaded = bias.e[3] / (bias.e[3] + volts * (1.0 / c.r31 + dib));
+            let r_tot = c.r7 + c.r14 + c.r73 * (1.0 - c.r73_pos) + c.r73 * c.r73_pos + c.r76;
+            let gain = -(c.r7 + c.r3) + c.r7 * c.r7 / r_tot;
+            let amp = |w: f64| table_hermite(&OUT_DI, OUT_DI_MIN, OUT_DI_STEP, w).0;
+            match shape.mode {
+                FilterMode::Lo | FilterMode::Hi => {
+                    let w = y[W] - y[3] + loaded * y[usize::from(shape.poles) - 1];
+                    v + gain * (amp(w) - amp(y[W]))
+                }
+                FilterMode::Band | FilterMode::High => {
+                    // Each stage's capacitor current over its emitter current, in its pair's
+                    // tanh: 2C dx/dt = E (in - out); the fourth's unloaded
+                    // ([`Vcf::follow_free`]).
+                    let f = self.f_prev.unwrap_or([0.0; STATES]);
+                    let p = self.warp.map_or(1.0, |(_, p)| p);
+                    let d = core::array::from_fn(|j| {
+                        if j == 3 {
+                            self.free.0 - self.free.1
+                        } else {
+                            2.0 * bias.c_stage[j] * f[j] / (p * bias.e[j])
+                        }
+                    });
+                    let w = loaded * volts * mix(shape.mode, shape.poles, d);
+                    gain * (amp(w) - amp(0.0))
+                }
+            }
+        };
+        if shape.mode == FilterMode::Hi {
+            direct - lo
+        } else {
+            lo
+        }
     }
 
     fn drive(&mut self, i_n: f64, g_n: f64, i0: f64) -> Drive {

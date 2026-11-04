@@ -2920,7 +2920,7 @@ impl BackPart {
         self.vcf.circuit.r14 = self.emphasis.get(p.emphasis, emphasis_r14);
         self.vcf.set_oversample(oversampling(p.quality).1);
         self.vcf.set_quality(p.quality);
-        self.vcf.high_pass = p.filter_mode == crate::vcf::FilterMode::Hi;
+        self.vcf.set_shape(p.filter_mode, p.filter_poles);
         self.vcf.split_output = p.quality == Quality::Potato && !self.filter_probe;
         let ultra = vca_oversampled(p.quality) && self.vcf.oversample() == ULTRA_VCA_OVERSAMPLING;
         let a440 = self.a440.tick(p.a440);
@@ -2961,7 +2961,7 @@ impl BackPart {
         self.vcf.circuit.r14 = self.emphasis.get(p.emphasis, emphasis_r14);
         self.vcf.set_oversample(oversampling(p.quality).1);
         self.vcf.set_quality(p.quality);
-        self.vcf.high_pass = p.filter_mode == crate::vcf::FilterMode::Hi;
+        self.vcf.set_shape(p.filter_mode, p.filter_poles);
         self.vcf.split_output = p.quality == Quality::Potato && !self.filter_probe;
     }
 
