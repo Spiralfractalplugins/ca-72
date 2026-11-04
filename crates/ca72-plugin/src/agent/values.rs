@@ -357,11 +357,12 @@ pub fn table(p: &Ca72Params) -> Vec<Entry<'_>> {
         ),
         e(
             "filter_mode",
-            "FILTER MODE (LO or HI)",
+            "FILTER MODE (LO, BAND or STEEP HIGH; HI is 0.3's)",
             F,
             &p.filter_mode,
             Plain,
         ),
+        e("filter_poles", "FILTER POLES", F, &p.filter_poles, Plain),
         e("filter_mod", "FILTER MODULATION", F, &p.filter_mod, Plain),
         e(
             "keyboard_control_1",

@@ -416,6 +416,14 @@ mod tests {
         assert_eq!(drag(sel, 0.4, 30.0, 0.0, false), Some(0.6));
         assert_eq!(click(sel, 0.4, -5.0, 0.0), Some(0.2));
         assert_eq!(step(sel, 1.0, true, false), 1.0);
+        // FILTER POLES (decisions.md R-POLES): its four places, 1 to 4 of the six, and no others.
+        let poles = &CONTROLS[index("filter_poles").expect("a control")].kind;
+        assert_eq!(drag(poles, 0.8, 90.0, 0.0, false), Some(0.8));
+        assert_eq!(drag(poles, 0.8, -300.0, 0.0, false), Some(0.2));
+        assert_eq!(click(poles, 0.2, -5.0, 0.0), Some(0.2));
+        assert_eq!(click(poles, 0.2, 5.0, 0.0), Some(0.4));
+        assert_eq!(step(poles, 0.8, true, false), 0.8);
+        assert_eq!(step(poles, 0.2, false, false), 0.2);
         let voices = &CONTROLS[index("voices").expect("a control")].kind;
         assert_eq!(step(voices, 0.25, true, false), 0.375);
         assert_eq!(step(voices, 0.25, false, true), 0.125);

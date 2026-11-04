@@ -727,6 +727,14 @@ impl Plugin for Ca72 {
                 ParamValue::I32(low.to_index() as i32),
             );
         }
+        // And before FILTER POLES: 4, the filter as drawn, whatever the instance had (decisions.md
+        // R-POLES). (FILTER MODE keeps its own, HI among them.)
+        if !state.params.contains_key("filter_poles") {
+            state.params.insert(
+                "filter_poles".to_owned(),
+                ParamValue::I32(i32::from(ca72::vcf::POLES)),
+            );
+        }
         // And before QUALITY (0.1's): HI, as such a session played until LO became the default
         // for new instances (R-LO-DEFAULT).
         if !state.params.contains_key("quality") {
@@ -1829,6 +1837,40 @@ mod tests {
         assert!(matches!(
             filtered(vec![lo]),
             Some(ParamValue::String(id)) if id == "lo"
+        ));
+    }
+
+    /// A session saved before FILTER POLES opens at 4, the filter as drawn, whatever the instance
+    /// had; one saved since keeps its own, and FILTER MODE's 0.3 HI stays HI (R-POLES).
+    #[test]
+    fn an_old_session_opens_with_filter_poles_at_four() {
+        let filtered = |params: Vec<(String, ParamValue)>, id: &str| {
+            let mut s = PluginState {
+                version: "0.3.1".to_owned(),
+                params: params.into_iter().collect(),
+                fields: Default::default(),
+            };
+            Ca72::filter_state(&mut s);
+            s.params.remove(id)
+        };
+        assert!(matches!(
+            filtered(vec![], "filter_poles"),
+            Some(ParamValue::I32(4))
+        ));
+        assert!(matches!(
+            filtered(
+                vec![("filter_poles".to_owned(), ParamValue::I32(2))],
+                "filter_poles"
+            ),
+            Some(ParamValue::I32(2))
+        ));
+        let hi = (
+            "filter_mode".to_owned(),
+            ParamValue::String("hi".to_owned()),
+        );
+        assert!(matches!(
+            filtered(vec![hi], "filter_mode"),
+            Some(ParamValue::String(id)) if id == "hi"
         ));
     }
 

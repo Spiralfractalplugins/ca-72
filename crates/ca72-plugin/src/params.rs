@@ -341,17 +341,42 @@ fn shape_param(name: &str, n: usize) -> FloatParam {
     .with_string_to_value(std::sync::Arc::new(move |s| parse_shape_text(n, s)))
 }
 
-/// FILTER MODE, which the original does not have (decisions.md R46): LO, the filter as
-/// drawn; HI, the hardware reference's high-pass (the mixer's output less the filter's).
+/// FILTER MODE, which the original does not have (decisions.md R46, R-POLES): LO, the filter's
+/// low-pass, from the stage FILTER POLES picks; BAND and STEEP HIGH, a band-pass and a high-pass
+/// mixed from the ladder's stages, FILTER POLES their slopes. HI, 0.3's (the hardware
+/// reference's high-pass: the mixer's output less the filter's), is no longer on the panel but
+/// is kept second, where it was, for the sessions and presets saved with it (a preset keeps a
+/// mode by its place).
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterMode {
     #[id = "lo"]
     #[name = "LO"]
     Lo,
     #[id = "hi"]
-    #[name = "HI"]
+    #[name = "HI (0.3)"]
     Hi,
+    #[id = "band"]
+    #[name = "BAND"]
+    Band,
+    #[id = "high"]
+    #[name = "STEEP HIGH"]
+    High,
 }
+
+impl FilterMode {
+    /// The voice's.
+    pub fn voice(self) -> ca72::vcf::FilterMode {
+        match self {
+            FilterMode::Lo => ca72::vcf::FilterMode::Lo,
+            FilterMode::Hi => ca72::vcf::FilterMode::Hi,
+            FilterMode::Band => ca72::vcf::FilterMode::Band,
+            FilterMode::High => ca72::vcf::FilterMode::High,
+        }
+    }
+}
+
+/// FILTER POLES's ends (decisions.md R-POLES): the ladder's first stage to its fourth.
+pub const FILTER_POLES: (i32, i32) = (1, 4);
 
 /// QUALITY (decisions.md R47, R48): LO, the light model (Potato mode); HI, the
 /// circuit's model at its real-time setting; ULTRA, the circuit's model with High Fidelity numerics
@@ -687,6 +712,9 @@ pub struct Ca72Params {
     // MODIFIERS
     #[id = "filter_mode"]
     pub filter_mode: EnumParam<FilterMode>,
+    /// FILTER POLES (decisions.md R-POLES): 1 to 4, 4 the filter as drawn.
+    #[id = "filter_poles"]
+    pub filter_poles: IntParam,
     #[id = "filter_mod"]
     pub filter_mod: BoolParam,
     #[id = "keyboard_control_1"]
@@ -1204,6 +1232,14 @@ impl Default for Ca72Params {
             osc3_on: BoolParam::new("Osc 3 On", false),
             osc3_volume: ten("Osc 3 Volume", 8.0),
             filter_mode: EnumParam::new("Filter Mode", FilterMode::Lo),
+            filter_poles: IntParam::new(
+                "Filter Poles",
+                i32::from(ca72::vcf::POLES),
+                IntRange::Linear {
+                    min: FILTER_POLES.0,
+                    max: FILTER_POLES.1,
+                },
+            ),
             filter_mod: BoolParam::new("Filter Modulation", false),
             keyboard_control_1: BoolParam::new("Keyboard Control 1", true),
             keyboard_control_2: BoolParam::new("Keyboard Control 2", false),
@@ -1650,12 +1686,11 @@ impl Ca72Params {
             mod_mix: ten(&self.mod_mix),
             osc_mod: self.osc_mod.value(),
             filter_mod: self.filter_mod.value(),
-            filter_mode: if self.filter_mode.value() == FilterMode::Hi {
-                ca72::vcf::FilterMode::Hi
-            } else {
-                ca72::vcf::FilterMode::Lo
-            },
-            filter_poles: ca72::vcf::POLES,
+            filter_mode: self.filter_mode.value().voice(),
+            filter_poles: self
+                .filter_poles
+                .value()
+                .clamp(FILTER_POLES.0, FILTER_POLES.1) as u8,
             pitch_wheel: value(&self.pitch_wheel),
             mod_wheel: value(&self.mod_wheel),
             ext_volume: ten(&self.ext_volume),
