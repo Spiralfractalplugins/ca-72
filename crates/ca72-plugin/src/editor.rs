@@ -7030,6 +7030,7 @@ fn ultra_note_lines(splits: bool) -> Vec<(&'static str, Tone)> {
 #[cfg(test)]
 mod tests {
     mod fx_pins;
+    mod readability;
     use std::sync::Mutex;
 
     use baseview::Point;

@@ -9,6 +9,13 @@ explicitly grouped. The LARGE column is the base build, before the three QUALITY
 grow from 15 to 17 on this branch. Each becomes 9.17 / 12.23 at the fresh size and
 4.18 / 5.58 at 1380 px. All other table values are unchanged by the fix.
 
+**2026-11-04 (R-READABILITY-MINIMUM):** these tables are the 0.3.0 survey's. Since then, in
+LARGE only, the dial captions (M-SEC., SEC., OSC. 3, NOISE, the LFOs' Hz and SEC.) and OSC. 3
+CONTROL are 17 units: 9.17 / 12.23 at the fresh size, 4.18 / 5.58 at 1380 px. The tips', notes'
+and menus' rows change above about 1960 logical pixels wide, and the menu heads and typed unit
+at every size; [the survey's follow-up](readability-4k.md#follow-up-2026-11-04-a-minimum-and-the-classes-raised-to-it)
+has the new values.
+
 ## Fresh 4K opening: 3026 × 1728
 
 | Element | Where (drawing x, y where supplied) | STANDARD x / cap px | LARGE x / cap px |

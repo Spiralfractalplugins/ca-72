@@ -180,4 +180,131 @@ looks and the minimum viewport. Proposed reflows need their own small-screen and
 checks before implementation. The original review does not establish which build it tested;
 this survey makes no claim to reproduce that review's exact environment.
 
+## Follow-up, 2026-11-04: a minimum, and the classes raised to it
+
+Base `88575ba` (0.3.1). decisions.md R-READABILITY-MINIMUM records the decision. This pass
+renders the real editor (`the_readability_pngs` in the plug-in's editor tests, not the panel
+example) and measures each class of text, now including the LFO and MACRO pages, the typed
+value, the SIZE menu and 150 % host scaling.
+
+**The minimum:** x-height above 9 physical pixels (cap height at least 12.2) at FIT TO
+SCREEN on a 4K screen at 100 %, the warning line above. It applies to LARGE's panel print and
+to the tip, notes, menus and typed value in both letterings; STANDARD's panel print is the
+approved panel (R-LETTERING) and stays as it was.
+
+**Window sizes.** At 150 % a 4K screen is 2560 by 1440 logical pixels; FIT TO SCREEN gives
+2017 logical, 3026 physical, so the panel's print is the same size in physical pixels as at
+100 %, and only what is set in logical pixels differs. SIZE 100 % is 1380 logical (1380 or
+2070 physical). Since R-WINDOW-DEFAULT a new editor opens at the width last chosen on this
+computer, which may be smaller than FIT TO SCREEN.
+
+**Below the line before:** the tip, menu items, titles and group heads, and the typed value's
+unit in both letterings at 100 % (heads and unit still at 150 %); in LARGE, the dial captions
+(M-SEC., SEC., OSC. 3, NOISE, the LFOs' Hz and SEC.) and OSC. 3 CONTROL. Also below it and
+left: IDLE FOUNDRY (decorative) and STANDARD's panel numbers, captions, QUALITY, OSC. 3
+CONTROL and strip small print (the owner's STANDARD).
+
+**Changed:** tips, notes and menus are never smaller than the panel's legends (19 units,
+LARGE 22), which takes effect only above about 1960 logical pixels wide; menu group heads
+0.72 to 0.8 of the items; the typed value's unit 0.7 to 0.8 of its field; LARGE's dial captions
+16 to 17 and OSC. 3 CONTROL 16 to 17 (its LARGE place 488 to 491, keeping its clearance from
+the section's rule). Every class in the table now clears the line at 4K FIT TO SCREEN in LARGE,
+and every tip, note, menu and typed value does in STANDARD.
+
+x-height / cap height in physical pixels, from the em and the outlines (the panel's print is
+also stroked by 0.7 units, about 0.7 px more at 4K). Pixel ink heights in the renders agree
+within about half a pixel: the tip's cap 9.48 to 14.20 px, menu items 10.45 to 16.11, titles
+8.56 to 13.18, heads 7.50 to 13.00; LARGE's NOISE caption grew 0.78 px, an LFO's SEC. 0.89.
+
+#### 4K 100 %, FIT TO SCREEN (3026 px)
+
+| Class | STANDARD before | STANDARD after | LARGE before | LARGE after |
+|---|---:|---:|---:|---:|
+| Panel legends | 10.25 / 13.67 | 10.25 / 13.67 | 11.87 / 15.83 | 11.87 / 15.83 |
+| Section titles (CONTROLLERS … OUTPUT) | 28.05 / 37.41 | 28.05 / 37.41 | 28.05 / 37.41 | 28.05 / 37.41 |
+| Dial numbers (panel, strip, LFO, MACRO, ARP) | 8.09 / 10.79 | 8.09 / 10.79 | 9.17 / 12.23 | 9.17 / 12.23 |
+| Dial captions: M-SEC., SEC., OSC. 3, NOISE, LFO Hz and SEC. | 7.55 / 10.07 | 7.55 / 10.07 | 8.63 / 11.51 | 9.17 / 12.23 |
+| OSC. 3 CONTROL | 8.63 / 11.51 | 8.63 / 11.51 | 8.63 / 11.51 | 9.17 / 12.23 |
+| QUALITY ULTRA / HI / LO | 8.09 / 10.79 | 8.09 / 10.79 | 9.17 / 12.23 | 9.17 / 12.23 |
+| IDLE FOUNDRY (maker name, decorative) | 6.47 / 8.63 | 6.47 / 8.63 | 6.47 / 8.63 | 6.47 / 8.63 |
+| Strip legends, GLOBAL/ARP bank legends, LFO legends | 11.33 / 15.11 | 11.33 / 15.11 | 12.41 / 16.55 | 12.41 / 16.55 |
+| Strip small print (dB, L, R, %) | 8.63 / 11.51 | 8.63 / 11.51 | 9.71 / 12.95 | 9.71 / 12.95 |
+| Strip / arp / FX tab caps | 9.17 / 12.23 | 9.17 / 12.23 | 9.17 / 12.23 | 9.17 / 12.23 |
+| Rail caps (SAVE, PANEL, GLOBAL …) | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 |
+| Keyboard mapping letters (Book) | 9.59 / 12.95 | 9.59 / 12.95 | 9.59 / 12.95 | 9.59 / 12.95 |
+| Keyboard TYPING / PANIC / − / + | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 |
+| Presets drawer list, tags, MIDI list (dots, pitch 4) | 19.08 / 26.87 | 19.08 / 26.87 | 19.08 / 26.87 | 19.08 / 26.87 |
+| Tip, MIDI Learn note (Book) | 6.56 / 8.87 | 10.12 / 13.67 | 8.21 / 11.08 | 11.72 / 15.83 |
+| Menu items (Book, 1.15 × tip) | 7.55 / 10.20 | 11.64 / 15.72 | 9.44 / 12.75 | 13.47 / 18.20 |
+| Menu titles (Demi, 0.82 × items) | 6.27 / 8.36 | 9.66 / 12.89 | 7.84 / 10.45 | 11.19 / 14.93 |
+| Menu group heads (Demi, 0.72 → 0.8 × items) | 5.50 / 7.34 | 9.43 / 12.58 | 6.88 / 9.18 | 10.92 / 14.56 |
+| Typed value's unit (Book, 0.7 → 0.8 × field) | 5.28 / 7.14 | 9.31 / 12.58 | 6.61 / 8.92 | 10.78 / 14.56 |
+
+#### 4K 150 %, FIT TO SCREEN (2017 logical, 3026 px)
+
+| Class | STANDARD before | STANDARD after | LARGE before | LARGE after |
+|---|---:|---:|---:|---:|
+| Panel legends | 10.25 / 13.67 | 10.25 / 13.67 | 11.87 / 15.83 | 11.87 / 15.83 |
+| Section titles (CONTROLLERS … OUTPUT) | 28.05 / 37.41 | 28.05 / 37.41 | 28.05 / 37.41 | 28.05 / 37.41 |
+| Dial numbers (panel, strip, LFO, MACRO, ARP) | 8.09 / 10.79 | 8.09 / 10.79 | 9.17 / 12.23 | 9.17 / 12.23 |
+| Dial captions: M-SEC., SEC., OSC. 3, NOISE, LFO Hz and SEC. | 7.55 / 10.07 | 7.55 / 10.07 | 8.63 / 11.51 | 9.17 / 12.23 |
+| OSC. 3 CONTROL | 8.63 / 11.51 | 8.63 / 11.51 | 8.63 / 11.51 | 9.17 / 12.23 |
+| QUALITY ULTRA / HI / LO | 8.09 / 10.79 | 8.09 / 10.79 | 9.17 / 12.23 | 9.17 / 12.23 |
+| IDLE FOUNDRY (maker name, decorative) | 6.47 / 8.63 | 6.47 / 8.63 | 6.47 / 8.63 | 6.47 / 8.63 |
+| Strip legends, GLOBAL/ARP bank legends, LFO legends | 11.33 / 15.11 | 11.33 / 15.11 | 12.41 / 16.55 | 12.41 / 16.55 |
+| Strip small print (dB, L, R, %) | 8.63 / 11.51 | 8.63 / 11.51 | 9.71 / 12.95 | 9.71 / 12.95 |
+| Strip / arp / FX tab caps | 9.17 / 12.23 | 9.17 / 12.23 | 9.17 / 12.23 | 9.17 / 12.23 |
+| Rail caps (SAVE, PANEL, GLOBAL …) | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 |
+| Keyboard mapping letters (Book) | 9.59 / 12.95 | 9.59 / 12.95 | 9.59 / 12.95 | 9.59 / 12.95 |
+| Keyboard TYPING / PANIC / − / + | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 |
+| Presets drawer list, tags, MIDI list (dots, pitch 4) | 19.08 / 26.87 | 19.08 / 26.87 | 19.08 / 26.87 | 19.08 / 26.87 |
+| Tip, MIDI Learn note (Book) | 9.85 / 13.30 | 10.12 / 13.67 | 12.31 / 16.63 | 12.31 / 16.63 |
+| Menu items (Book, 1.15 × tip) | 11.32 / 15.30 | 11.64 / 15.72 | 14.15 / 19.12 | 14.15 / 19.12 |
+| Menu titles (Demi, 0.82 × items) | 9.40 / 12.54 | 9.66 / 12.89 | 11.75 / 15.68 | 11.75 / 15.68 |
+| Menu group heads (Demi, 0.72 → 0.8 × items) | 8.26 / 11.01 | 9.43 / 12.58 | 10.32 / 13.77 | 11.47 / 15.30 |
+| Typed value's unit (Book, 0.7 → 0.8 × field) | 7.93 / 10.71 | 9.31 / 12.58 | 9.91 / 13.39 | 11.32 / 15.30 |
+
+#### 4K 100 %, SIZE 100 % (1380 px)
+
+| Class | STANDARD before | STANDARD after | LARGE before | LARGE after |
+|---|---:|---:|---:|---:|
+| Panel legends | 4.67 / 6.23 | 4.67 / 6.23 | 5.41 / 7.22 | 5.41 / 7.22 |
+| Section titles (CONTROLLERS … OUTPUT) | 12.79 / 17.06 | 12.79 / 17.06 | 12.79 / 17.06 | 12.79 / 17.06 |
+| Dial numbers (panel, strip, LFO, MACRO, ARP) | 3.69 / 4.92 | 3.69 / 4.92 | 4.18 / 5.58 | 4.18 / 5.58 |
+| Dial captions: M-SEC., SEC., OSC. 3, NOISE, LFO Hz and SEC. | 3.44 / 4.59 | 3.44 / 4.59 | 3.94 / 5.25 | 4.18 / 5.58 |
+| OSC. 3 CONTROL | 3.94 / 5.25 | 3.94 / 5.25 | 3.94 / 5.25 | 4.18 / 5.58 |
+| QUALITY ULTRA / HI / LO | 3.69 / 4.92 | 3.69 / 4.92 | 4.18 / 5.58 | 4.18 / 5.58 |
+| IDLE FOUNDRY (maker name, decorative) | 2.95 / 3.94 | 2.95 / 3.94 | 2.95 / 3.94 | 2.95 / 3.94 |
+| Strip legends, GLOBAL/ARP bank legends, LFO legends | 5.17 / 6.89 | 5.17 / 6.89 | 5.66 / 7.55 | 5.66 / 7.55 |
+| Strip small print (dB, L, R, %) | 3.94 / 5.25 | 3.94 / 5.25 | 4.43 / 5.91 | 4.43 / 5.91 |
+| Strip / arp / FX tab caps | 4.18 / 5.58 | 4.18 / 5.58 | 4.18 / 5.58 | 4.18 / 5.58 |
+| Rail caps (SAVE, PANEL, GLOBAL …) | 4.92 / 6.56 | 4.92 / 6.56 | 4.92 / 6.56 | 4.92 / 6.56 |
+| Keyboard mapping letters (Book) | 4.37 / 5.91 | 4.37 / 5.91 | 4.37 / 5.91 | 4.37 / 5.91 |
+| Keyboard TYPING / PANIC / − / + | 4.92 / 6.56 | 4.92 / 6.56 | 4.92 / 6.56 | 4.92 / 6.56 |
+| Presets drawer list, tags, MIDI list (dots, pitch 4) | 8.70 / 12.25 | 8.70 / 12.25 | 8.70 / 12.25 | 8.70 / 12.25 |
+| Tip, MIDI Learn note (Book) | 6.56 / 8.87 | 6.56 / 8.87 | 8.21 / 11.08 | 8.21 / 11.08 |
+| Menu items (Book, 1.15 × tip) | 7.55 / 10.20 | 7.55 / 10.20 | 9.44 / 12.75 | 9.44 / 12.75 |
+| Menu titles (Demi, 0.82 × items) | 6.27 / 8.36 | 6.27 / 8.36 | 7.84 / 10.45 | 7.84 / 10.45 |
+| Menu group heads (Demi, 0.72 → 0.8 × items) | 5.50 / 7.34 | 6.12 / 8.16 | 6.88 / 9.18 | 7.65 / 10.20 |
+| Typed value's unit (Book, 0.7 → 0.8 × field) | 5.28 / 7.14 | 6.04 / 8.16 | 6.61 / 8.92 | 7.55 / 10.20 |
+
+**Small screens and hit targets.** At the 1366 by 768 laptop's 1076, SIZE 75 % (1035) and the
+grip's 860 the tips, menu items, menus' extents and their places are the same as before; only
+the heads and the unit are larger, within the same rows and fields. Every tip, menu and typed
+value stays inside the window at every size rendered. Menus are found where they are drawn
+(`Menu::hit` uses the same layout). At 4K the settings' menu is now taller than the room below
+its key and is moved up over the rail's right end, as LARGE's was on a 1080p screen.
+
+**Issue #145's suggestions, measured and left for the owner:** ticks are 4 units wide and 13
+long (plus round caps), in the lettering's colour, against the numbers' strokes of about 2.9
+units (LARGE 3.2); the section titles are 52-unit Demi, 37.4 px cap at 4K against the legends'
+13.7, in the same colour. Making them thinner, shorter, smaller or dimmer changes the approved
+panel's drawing without enlarging the parameters' print: the numbers sit at their own radius,
+not at the ticks' ends, and the titles' room is below the controls.
+
+**Evidence** is under `/mnt/lab/artifacts/ca-72/issue-70/`: `before/` and `after/` (308 frames
+each, with `sizes.csv`), `crops/` (1:1 before | after of each changed class, both looks),
+`golden-before/`, `golden-after/`, `golden-compare.txt` and `golden-regions.txt`. Not tested: a
+real 4K monitor, a host, Windows or macOS scaling, a human comfort trial.
+
 See [the complete small-text inventory](readability-4k-text.md).

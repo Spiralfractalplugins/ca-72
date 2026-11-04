@@ -112,6 +112,17 @@ impl Lettering {
         }
     }
 
+    /// The dials' captions (M-SEC. and SEC., MODULATION MIX's OSC. 3 and NOISE, the LFOs' Hz and
+    /// SEC.): a unit under the numbers in the standard lettering, as approved; the numbers' own
+    /// size in the large, where a unit less left them under the 4K survey's minimum
+    /// (decisions.md R-READABILITY-MINIMUM).
+    pub const fn caption(self) -> f64 {
+        match self {
+            Lettering::Standard => 14.0,
+            Lettering::Large => 17.0,
+        }
+    }
+
     /// The strip's legends.
     pub const fn strip_legend(self) -> f64 {
         match self {
@@ -722,8 +733,9 @@ fn draw_dial_in(s: &mut Svg, cx: f64, cy: f64, dial: Dial, times: &str) {
         let (x, y) = label_at(&d, a, t, at, num);
         lettered(s, x, y, &t.replace('×', times), num);
     }
+    let caption = s.1.caption();
     for &(x, y, t) in &d.captions {
-        lettered(s, x, y, t, num - 1.0);
+        lettered(s, x, y, t, caption);
     }
     s.0.push_str("</g>");
 }
@@ -1939,7 +1951,7 @@ fn dial_extent(dial: Dial, num: f64) -> [f64; 4] {
         grow(x, y, half(t, num) + 2.0, num * 0.6);
     }
     for (x, y, t) in &d.captions {
-        grow(*x, *y, half(t, num - 1.0) + 2.0, num * 0.6);
+        grow(*x, *y, half(t, Lettering::Large.caption()) + 2.0, num * 0.6);
     }
     b
 }

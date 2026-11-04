@@ -69,9 +69,10 @@ impl Menu {
         (self.size * 0.82, self.size * 0.14)
     }
 
-    /// A group's head's lettering: smaller still, bold, spaced.
+    /// A group's head's lettering: a little smaller still, bold, spaced (0.72 of the items' left
+    /// it the smallest print in the window: decisions.md R-READABILITY-MINIMUM).
     fn head_type(&self) -> (f64, f64) {
-        (self.size * 0.72, self.size * 0.12)
+        (self.size * 0.8, self.size * 0.12)
     }
 
     /// Item `i`'s indent: a group's items are set in under their head.

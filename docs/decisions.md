@@ -17505,3 +17505,76 @@ width is constrained by the existing editor limits. Project recall and lower-pan
 do not change the computer preference. Only widths accepted by the host are kept, including
 asynchronous VST3 replies; rejected requests leave the preference alone. Grip changes are
 kept after release (or editor close), avoiding file writes on every frame of a drag.
+
+## R-READABILITY-MINIMUM. A 4K minimum for the tips, menus and LARGE's small print
+
+**Owner brief, 2026-11-04 (issue #70, with issue #145's suggestions):** measure every class of
+text at what a 3840 by 2160 screen gives at 100 % and 150 %, in both looks and letterings,
+choose a defensible minimum, raise only the classes found below it through the existing
+settings, keep hit targets, small screens and both looks, and leave the layout and the
+printed wording alone (#73 is changing modulation wording at the same time).
+
+**The minimum:** an x-height above 9 physical pixels (a cap height of at least 12.2) in the
+window a 4K screen at 100 % opens, FIT TO SCREEN's 3026 by 1728. It is R-READABILITY-4K's
+warning line, kept so that both surveys are read the same way; 9 pixels are already below
+the 0.2 degrees Legge and Bigelow give for fluent reading at 60 cm on a 27 or 32 inch 4K
+screen, so it is a floor, not a comfort target. It is held for LARGE's printed panel and for
+everything that is not the panel's print (tips, notes, menus, the typed value) in both
+letterings. STANDARD's panel print stays as approved (R-LETTERING: "this is just SOME
+people, so I want it as an option, not as a general change").
+
+**Measured, before:** the tip and every menu, which keep their logical size while the panel
+grows with the window, were the smallest print at 4K: the tip 6.56 px x-height (LARGE 8.21),
+menu items 7.55 (9.44), titles 6.27 (7.84), group heads 5.50 (6.88), the typed value's unit
+5.28 (6.61), against the panel's legends at 10.25 (11.87). In LARGE the dial captions
+(M-SEC., SEC., MODULATION MIX's OSC. 3 and NOISE, the LFOs' Hz and SEC.) and OSC. 3 CONTROL
+were 8.63. At 150 % the tip (9.85) and items cleared the line; group heads (8.26) and the
+unit (7.93) did not. `docs/readability-4k.md` has the whole table.
+
+**Built:**
+- `Renderer::text_size`, the tip's, notes' and menus' size, is never smaller than the panel's
+  legends (19 units, LARGE 22). Below about 1960 logical pixels wide at 100 % (LARGE 2120)
+  the logical size is the larger, so nothing changes there: the 1080p, laptop, SIZE and
+  grip-minimum windows draw their tips and menus at the sizes they had. At FIT TO SCREEN on 4K at 100 % the tip goes
+  from 12 to 18.5 px (LARGE 15 to 21.4), x-height 10.12 (11.72).
+- A menu's group heads are 0.8 of its items, not 0.72; the title stays 0.82, with its band and
+  colour, and the heads keep their colour and spacing. The rows and widths are unchanged.
+- The typed value's unit is 0.8 of its field, not 0.7.
+- In LARGE the dials' captions take the numbers' size, 17 (`Lettering::caption`; STANDARD
+  keeps 14), and the official layout gives OSC. 3 CONTROL `large_size = 17`, its LARGE place
+  2 units further right (491) so that it keeps the clearance it had from the section's rule.
+
+**Not built, from #145 (measured, for the owner):** the dials' ticks are 4 units wide and 13
+long (58 to 71 from the centre, plus round caps), in the lettering's colour, where the
+numbers' strokes are about 2.9 units (LARGE 3.2); the section titles are 52-unit Demi, 37.4 px
+cap height at 4K against the legends' 13.7, also in the lettering's colour. Thinner, shorter
+or dimmer ticks and smaller or dimmer titles are changes to the approved panel's drawing, and
+neither enlarges the parameters' print by itself: the numbers are placed at their own radius
+(86 units), not at the ticks' ends, and the titles' room is below the controls, not between
+them. Both are left for the owner's eye; a `[look]` option would be their route.
+
+**Agent decisions** (not separately approved): the floor's reference (the panel's legend size,
+so a tip is never smaller than the legends it explains); 0.8 for heads and unit; OSC. 3
+CONTROL's 2-unit move. Its CONTROL now comes within about two pixels of RANGE's 32' at the
+corner (as before, it does not touch), and the owner should look at that crop. A 4K settings'
+menu is now too tall to drop below its key and is moved up over the rail's right end, as
+R-LETTERING describes for LARGE on a 1080p screen. Not changed: IDLE FOUNDRY (the maker's
+name, 6.47 px), STANDARD's panel print, the presets' drawer (19.08 at 4K), the FX chooser,
+and any window the user has made smaller (SIZE 100 % on a 4K screen is 1380 wide, and a width
+remembered from another screen opens at that width: R-WINDOW-DEFAULT).
+
+**Evidence (Linux, 2026-11-04):** `the_readability_pngs` (ignored, `$CA72_READABILITY_PNG`)
+renders the real editor at 4K 100 % and 150 % (FIT TO SCREEN and SIZE 100 %), a 1366 by 768
+laptop's 1076, SIZE 75 % and the 860 minimum, both looks and letterings, eleven states
+(GLOBAL, the tip, CUTOFF's menu, the settings' and SIZE menus, a typed value, KEYS, LFO,
+MACRO, ARP, the presets' drawer), with `sizes.csv` of the live editor's ems. Before (`88575ba`)
+and after, 308 frames each, are under `/mnt/lab/artifacts/ca-72/issue-70/`, with 1:1
+before/after crops of each changed class. Pixel ink heights agree with the outline arithmetic
+within about half a pixel (the tip's cap 9.48 to 14.20 px, menu items 10.45 to 16.11, heads
+7.50 to 13.00, LARGE's NOISE caption +0.78). On the laptop, SIZE 75 % and minimum windows the
+tips, menu items and menus' extents and places are as before (only the heads and the unit are
+larger); every tip, menu and field stays inside its window, and menus' hit areas come from the
+same layout as their drawing. The official looks' golden frames (`examples/golden`) differ in 18 of 32:
+all 16 LARGE frames at the captions and OSC. 3 CONTROL (and, in the two at scale 1.0 with the
+tip, the tip), and the two STANDARD frames at scale 1.0 with the tip, at the tip alone; the 14
+other STANDARD frames are identical.

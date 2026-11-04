@@ -1251,10 +1251,12 @@ impl Renderer {
         out
     }
 
-    /// The lettering's size of the tip, a note and a menu, in drawing units (its logical pixels at
-    /// this scale).
+    /// The lettering's size of the tip, a note and a menu, in drawing units: its logical pixels at
+    /// this scale, but never smaller than the panel's legends, which grow with the window where
+    /// these would not (a 4K screen at 100 %: decisions.md R-READABILITY-MINIMUM).
     pub fn text_size(&self) -> f64 {
-        TIP_TEXT * self.layout.lettering().text() * self.ui / self.scale
+        let lettering = self.layout.lettering();
+        (TIP_TEXT * lettering.text() * self.ui / self.scale).max(lettering.legend())
     }
 
     /// Control `i` at `v` (normalized) as this look draws it, alone, for a frame drawn apart (the
