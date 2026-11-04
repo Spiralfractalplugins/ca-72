@@ -12,13 +12,14 @@ use super::*;
 /// The window sizes: a name, its backing scale (physical pixels a logical one) and its logical
 /// width. A 3840 by 2160 screen at 100 % opens the editor at 3026 (FIT TO SCREEN, 80 % of its
 /// height); at 150 % its 2560 by 1440 logical pixels give 2017, again 3026 physical. SIZE's
-/// 100 % is 1380 logical at either scale. A 1366 by 768 laptop fits 1076; SIZE's 75 % is 1035;
-/// the grip's smallest 860.
-const SIZES: [(&str, f64, u32); 7] = [
+/// 100 % is 1380 logical at either scale. A 1920 by 1080 screen's FIT TO SCREEN is 1513; a 1366
+/// by 768 laptop fits 1076; SIZE's 75 % is 1035; the grip's smallest 860.
+const SIZES: [(&str, f64, u32); 8] = [
     ("4k100-fit", 1.0, 3026),
     ("4k100-size100", 1.0, 1380),
     ("4k150-fit", 1.5, 2017),
     ("4k150-size100", 1.5, 1380),
+    ("1080p-fit", 1.0, 1513),
     ("laptop", 1.0, 1076),
     ("size75", 1.0, 1035),
     ("min", 1.0, MIN_WIDTH),

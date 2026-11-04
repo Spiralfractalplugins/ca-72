@@ -10000,23 +10000,37 @@ mod tests {
     }
 
     /// The settings' menu opens below its key, under the rail, without covering the key or
-    /// the rail, at 4K's FIT TO SCREEN (100 % and 150 %), SIZE's 100 % and 75 % and a 1366 by
-    /// 768 laptop's 1076, in both looks and letterings (decisions.md R-READABILITY-MINIMUM): in
-    /// columns where one would not fit, its lettering at its size (never under the 4K minimum)
-    /// and its rows' pitch as they were; each item found where it is drawn.
+    /// the rail, at 4K's FIT TO SCREEN (100 % and 150 %), SIZE's 100 % (at either), a 1080p
+    /// screen's FIT TO SCREEN, a 1366 by 768 laptop's 1076, SIZE's 75 % and the grip's 860, in
+    /// both looks and letterings (decisions.md R-READABILITY-MINIMUM): in as few columns as fit,
+    /// up to four, its groups as evenly spread as they go, its lettering at its size (never
+    /// under the 4K minimum) and its rows' pitch as they were; LARGE at 860, which four columns
+    /// do not fit, as little smaller as fits, and no smaller than round 1 had it there (which
+    /// shrank it to the window's height in one column, rising over the rail); each item found
+    /// where it is drawn.
     #[test]
-    fn the_settings_menu_drops_below_its_key_at_4k() {
-        for (dpr, width) in [
-            (1.0, 3026),
-            (1.5, 2017),
-            (1.0, 1380),
-            (1.5, 1380),
-            (1.0, 1076),
-            (1.0, 1035),
+    fn the_settings_menu_opens_below_its_key_at_every_size() {
+        // The window, its scale, and each lettering's columns' rows (the test's menu: LOOK,
+        // LETTERING, TICKS & TITLES, FREQUENCY DIALS three rows each, WINDOW four, MOD WHEEL
+        // SOURCE and MPE two).
+        let ten_eleven: &[usize] = &[9, 11];
+        let three: &[usize] = &[6, 6, 8];
+        let four: &[usize] = &[6, 6, 4, 4];
+        let fhd = fitted_width_in(Some((1920.0, 1080.0)), art::Panel::OFFICIAL);
+        assert_eq!(fhd, 1513, "a 1080p screen's FIT TO SCREEN");
+        for (dpr, width, std, large) in [
+            (1.0, 3026, ten_eleven, ten_eleven),
+            (1.5, 2017, ten_eleven, ten_eleven),
+            (1.0, 1380, three, three),
+            (1.5, 1380, three, three),
+            (1.0, fhd, ten_eleven, three),
+            (1.0, 1076, three, four),
+            (1.0, 1035, four, four),
+            (1.0, MIN_WIDTH, four, four),
         ] {
             let physical = (f64::from(width) * dpr).round() as u32;
             for skin in [Skin::Worn, Skin::Drawn] {
-                for lettering in [Lettering::Standard, Lettering::Large] {
+                for (lettering, rows) in [(Lettering::Standard, std), (Lettering::Large, large)] {
                     let (mut e, _, _) = editing();
                     e.fit(dpr, width, physical);
                     e.set_look(skin);
@@ -10036,19 +10050,37 @@ mod tests {
                     );
                     assert!(
                         m.y > ky + strip::KEY_H / 2.0 && m.y + h <= art::H + 1e-9,
-                        "{at}"
+                        "{at}: under the key, not over it"
                     );
                     assert!(
                         m.x + w <= kx + strip::KEY_W / 2.0 + 1e-9 && m.x >= 0.0,
                         "{at}"
                     );
-                    assert_eq!(
-                        m.size,
-                        e.renderer.text_size() * MENU_TEXT,
-                        "{at}: not shrunk"
-                    );
-                    assert!(!m.columns.is_empty(), "{at}: in columns");
+                    // Balanced: each column begun at a group's head, the rows as even as the
+                    // groups go.
                     assert!(m.columns.iter().all(|&(i, _)| m.heads.contains(&i)), "{at}");
+                    let starts: Vec<usize> = std::iter::once(0)
+                        .chain(m.columns.iter().map(|c| c.0))
+                        .chain(std::iter::once(m.items.len()))
+                        .collect();
+                    let got: Vec<usize> = starts.windows(2).map(|s| s[1] - s[0]).collect();
+                    assert_eq!(got, rows, "{at}: its columns' rows");
+                    // Its lettering: as it is (so never under the 4K minimum), but for LARGE at
+                    // 860, made smaller only as far as fits and no smaller than round 1's.
+                    let full = e.renderer.text_size() * MENU_TEXT;
+                    let s = e.renderer.scale();
+                    if width == MIN_WIDTH && lettering == Lettering::Large {
+                        assert!(m.size < full, "{at}: four columns do not fit");
+                        // (Round 1's em there, physical pixels: `sizes.csv`.)
+                        assert!(m.size * s >= 13.493, "{at}: {}", m.size * s);
+                        let room = (m.x + w, art::H - m.y);
+                        assert!(
+                            w > room.0 * (1.0 - 1e-6) || h > room.1 * (1.0 - 1e-6),
+                            "{at}: as large as fits, {w} {h} {room:?}"
+                        );
+                    } else {
+                        assert_eq!(m.size, full, "{at}: not shrunk");
+                    }
                     for i in 0..m.items.len() {
                         let (x, y) = m.item_at(i);
                         assert_eq!(

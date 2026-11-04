@@ -150,52 +150,70 @@ impl Menu {
         )
     }
 
-    /// Its items in as few columns as make it fit `room` (width, height), at most `most`; none
-    /// doing it, as many as keep it within the width: each column begun at a group's head, the
-    /// tallest as short as its groups allow (the first the longer where two ways are as tall),
-    /// a margin's width either side of the rule between two. Its lettering and its rows stay as
-    /// they are.
+    /// Its items in as few columns as make it fit (`width`, `height`), at most `most`, each
+    /// column begun at a group's head (a group never split), the groups kept in order and
+    /// spread as evenly as they allow: of the ways that fit, the one whose columns' heights
+    /// differ least (then the shortest tallest, then the longer first), a margin's width either
+    /// side of the rule between two. Its lettering and rows stay as they are where it fits; none
+    /// fitting, they are made smaller, as little as the way that needs it least allows (the
+    /// fewer columns where two need it as little), so that it does.
     pub fn in_columns(mut self, fonts: &Fonts, (width, height): (f64, f64), most: usize) -> Menu {
         let heads: Vec<usize> = self.heads.iter().copied().filter(|&h| h > 0).collect();
         let n = self.items.len();
-        let tallest = |starts: &[usize]| {
-            let mut ends: Vec<usize> = starts.to_vec();
-            ends.push(n);
+        let widths: Vec<f64> = (0..n).map(|i| self.width(fonts, i)).collect();
+        let heights = |starts: &[usize]| -> Vec<usize> {
             std::iter::once(0)
                 .chain(starts.iter().copied())
-                .zip(ends)
+                .zip(starts.iter().copied().chain(std::iter::once(n)))
                 .map(|(a, b)| b - a)
-                .max()
-                .unwrap_or(0)
+                .collect()
+        };
+        // How evenly: the sum of the columns' heights' squares (their total is the items'),
+        // then the tallest, then the later starts (the longer first).
+        let evenness = |starts: &Vec<usize>| {
+            let h = heights(starts);
+            (
+                h.iter().map(|&r| r * r).sum::<usize>(),
+                h.iter().copied().max().unwrap_or(0),
+                std::cmp::Reverse(starts.clone()),
+            )
         };
         self.columns.clear();
+        // (How much smaller it must be to fit, at most 1; its columns.)
+        let need = |m: &Menu| {
+            let (w, h) = m.extent(fonts);
+            (width / w).min(height / h)
+        };
+        let mut best = (need(&self), Vec::new());
+        if best.0 >= 1.0 {
+            return self;
+        }
         for more in 1..most.min(heads.len() + 1) {
-            if self.extent(fonts).1 <= height {
-                break;
-            }
-            let Some(starts) = choose(&heads, more)
-                .into_iter()
-                .min_by_key(|s| (tallest(s), std::cmp::Reverse(s.clone())))
-            else {
-                break;
-            };
-            // Each column's labels begin a margin past the rule after the one before.
-            let fewer = std::mem::take(&mut self.columns);
-            let mut x = self.pad();
-            let mut from = 0;
-            for &start in &starts {
-                x += (from..start)
-                    .map(|i| self.width(fonts, i))
-                    .fold(0.0, f64::max)
-                    + 2.0 * self.pad();
-                self.columns.push((start, x / self.size));
-                from = start;
-            }
-            if self.extent(fonts).0 > width {
-                self.columns = fewer;
-                break;
+            let mut ways = choose(&heads, more);
+            ways.sort_by_cached_key(evenness);
+            for starts in ways {
+                // Each column's labels begin a margin past the rule after the one before.
+                self.columns.clear();
+                let mut x = self.pad();
+                let mut from = 0;
+                for &start in &starts {
+                    x += widths[from..start].iter().copied().fold(0.0, f64::max) + 2.0 * self.pad();
+                    self.columns.push((start, x / self.size));
+                    from = start;
+                }
+                let k = need(&self);
+                if k >= 1.0 {
+                    return self;
+                }
+                if k > best.0 * (1.0 + 1e-9) {
+                    best = (k, self.columns.clone());
+                }
             }
         }
+        // (The columns' places are in the lettering's sizes, so they shrink with it; a hair
+        // more, so that rounding leaves it inside the room.)
+        self.columns = best.1;
+        self.size *= best.0 * (1.0 - 1e-9);
         self
     }
 
@@ -618,35 +636,63 @@ mod tests {
         assert_eq!(m.hit(&fonts, 110.0, 200.0 + h + 1.0), None);
     }
 
+    /// A menu of groups (each a head and `n` items), at (100, 200).
+    fn grouped(groups: &[(&str, usize)]) -> Menu {
+        let mut items = Vec::new();
+        let mut heads = Vec::new();
+        for &(head, n) in groups {
+            heads.push(items.len());
+            items.push((head.to_owned(), false));
+            items.extend((0..n).map(|k| (format!("{head} {k}"), true)));
+        }
+        Menu {
+            items,
+            heads,
+            ..menu_at(100.0, 200.0)
+        }
+    }
+
+    /// Where each column begins and how many rows each has.
+    fn split(m: &Menu) -> (Vec<usize>, Vec<usize>) {
+        (
+            m.columns.iter().map(|c| c.0).collect(),
+            m.column_items().iter().map(|r| r.len()).collect(),
+        )
+    }
+
+    /// Each item is found where it is drawn, and each column begins right of the widest label
+    /// in the one before.
+    fn found_where_drawn(fonts: &Fonts, m: &Menu) {
+        for i in 0..m.items.len() {
+            let (x, y) = m.item_at(i);
+            assert_eq!(m.hit(fonts, x + 1.0, y), Some(Some(i)), "{i}");
+        }
+        let cols = m.column_items();
+        for (c, pair) in cols.windows(2).enumerate() {
+            let widest = pair[0]
+                .clone()
+                .map(|i| m.width(fonts, i))
+                .fold(0.0, f64::max);
+            let left = m.lefts();
+            assert!(left[c + 1] - left[c] >= widest, "{c}: {left:?} {widest}");
+        }
+    }
+
     /// A menu of groups set in columns, as few as make it fit (the settings', decisions.md
-    /// R-READABILITY-MINIMUM): each column begun at a head, the tallest as short as the groups
+    /// R-READABILITY-MINIMUM): each column begun at a head, the groups as evenly spread as they
     /// allow, its lettering and rows as they were, each item found where it is drawn, its
     /// columns side by side; one that fits stays one column.
     #[test]
     fn a_menu_in_columns_begins_each_at_a_head_and_finds_its_items() {
         let fonts = Fonts::new();
-        let group = |head: &str, n: usize| {
-            std::iter::once((head.to_owned(), false))
-                .chain((0..n).map(|k| (format!("{head} {k}"), true)))
-                .collect::<Vec<_>>()
-        };
-        let mut items = Vec::new();
-        let mut heads = Vec::new();
-        for (head, n) in [
+        // (LOOK, LETTERING, TICKS, WINDOW, MPE: three, three, three, four and two rows.)
+        let m = grouped(&[
             ("LOOK", 2),
             ("LETTERING", 2),
             ("TICKS", 2),
             ("WINDOW", 3),
             ("MPE", 1),
-        ] {
-            heads.push(items.len());
-            items.extend(group(head, n));
-        }
-        let m = Menu {
-            items,
-            heads,
-            ..menu_at(100.0, 200.0)
-        };
+        ]);
         let (w1, h1) = m.extent(&fonts);
         assert_eq!(
             m.clone().in_columns(&fonts, (W, h1), 3),
@@ -654,37 +700,109 @@ mod tests {
             "it fits: one column"
         );
         let two = m.clone().in_columns(&fonts, (W, h1 * 0.7), 3);
-        // (LOOK, LETTERING, TICKS: nine rows; WINDOW, MPE: six.)
-        assert_eq!(two.columns.iter().map(|c| c.0).collect::<Vec<_>>(), [9]);
+        // (LOOK, LETTERING, TICKS: nine rows; WINDOW, MPE: six. As even as six and nine, the
+        // longer first.)
+        assert_eq!(split(&two), (vec![9], vec![9, 6]));
         let (w2, h2) = two.extent(&fonts);
         assert_eq!(two.size, m.size);
         assert!((h2 - (two.row() * 10.0 + two.size * 0.4)).abs() < 1e-9 && h2 <= h1 * 0.7);
         assert!(w2 >= w1);
-        let three = m.clone().in_columns(&fonts, (W, two.row() * 5.0), 3);
-        // (LOOK, LETTERING; TICKS; WINDOW, MPE: six, three, six rows.)
-        assert_eq!(
-            three.columns.iter().map(|c| c.0).collect::<Vec<_>>(),
-            [6, 9]
-        );
-        let three_tall = three.extent(&fonts).1;
-        assert!(
-            three_tall > two.row() * 5.0,
-            "none fits: the most columns, {three_tall}"
-        );
-        // No wider than the room: as many columns as it allows.
-        let narrow = m.clone().in_columns(&fonts, (w2 + 1.0, two.row() * 5.0), 3);
-        assert_eq!(narrow, two);
+        let tall = |rows: f64| two.row() * (rows + 1.0) + two.size * 0.4;
+        // Room for six rows: three columns (LOOK, LETTERING; TICKS; WINDOW, MPE: six, three and
+        // six, as even as three, six and six, and the longer first).
+        let three = m.clone().in_columns(&fonts, (W, tall(6.0)), 3);
+        assert_eq!(split(&three), (vec![6, 9], vec![6, 3, 6]));
+        assert_eq!(three.size, m.size);
         for menu in [&m, &two, &three] {
-            for i in 0..menu.items.len() {
-                let (x, y) = menu.item_at(i);
-                assert_eq!(menu.hit(&fonts, x + 1.0, y), Some(Some(i)), "{i}");
+            found_where_drawn(&fonts, menu);
+        }
+    }
+
+    /// The columns' heights as even as the groups allow, in their order, a group never split
+    /// (the owner, 2026-11-04: "MPE sits alone in a short last column"): the settings' groups
+    /// (three, three, three, three, four, two and two rows) in four columns of six, six, four
+    /// and four, not six, six, six and two; and in as few columns as fit.
+    #[test]
+    fn a_menus_columns_are_balanced() {
+        let fonts = Fonts::new();
+        let m = grouped(&[
+            ("LOOK", 2),
+            ("LETTERING", 2),
+            ("TICKS & TITLES", 2),
+            ("FREQUENCY DIALS", 2),
+            ("WINDOW", 3),
+            ("MOD WHEEL SOURCE", 1),
+            ("MPE", 1),
+        ]);
+        let tall = |rows: f64| m.row() * (rows + 1.0) + m.size * 0.4;
+        let four = m.clone().in_columns(&fonts, (W, tall(6.0)), 4);
+        assert_eq!(split(&four), (vec![6, 12, 16], vec![6, 6, 4, 4]));
+        // Room for eight: three columns (six, six and eight), not four.
+        let three = m.clone().in_columns(&fonts, (W, tall(8.0)), 4);
+        assert_eq!(split(&three), (vec![6, 12], vec![6, 6, 8]));
+        // Room for eleven: two (nine and eleven).
+        let two = m.clone().in_columns(&fonts, (W, tall(11.0)), 4);
+        assert_eq!(split(&two), (vec![9], vec![9, 11]));
+        for menu in [&four, &three, &two] {
+            assert_eq!(menu.size, m.size);
+            assert!(menu.columns.iter().all(|c| menu.heads.contains(&c.0)));
+            assert!(menu.extent(&fonts).1 <= tall(11.0) + 1e-9);
+            found_where_drawn(&fonts, menu);
+        }
+    }
+
+    /// A menu that no way of setting in columns fits (LARGE in the smallest window: decisions.md
+    /// R-READABILITY-MINIMUM) is made smaller, as little as fits it, filling the room's height or
+    /// its width; the way it is set in the one that needs it least, the most even of those.
+    #[test]
+    fn a_menu_no_columns_fit_is_made_smaller_as_little_as_fits() {
+        let fonts = Fonts::new();
+        let m = grouped(&[
+            ("LOOK", 2),
+            ("LETTERING", 2),
+            ("TICKS & TITLES", 2),
+            ("FREQUENCY DIALS", 2),
+            ("WINDOW", 3),
+            ("MOD WHEEL SOURCE", 1),
+            ("MPE", 1),
+        ]);
+        let tall = |rows: f64| m.row() * (rows + 1.0) + m.size * 0.4;
+        // Room for four rows' height, the width ample: four columns, the tallest six rows, made
+        // 10.4 / 14.4 of its size (no way of four columns or fewer has a column under six).
+        let room = (W, tall(4.0));
+        let small = m.clone().in_columns(&fonts, room, 4);
+        assert_eq!(split(&small), (vec![6, 12, 16], vec![6, 6, 4, 4]));
+        let (w, h) = small.extent(&fonts);
+        assert!(h <= room.1 && h > room.1 * (1.0 - 1e-6), "{h}");
+        assert!(w <= room.0);
+        assert!((small.size / m.size - tall(4.0) / tall(6.0)).abs() < 1e-6);
+        found_where_drawn(&fonts, &small);
+        // Every way, at most four columns: none fits larger.
+        for more in 0..4 {
+            for starts in choose(&m.heads[1..], more) {
+                let mut one = m.clone();
+                one.columns = starts.iter().map(|&s| (s, 0.0)).collect();
+                let rows = one.column_items().iter().map(|r| r.len()).max().unwrap();
+                assert!(rows >= 6, "{starts:?}");
             }
         }
-        // The second column begins right of the first's widest label.
-        let (x0, _) = two.item_at(1);
-        let (x1, _) = two.item_at(10);
-        let widest = (0..9).map(|i| two.width(&fonts, i)).fold(0.0, f64::max);
-        assert!(x1 - x0 >= widest, "{x0} {x1} {widest}");
+        // Narrow as well: the width it fills, or the height.
+        let (w4, _) = m
+            .clone()
+            .in_columns(&fonts, (W, tall(6.0)), 4)
+            .extent(&fonts);
+        let room = (w4 * 0.6, tall(4.0));
+        let narrow = m.clone().in_columns(&fonts, room, 4);
+        let (w, h) = narrow.extent(&fonts);
+        assert!(w <= room.0 && h <= room.1, "{w} {h}");
+        assert!(
+            w > room.0 * (1.0 - 1e-6) || h > room.1 * (1.0 - 1e-6),
+            "as little smaller as fits: {w} {h}"
+        );
+        assert!(narrow.size < small.size);
+        found_where_drawn(&fonts, &narrow);
+        // A menu that fits is not made smaller.
+        assert_eq!(m.clone().in_columns(&fonts, (W, H), 4).size, m.size);
     }
 
     /// A menu opened at the panel's bottom right corner is moved to fit inside it.

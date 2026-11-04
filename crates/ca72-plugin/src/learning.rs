@@ -905,7 +905,9 @@ impl Learning {
         // Below its key, in as many columns as that takes (taller than the room under the rail
         // in one column at 4K's FIT TO SCREEN and SIZE's 100 %, it rose over the rail and its
         // key: decisions.md R-READABILITY-MINIMUM), up to four and no wider than the room left of
-        // the key, its lettering and rows as they are.
+        // the key, its groups spread over them as evenly as they go, its lettering and rows as
+        // they are; where four do not fit (LARGE in the smallest window), as little smaller as
+        // fits.
         menu = menu.in_columns(fonts, (x - PANEL[0], PANEL[3] - y), SETTINGS_COLUMNS);
         let (w, _) = menu.extent(fonts);
         menu = menu.placed(fonts, x - w, y, PANEL);

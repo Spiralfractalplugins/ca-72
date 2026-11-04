@@ -17629,6 +17629,61 @@ again (336 frames, with a `quiet` state), 1:1 crops, and golden frames against `
 standalone-production`: 740 passed, 76 ignored. Clippy (both crates, all targets and features,
 `-D warnings`) and `cargo fmt --all` are clean.
 
+**Round 3 (owner, 2026-11-04: LARGE at the 860 minimum still rose over the rail and covered its
+key; at the laptop's 1076 and SIZE 75 % MPE sat alone in a short fourth column):**
+- *Balanced columns.* Of the ways to set the groups in a given number of columns (each column
+  begun at a group's head, so a group is never split, the groups in order top to bottom, left
+  to right), `Menu::in_columns` now takes the one with the most even columns among those that
+  fit: the least sum of the columns' rows squared (their total is fixed, so this is the least
+  spread), then the shortest tallest column, then the longer first. Fewer columns are still
+  tried first, so it uses three where three fit, not four. The settings' groups (three, three,
+  three, three, four, two and two rows) go into four columns as six, six, four and four (MOD
+  WHEEL SOURCE and MPE together), not six, six, six and two.
+- *Shrink-to-fit after columns.* Where no way of setting it in up to four columns fits the room
+  below the key and left of it, the menu's lettering (and with it its rows and columns) is made
+  smaller, only as far as the way that needs the least shrinking requires (the fewer columns,
+  then the most even, where two need the same). This puts back the shrink-to-fit that round 2
+  removed, but after the columns. In the matrix it happens only in LARGE at the 860 minimum:
+  four columns (six, six, four and four rows) at 14.57 px em. That is below round 2's 17.25,
+  which did not fit and rose over the rail, and above round 1's 13.49, which shrank one column
+  to the window's height and also rose over it. The R-READABILITY-MINIMUM floor is a 4K FIT
+  TO SCREEN rule. At 4K FIT the menu has room for 13 to 16 rows a column, so it never shrinks
+  there.
+
+  | Window | STANDARD | LARGE |
+  |---|---|---|
+  | 4K FIT TO SCREEN, 100 % and 150 % | two: 9, 11 rows | two: 9, 11 |
+  | SIZE 100 % (100 % and 150 %) | three: 6, 6, 8 | three: 6, 6, 8 |
+  | 1080p FIT TO SCREEN (1513) | two: 9, 11 | three: 6, 6, 8 |
+  | Laptop (1076) | three: 6, 6, 8 | four: 6, 6, **4, 4** (was 6, 6, 6, 2) |
+  | SIZE 75 % (1035) | four: 6, 6, **4, 4** (was 6, 6, 6, 2) | four: 6, 6, **4, 4** (was 6, 6, 6, 2) |
+  | 860 | four: 6, 6, **4, 4** (was 6, 6, 6, 2) | four: 6, 6, 4, 4, **14.57 px**, below its key (was 17.25, over the rail) |
+
+  Every one now opens below its key without covering it. Round 2's table gave the laptop's
+  STANDARD as four columns; its frames show three (6, 6, 8), as now. In the standalone the
+  STANDALONE and AGENTS groups add up to about ten rows. By the same arithmetic these still fit
+  at 4K FIT, and in small windows they may shrink the menu. That has not been rendered.
+
+**Agent decisions, round 3** (not separately approved): the measure of even (the sum of the
+squares, then the tallest, then the longer first), and that the shrink is chosen across every
+column count up to four, the least shrink winning.
+
+**Evidence, round 3:** `/mnt/lab/artifacts/ca-72/issue-70/round3/` (`index.html`): the matrix
+again with 1080p FIT added (384 frames, `after/sizes.csv`), round 2's code at 1080p FIT
+(`round2-1080p/`), 1:1 crops of the settings' menu and its key (round 2 left, round 3 right) at
+4K FIT, SIZE 100 %, 1080p FIT, the laptop, SIZE 75 % and 860, both looks and letterings, and
+golden frames against `ef41abf`.
+
+- *The editor's frames against round 2's:* only the settings' menu differs, at the laptop in
+  LARGE, SIZE 75 % and 860 in both letterings. The presets' drawer differs at the build's commit
+  printed in it. Every other frame is identical, including 1080p FIT, where nothing changed.
+- *Golden frames:* 32 compared, 0 differ.
+- *Tests:* `the_settings_menu_opens_below_its_key_at_every_size` checks every size above, both
+  looks and both letterings: the menu is below its key and not over it, its columns' rows are as
+  in the table, it is not shrunk except LARGE at 860, and there it is no smaller than round 1's
+  13.49 px and fills the room. `ca72-panel`'s `a_menus_columns_are_balanced` and
+  `a_menu_no_columns_fit_is_made_smaller_as_little_as_fits` cover the same rules.
+
 ## R-QUIET-PRINT. TICKS & TITLES: quieter ticks and sections' titles, a setting
 
 **Owner brief, 2026-11-04 (issue #145's "tick marks" and "big labels", measured in

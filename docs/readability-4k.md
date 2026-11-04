@@ -330,11 +330,37 @@ FIT (7.1 before round 1, 3.2 after it); its size and x-height are as in round 1 
 
 Nothing else changes size.
 
+### Round 3, 2026-11-04
+
+**The settings' menu** now opens below its key at every size rendered, LARGE at 860 included
+(decisions.md R-READABILITY-MINIMUM, round 3). Its groups are spread over its columns as evenly
+as they go, and where four columns do not fit it is made only as much smaller as fits.
+
+| Window | STANDARD | LARGE |
+|---|---|---|
+| 4K FIT TO SCREEN, 100 % and 150 % | two columns (9, 11 rows) | two (9, 11) |
+| SIZE 100 % | three (6, 6, 8) | three (6, 6, 8) |
+| 1080p FIT TO SCREEN (1513) | two (9, 11) | three (6, 6, 8) |
+| Laptop (1076) | three (6, 6, 8) | four (6, 6, 4, 4) |
+| SIZE 75 % | four (6, 6, 4, 4) | four (6, 6, 4, 4) |
+| 860 | four (6, 6, 4, 4) | four (6, 6, 4, 4), smaller |
+
+The four-column layouts were six, six, six and two rows, with MPE alone in the last column.
+Round 2's table above gave the laptop's STANDARD as four columns; its frames show three. In
+`round3/after/sizes.csv` only one window and lettering changes size (the four 1080p rows are
+new, and match SIZE 100 %'s):
+
+| Window | Lettering | Settings' items, em in px (round 1 → round 2 → round 3) |
+|---|---|---|
+| 860 | LARGE | 13.49 → 17.25 (over the rail) → **14.57** (below its key) |
+
 **Evidence** is under `/mnt/lab/artifacts/ca-72/issue-70/`: `before/` and `after/` (308 frames
 each, with `sizes.csv`), `crops/` (1:1 before | after of each changed class, both looks),
 `golden-before/`, `golden-after/`, `golden-compare.txt` and `golden-regions.txt`; round 2's in
 `round2/` (`index.html`, the matrix again in `round2/after/` with a `quiet` state, its crops and
-golden frames against `dd23251`). Not tested: a
+golden frames against `dd23251`); round 3's in `round3/` (`index.html`, the matrix with 1080p
+FIT in `round3/after/`, crops of the settings' menu, golden frames against `ef41abf`: none
+differ). Not tested: a
 real 4K monitor, a host, Windows or macOS scaling, a human comfort trial.
 
 See [the complete small-text inventory](readability-4k-text.md).
