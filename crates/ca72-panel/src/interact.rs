@@ -11,7 +11,7 @@
 //! knob settles into its centre, off (decisions.md R-LFO-FADE).
 
 use crate::arrangement::Arrangement;
-use crate::art::{self, BIG, GRIP, Layout, POWER_BOUNDS, SIX, STD, WHEEL_SCALE};
+use crate::art::{self, BIG, GRIP, Layout, POWER_BOUNDS, STD, WHEEL_SCALE};
 use crate::controls::{CONTROLS, Control, Dial, Kind, Place};
 
 /// What is under the pointer.
@@ -59,7 +59,7 @@ fn hit_control(layout: &Layout, i: usize, c: &Control, x: f64, y: f64) -> Option
     let found = match c.kind {
         Kind::Knob { big, .. } => dx.hypot(dy) <= if big { BIG.skirt } else { STD.skirt } + 8.0,
         Kind::Selector(set) => {
-            for k in 0..SIX.len() {
+            for k in set.places() {
                 let (lx, ly) = layout.legend_at(set, k);
                 if in_rect(dx - lx, dy - ly, [-18.0, -14.0, 18.0, 14.0]) {
                     return Some(Target::Legend(i, k));
@@ -131,9 +131,9 @@ pub fn drag(kind: &Kind, start: f64, dx: f64, dy: f64, fine: bool) -> Option<f64
                 None => v,
             }
         }
-        Kind::Selector(_) => {
+        Kind::Selector(set) => {
             let steps = ((dx - dy) / if fine { 60.0 } else { 30.0 }).round();
-            (art::position(start) as f64 + steps).clamp(0.0, 5.0) / 5.0
+            set.at(art::position(start) as f64 + steps)
         }
         Kind::Wheel { .. } => (start - dy / 160.0 * rate).clamp(0.0, 1.0),
         Kind::Jack => (start - dy / 240.0 * rate).clamp(0.0, 1.0),
@@ -213,7 +213,7 @@ pub fn scroll(kind: &Kind, v: f64, notches: f64, fine: bool) -> f64 {
             }
             None => (v + notches * if fine { 0.002 } else { 0.02 }).clamp(0.0, 1.0),
         },
-        Kind::Selector(_) => (art::position(v) as f64 + notches).clamp(0.0, 5.0) / 5.0,
+        Kind::Selector(set) => set.at(art::position(v) as f64 + notches),
         Kind::Wheel { .. } => (v + notches * if fine { 0.005 } else { 0.05 }).clamp(0.0, 1.0),
         Kind::Jack => (v + notches * if fine { 0.002 } else { 0.02 }).clamp(0.0, 1.0),
         Kind::Rocker { .. } | Kind::Key => {
@@ -273,9 +273,9 @@ pub fn click(kind: &Kind, v: f64, dx: f64, dy: f64) -> Option<f64> {
         } else {
             0.5
         }),
-        Kind::Selector(_) => Some(
-            (art::position(v) as f64 + if dx < 0.0 { -1.0 } else { 1.0 }).clamp(0.0, 5.0) / 5.0,
-        ),
+        Kind::Selector(set) => {
+            Some(set.at(art::position(v) as f64 + if dx < 0.0 { -1.0 } else { 1.0 }))
+        }
         _ => None,
     }
 }

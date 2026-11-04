@@ -85,6 +85,24 @@ pub enum Legends {
     Waves12,
     /// Oscillator 3's (a reverse sawtooth second).
     Waves3,
+    /// FILTER POLES's (decisions.md R-POLES): 1 to 4, on the middle four of the six places.
+    Poles,
+}
+
+impl Legends {
+    /// The places of the six it stops at: all six, or FILTER POLES's middle four.
+    pub fn places(self) -> core::ops::RangeInclusive<usize> {
+        match self {
+            Legends::Poles => 1..=4,
+            _ => 0..=5,
+        }
+    }
+
+    /// Place `k`, kept to the places it stops at, as its normalized value.
+    pub fn at(self, k: f64) -> f64 {
+        let p = self.places();
+        k.clamp(*p.start() as f64, *p.end() as f64) / 5.0
+    }
 }
 
 /// A rocker's colour.
@@ -578,11 +596,21 @@ pub const LFO_FIRST: usize = 68;
 /// "under the oscillator range selector", 2026-10-20), and its MOD key under its WAVEFORM's.
 pub const KEY_BELOW_RANGE: f64 = 84.0;
 
+/// How far down FILTER POLES at the switch column's head moved the original's switches under it
+/// (decisions.md R-POLES).
+pub const COLUMN_DOWN: f64 = 150.0;
+
+/// FILTER MODE's toggle, under FILTER POLES (decisions.md R-POLES).
+pub const FILTER_MODE_Y: f64 = 316.0;
+
+/// FILTER POLES, at the switch column's head in CUTOFF FREQUENCY's row (decisions.md R-POLES).
+pub const FILTER_POLES_AT: (f64, f64) = (1907.0, 175.0);
+
 /// The MIXER's rows.
 const ROWS: [f64; 5] = [170.0, 274.0, 377.0, 481.0, 583.0];
 
 /// Every control, in the order they are drawn.
-pub const CONTROLS: [Control; 116] = [
+pub const CONTROLS: [Control; 117] = [
     // CONTROLLERS.
     knob("tune", "TUNE", 229.0, 273.0, Dial::Tune),
     switch(
@@ -696,25 +724,28 @@ pub const CONTROLS: [Control; 116] = [
         Colour::Blue,
         Orient::Bottom,
     ),
-    // Across MIXER and MODIFIERS: the filter's mode, modulation and keyboard control. FILTER
-    // MODE, which the original does not have, at the column's head, where the hardware
-    // reference has it (decisions.md R46): LO, or HI pressed.
-    rocker(
-        "filter_mode",
-        "FILTER MODE (LO or HI)",
-        Place::Panel,
-        1907.0,
-        169.0,
-        108.0,
-        48.0,
-        Colour::Red,
-        Orient::Right,
-    ),
+    // Across MIXER and MODIFIERS: the filter's mode, modulation and keyboard control, under
+    // FILTER POLES at the column's head (decisions.md R-POLES; FILTER POLES itself is last in
+    // this table). FILTER MODE, which the original does not have (decisions.md R46, R-POLES):
+    // NOTE PRIORITY's toggle on its side, its lever left for LO, out for BAND, right for STEEP
+    // HIGH.
+    Control {
+        param: "filter_mode",
+        label: "FILTER MODE (LO, BAND or STEEP HIGH)",
+        place: Place::Panel,
+        x: 1907.0,
+        y: FILTER_MODE_Y,
+        kind: Kind::Toggle {
+            w: crate::art::TOGGLE.1,
+            h: crate::art::TOGGLE.0,
+            across: true,
+        },
+    },
     switch(
         "filter_mod",
         "FILTER MODULATION",
         1907.0,
-        291.0,
+        291.0 + COLUMN_DOWN,
         Colour::Red,
     ),
     rocker(
@@ -722,7 +753,7 @@ pub const CONTROLS: [Control; 116] = [
         "KEYBOARD CONTROL 1",
         Place::Panel,
         1907.0,
-        386.0,
+        386.0 + COLUMN_DOWN,
         108.0,
         48.0,
         Colour::Red,
@@ -733,7 +764,7 @@ pub const CONTROLS: [Control; 116] = [
         "KEYBOARD CONTROL 2",
         Place::Panel,
         1907.0,
-        486.0,
+        486.0 + COLUMN_DOWN,
         108.0,
         48.0,
         Colour::Red,
@@ -1028,6 +1059,16 @@ pub const CONTROLS: [Control; 116] = [
     // R-VELOCITY), after every other, so that no control moves.
     mpe_knob("velocity_curve", "VELOCITY CURVE", 4, Dial::Reach),
     mpe_knob("velocity_floor", "VELOCITY FLOOR", 5, Dial::Ten),
+    // FILTER POLES (decisions.md R-POLES), at the switch column's head: the ladder's stage the
+    // filter's output is taken from, or the slopes of its band-pass and high-pass. Last, so that
+    // no control moves.
+    selector(
+        "filter_poles",
+        "FILTER POLES (1 to 4)",
+        FILTER_POLES_AT.0,
+        FILTER_POLES_AT.1,
+        Legends::Poles,
+    ),
 ];
 
 /// The panel's controls' history (decisions.md R-SKIN-PACKS), so that a skin pack's layout made
@@ -1048,16 +1089,17 @@ pub struct ControlSet {
     pub kind_changed: &'static [(&'static str, u32)],
 }
 
-/// This build's panel controls: the fifth revision; oscillators 2's and 3's TIMED keys added in
+/// This build's panel controls: the eighth revision; oscillators 2's and 3's TIMED keys added in
 /// the second (decisions.md R-OSC-TIMED), each oscillator's MOD key in the third
 /// (R-CONTINUOUS-WAVE), the LFO page's in the fourth (R-LFO: the plug-in's own, on its lower
 /// page, which a layout does not place, as the strip's), the six macros in the fifth (R-MACROS:
 /// in the left hand's area, which a layout does not place either), each LFO's POLARITY (UNI) and
 /// ON keys in the sixth (R-LFO's corrections), each LFO's LEVEL (its OUT jack) in the seventh
-/// (R-LFO's addendum). Never edit an entry once
-/// released: add to it (and raise `revision`) as controls come, go, or change.
+/// (R-LFO's addendum), FILTER POLES in the eighth, when FILTER MODE became a toggle (R-POLES).
+/// Never edit an entry once released: add to it (and raise `revision`) as controls come, go, or
+/// change.
 pub const CONTROL_SET: ControlSet = ControlSet {
-    revision: 7,
+    revision: 8,
     added: &[
         ("osc2_timed", 2),
         ("osc3_timed", 2),
@@ -1110,10 +1152,11 @@ pub const CONTROL_SET: ControlSet = ControlSet {
         ("lfo2_level", 7),
         ("lfo3_level", 7),
         ("lfo4_level", 7),
+        ("filter_poles", 8),
     ],
     renamed: &[],
     retired: &[],
-    kind_changed: &[],
+    kind_changed: &[("filter_mode", 8)],
 };
 
 impl ControlSet {

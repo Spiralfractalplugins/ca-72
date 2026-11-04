@@ -228,6 +228,8 @@ const NARROW: &str = "M -12 7 V -7 H -7 V 7 H 12";
 const RANGES: [&str; 6] = ["LO", "32'", "16'", "8'", "4'", "2'"];
 const WAVES12: [&str; 6] = [TRIANGLE, SHARK, SAWTOOTH, SQUARE, WIDE, NARROW];
 const WAVES3: [&str; 6] = [TRIANGLE, REVERSE, SAWTOOTH, SQUARE, WIDE, NARROW];
+/// FILTER POLES's (decisions.md R-POLES): on the middle four places, the outer two unused.
+const POLES: [&str; 6] = ["", "1", "2", "3", "4", ""];
 
 /// A six-position selector's positions (RANGE, WAVEFORM): their angles from twelve
 /// o'clock, 33.5 degrees apart, as the photograph's ticks and legends (on a circle of 89
@@ -733,6 +735,7 @@ fn legends(set: Legends) -> (&'static [&'static str; 6], bool) {
         Legends::Ranges => (&RANGES, false),
         Legends::Waves12 => (&WAVES12, true),
         Legends::Waves3 => (&WAVES3, true),
+        Legends::Poles => (&POLES, false),
     }
 }
 
@@ -741,15 +744,24 @@ fn set_index(set: Legends) -> usize {
         Legends::Ranges => 0,
         Legends::Waves12 => 1,
         Legends::Waves3 => 2,
+        Legends::Poles => 3,
     }
 }
+
+/// Every set of selector legends.
+const LEGEND_SETS: [Legends; 4] = [
+    Legends::Ranges,
+    Legends::Waves12,
+    Legends::Waves3,
+    Legends::Poles,
+];
 
 /// What the lettering's measures decide: where each selector legend sits, and which titles
 /// are spaced out to their printed widths.
 #[derive(Clone, Debug)]
 pub struct Layout {
     /// Each legend's radius about its selector's axis, by legend set and position.
-    legend_r: [[f64; 6]; 3],
+    legend_r: [[f64; 6]; LEGEND_SETS.len()],
     /// Each title's width if spaced out to its printed one, by its index in the layout's.
     titles: Vec<Option<f64>>,
     /// The lettering's size.
@@ -801,10 +813,11 @@ impl Layout {
     pub fn measure_in(fonts: &Fonts, lettering: Lettering, arrangement: &Arrangement) -> Self {
         let num = lettering.number();
         let (ascent, descent) = fonts.extent(Weight::Bold);
-        let mut legend_r = [[SIX_LEGEND; 6]; 3];
-        for set in [Legends::Ranges, Legends::Waves12, Legends::Waves3] {
+        let mut legend_r = [[SIX_LEGEND; 6]; LEGEND_SETS.len()];
+        for set in LEGEND_SETS {
             let (texts, glyphs) = legends(set);
-            for (i, &a) in SIX.iter().enumerate() {
+            for i in set.places() {
+                let a = SIX[i];
                 // The ink's box about the legend's centre (through its own scale), with its
                 // stroke: a text's from its start to its advance, ascent to descent.
                 let b = if glyphs {
@@ -1393,7 +1406,7 @@ fn selector_marks_with(
     texts: Option<&[&str; 6]>,
 ) {
     put!(s, "<g transform='translate({} {})'>", N(c.x), N(c.y));
-    for a in SIX {
+    for a in set.places().map(|k| SIX[k]) {
         let (x0, y0) = polar(SIX_TICK.0, a);
         let (x1, y1) = polar(SIX_TICK.1, a);
         put!(
@@ -1407,6 +1420,9 @@ fn selector_marks_with(
     }
     let (own, glyphs) = legends(set);
     for (i, t) in texts.unwrap_or(own).iter().enumerate() {
+        if !set.places().contains(&i) {
+            continue;
+        }
         let (x, y) = layout.legend_at(set, i);
         put!(s, "<g transform='translate({} {})'>", N(x), N(y));
         if glyphs {

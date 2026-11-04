@@ -943,17 +943,18 @@ mod tests {
             assert_eq!(c, o, "{}", o.param);
         }
         assert_eq!(a.power, art::POWER);
-        assert_eq!(a.texts.len(), 64);
+        assert_eq!(a.texts.len(), 66);
         assert_eq!(a.titles.len(), 5);
         assert_eq!(a.lines.len(), 15);
     }
 
-    /// QUALITY's small print follows LARGE, while older packs keep their fixed sizes.
+    /// QUALITY's and FILTER MODE's small print follows LARGE, while older packs keep their fixed
+    /// sizes.
     #[test]
     fn large_small_print_is_optional_and_checked() {
         use art::Lettering::{Large, Standard};
         let a = Arrangement::official();
-        assert_eq!(a.texts.iter().filter(|t| t.large_size.is_some()).count(), 3);
+        assert_eq!(a.texts.iter().filter(|t| t.large_size.is_some()).count(), 6);
         for text in a.texts.iter().filter(|t| t.size == Some(15.0)) {
             assert_eq!(text.size_in(Standard), 15.0, "{}", text.text);
             assert_eq!(text.size_in(Large), 17.0, "{}", text.text);
@@ -1041,23 +1042,27 @@ mod tests {
 
     // ---- A later CA-72, simulated: the panel's controls as they might change.
 
-    /// A later revision than this build's (3): A-440 added in revision 4, OSC MOD once called
-    /// `oscillator_modulation` (renamed in 4), an `old_knob` retired in 4, TUNE's kind changed
-    /// in 4; the TIMED keys added in 2 and the MOD keys in 3, as they were.
+    /// A later revision than this build's (8): A-440 added in revision 9, OSC MOD once called
+    /// `oscillator_modulation` (renamed in 9), an `old_knob` retired in 9, TUNE's kind changed
+    /// in 9; the panel's controls added before, as they were.
     const LATER: ControlSet = ControlSet {
-        revision: 4,
+        revision: 9,
         added: &[
             ("osc2_timed", 2),
             ("osc3_timed", 2),
             ("osc1_shape_mod", 3),
             ("osc2_shape_mod", 3),
             ("osc3_shape_mod", 3),
-            ("a440", 4),
+            ("filter_poles", 8),
+            ("a440", 9),
         ],
-        renamed: &[("oscillator_modulation", "osc_mod", 4)],
-        retired: &[("old_knob", 4)],
-        kind_changed: &[("tune", 4)],
+        renamed: &[("oscillator_modulation", "osc_mod", 9)],
+        retired: &[("old_knob", 9)],
+        kind_changed: &[("filter_mode", 8), ("tune", 9)],
     };
+
+    /// The official layout's revision line.
+    const MADE_FOR: &str = "controls = 8";
 
     /// The official layout as a revision-3 layout without A-440.
     fn without_a440() -> String {
@@ -1127,7 +1132,7 @@ mod tests {
     /// nothing refused or put to review.
     #[test]
     fn a_layout_made_before_the_timed_keys_gets_them() {
-        let mut text = OFFICIAL.replacen("controls = 3", "controls = 1", 1);
+        let mut text = OFFICIAL.replacen(MADE_FOR, "controls = 1", 1);
         for key in [
             "osc2_timed",
             "osc3_timed",
@@ -1175,7 +1180,7 @@ mod tests {
     /// official place.
     #[test]
     fn a_layout_made_before_the_mod_keys_gets_them() {
-        let mut text = OFFICIAL.replacen("controls = 3", "controls = 2", 1);
+        let mut text = OFFICIAL.replacen(MADE_FOR, "controls = 2", 1);
         for key in ["osc1_shape_mod", "osc2_shape_mod", "osc3_shape_mod"] {
             let start = text.find(&format!("param = \"{key}\"")).expect("there");
             let block = text[..start].rfind("[[control]]").expect("its block");
@@ -1199,6 +1204,44 @@ mod tests {
                 .all(|f| f.severity == skin_pack::Severity::Note),
             "{report}"
         );
+    }
+
+    /// A layout made before FILTER POLES (decisions.md R-POLES; revision 7, FILTER MODE a
+    /// rocker at the column's head as it was) loads on this build: FILTER POLES placed by the
+    /// plug-in where it is free, FILTER MODE drawn as its toggle where the layout has it, with
+    /// notes, nothing refused.
+    #[test]
+    fn a_layout_made_before_filter_poles_gets_it() {
+        let mut text = OFFICIAL.replacen(MADE_FOR, "controls = 7", 1);
+        let start = text.find("param = \"filter_poles\"").expect("there");
+        let block = text[..start].rfind("[[control]]").expect("its block");
+        let end = start + text[start..].find("\n\n").expect("its end");
+        text = format!("{}{}", &text[..block], &text[end + 2..]);
+        text = text.replacen(
+            "param = \"filter_mode\"\nat = [1907, 316]\nsize = [80.83333333333333, 50]\nacross = true",
+            "param = \"filter_mode\"\nat = [1907, 169]\nsize = [108, 48]\ncolour = \"red\"\non = \"right\"",
+            1,
+        );
+        let mut report = Report::default();
+        let a = Arrangement::read(&text, &mut report).unwrap_or_else(|| panic!("{report}"));
+        assert!(!report.rejected(), "{report}");
+        assert!(
+            report.has("layout.added") && report.has("layout.kind"),
+            "{report}"
+        );
+        let mode = crate::controls::index("filter_mode").expect("a control");
+        assert_eq!((a.controls[mode].x, a.controls[mode].y), (1907.0, 169.0));
+        assert!(matches!(
+            a.controls[mode].kind,
+            Kind::Toggle { across: true, .. }
+        ));
+        let poles = crate::controls::index("filter_poles").expect("a control");
+        assert_eq!(a.controls[poles].kind, CONTROLS[poles].kind);
+        // Made for revision 8, the same layout should have placed FILTER POLES: refused.
+        let mut report = Report::default();
+        let eight = text.replacen("controls = 7", MADE_FOR, 1);
+        assert!(Arrangement::read(&eight, &mut report).is_none());
+        assert!(report.has("layout.control"), "{report}");
     }
 
     #[test]
@@ -1241,7 +1284,7 @@ mod tests {
     fn a_layout_for_a_later_ca72_loads_what_this_one_knows() {
         // (A revision past this build's.)
         let later = format!("controls = {}", crate::controls::CONTROL_SET.revision + 1);
-        let text = OFFICIAL.replacen("controls = 3", &later, 1)
+        let text = OFFICIAL.replacen(MADE_FOR, &later, 1)
             + "\n[[control]]\nparam = \"future_knob\"\nat = [10, 10]\nglow = true\n\n\
                [[sticker]]\nat = [5, 5]\n";
         let mut report = Report::default();

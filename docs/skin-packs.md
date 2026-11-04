@@ -378,7 +378,7 @@ this setting passes over it (`look.unknown`) and draws the caps still.
 | `power` | POWER's rocker, its upper half raised | 112 × 320 |
 | `jewel` | POWER's lamp in its bezel (OVERLOAD's darker one is made from it) | 256 × 252 |
 | `jack`, `screw` | A jack's ring nut; a screw head | 256 × 251, 96 × 96 |
-| `toggle-up`, `toggle-mid`, `toggle-down` | QUALITY's toggle, its nut in the same place in all three | 180 × 291 |
+| `toggle-up`, `toggle-mid`, `toggle-down` | The toggles' (QUALITY's, FILTER MODE's on its side), its nut in the same place in all three | 180 × 291 |
 | `ultra-lens-off`, `ultra-lens-on`, `ultra-bezel-off`, `ultra-bezel-on`, `ultra-floor` | ULTRA's lamp: its lens, its bezel (the lens cut out), dark and lit; the well's floor | 300 × 300 |
 | `tesla-lens-off`, `tesla-lens-on`, `tesla-bezel-off`, `tesla-bezel-on` | ULTRA's Tesla lamp, as the amber one | 300 × 300 |
 | `hamster-wheel`, `hamster-asleep` | LO's hamster's wheel; the hamster asleep | 300 × 300, 300 × 289 |
@@ -575,7 +575,7 @@ plate = [2578, -106]      # the name plate's top left corner (261 by 82)
 phones = [2855, 581, 34]  # optional: the PHONES jack, centre and radius
 screws = [[155.4, -22, 7]] # optional: the wooden strip's screws
 
-[[control]]               # one for each of the panel's 44 controls, no more
+[[control]]               # one for each of the panel's 45 controls, no more
 param = "osc_mod"
 at = [444, 269]           # its centre
 size = [108, 50]          # a switch's or toggle's width and height, 16 to 240
@@ -631,7 +631,7 @@ The controls' parameters:
 > `filter_mod`, `keyboard_control_1`, `keyboard_control_2`, `cutoff`, `emphasis`,
 > `contour_amount`, `filter_attack`, `filter_decay`, `filter_sustain`, `loudness_attack`,
 > `loudness_decay`, `loudness_sustain`, `volume`, `main_output`, `a440`, `feedback`, `quality`,
-> `osc2_timed`, `osc3_timed`.
+> `osc2_timed`, `osc3_timed`, `filter_poles`.
 
 `osc2_timed` and `osc3_timed` are oscillators 2's and 3's TIMED keys (revision 2 of the
 controls): small amber keys, taking no field but `at`, dressed by the `tab` and `tab-lit`
@@ -665,12 +665,20 @@ control of a kind of its own, `Kind::Jack`: its LFO's OUT jack on the LFO page, 
 (the page draws the jack; LEVEL's rings go round it). A layout does not place it either: a layout
 naming one is refused, and a layout made for revisions 1 to 6 loads as it did.
 
+Revision 8 of the controls adds FILTER POLES (`filter_poles`), a selector of four places (1 to
+4, on the middle four of RANGE's six; the plug-in prints its legends), and makes FILTER MODE
+(`filter_mode`) a toggle of three positions (LO, BAND and STEEP HIGH; `size` and `across` as
+QUALITY's, its rocker's `colour` and `on` no longer apply). A layout made for revisions 1 to 7
+loads with FILTER POLES placed by the plug-in (`layout.added`) and its FILTER MODE drawn as the
+toggle where the layout put its rocker (`layout.kind`); the layout's own legends for it (LO,
+HI) are printed as they were, so a pack brought up to revision 8 gives it LO, BAND and HIGH.
+
 ## Compatibility: packs keep working as the CA-72 changes
 
 A pack made today must keep working on later CA-72s, and a pack made for a later one should do
 its best on an earlier one.
 
-- **Each layout says which revision of the CA-72's controls it was made for** (`controls = 7`
+- **Each layout says which revision of the CA-72's controls it was made for** (`controls = 8`
   today; a layout without it is made for the first). The plug-in keeps a record of its controls over
   time: when each arrived, and any rename, retirement or change of kind since.
 - **A control added after the pack was made** is placed by the plug-in: at its official place if
