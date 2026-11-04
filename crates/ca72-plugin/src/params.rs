@@ -1248,7 +1248,7 @@ impl Default for Ca72Params {
             osc3_on: BoolParam::new("Osc 3 On", false),
             osc3_volume: ten("Osc 3 Volume", 8.0),
             filter_mode: EnumParam::new("Filter Mode", FilterMode::Lo),
-            filter_shape: EnumParam::new("FILTER SHAPE", FilterShape::Lo),
+            filter_shape: EnumParam::new("Filter Shape", FilterShape::Lo),
             filter_poles: IntParam::new(
                 "Filter Poles",
                 i32::from(ca72::vcf::POLES),
@@ -1989,7 +1989,7 @@ mod filter_compat_tests {
             FilterShape::High,
             FilterShape::Notch,
         ] {
-            p.filter_shape = EnumParam::new("FILTER SHAPE", shape);
+            p.filter_shape = EnumParam::new("Filter Shape", shape);
             p.filter_mode = EnumParam::new("Filter Mode", p.filter_mode.preview_plain(1.0));
             assert_eq!(p.effective_filter_mode(), ca72::vcf::FilterMode::Hi);
             p.filter_mode = EnumParam::new("Filter Mode", p.filter_mode.preview_plain(0.0));
