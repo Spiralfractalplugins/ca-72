@@ -17930,3 +17930,42 @@ selector: when it merges, add both to layout.md's table (it edits lines this cha
 the starter. Its "45 controls" in `docs/skin-packs.md` would be 48 on this main. The
 `docs/skin-packs.md` status paragraph (a prototype on the `skin-system` branch, nothing
 released) is also stale since 0.3.0; it belongs with #83's release decisions.
+
+## R-MOD-WORDING. The modulation route said in the tips; the quick start rendered from the editor
+
+**Issue #73, 2026-11-04.** Users looking for an LFO or vibrato (#20, closed: oscillator 3 at
+LO with OSC. 3 CONTROL off, through the MOD wheel) and a review's criticism of terse routing
+labels. The printed legends follow the original instrument and are not renamed; neither are
+the host parameters' names, the MIDI list's names (which the agent bridge also matches) nor
+the layout or the lettering's sizes (issue #70's). The hover tips add what the legends leave
+unsaid, a line or two under the name and value, as RETRIGGER's does (R-RETRIGGER-KEEP):
+
+| Control | Before | After (added under `NAME: value`) | Why |
+|---|---|---|---|
+| MODULATION MIX | `MODULATION MIX: 0.00` | Source: OSC. 3 at 0, NOISE at 10. The MODULATION wheel / sets how much reaches OSCILLATOR and FILTER MODULATION. | Which end is which, and that it is a source, not an amount |
+| OSCILLATOR MODULATION | `…: On` | On: MODULATION MIX moves the oscillators' pitch / (vibrato), as far as the MODULATION wheel is raised. | Where it goes, and that the wheel must be up |
+| FILTER MODULATION | `…: On` | On: MODULATION MIX moves the filter's cutoff, / as far as the MODULATION wheel is raised. | The same; the filter contour is not this route |
+| OSC. 3 CONTROL | `…: On` | On: oscillator 3 follows the keyboard, as 1 and 2 do. / Off: it ignores keys and wheels: a steady pitch or rate. (Timed: Oscillator 3 is TIMED: this switch does nothing.) | The switch that makes oscillator 3 an LFO was the one most often missed |
+| MODULATION wheel | `MODULATION: 0.30` | How much of MODULATION MIX reaches OSCILLATOR / and FILTER MODULATION (and shape MOD keys). | The wheel is the route's amount |
+| An oscillator's MOD key | `OSCILLATOR-1 MOD, CLOCKWISE` | `OSCILLATOR-1 SHAPE MOD, CLOCKWISE` | It moves a CONTINUOUS waveform's shape, not the pitch OSCILLATOR MODULATION moves |
+| The rail's LFO key | `LFO: MODULATION SOURCES` | `LFO: FOUR LFOS · DRAG OUT TO A KNOB` | Says what the page holds and how it is used, apart from the panel's MODULATION route |
+
+Each is checked against the circuit's model: OSC. 3 CONTROL off disconnects oscillator 3's
+summed inputs (keyboard and GLIDE, PITCH wheel, TUNE, the modulation bus and the control
+input: `tuning::osc_drive_with`); OSCILLATOR MODULATION grounds the oscillators' modulation
+bus when off; the MODULATION wheel divides the line feeding both switches and the shape MOD
+keys. The explanation shows while a control is pointed at, not while it is turned, which keeps
+the value alone; where the window has no room above the control (OSCILLATOR MODULATION's at
+the smallest window), the tip drops below it. The tips stay within the window at the
+smallest size in both looks and letterings (`modulation_tips_explain_the_route_and_fit`). No
+samples change; the panel's frames are unchanged (the official looks' golden frames compare
+equal).
+
+The quick start (`docs/quick-start.md`) is extended to what #73 lists: a first sound, the
+vibrato route step by step and the LFO page's alternative, MONO, POLY and UNISON, QUALITY's
+costs, headroom, presets, MIDI Learn and the standalone's MIDI map mode, installing and
+rescanning on each system, and troubleshooting. Its earlier pictures predated the GLOBAL, KEYS
+and LFO keys, TYPING, MIDI and PANIC and the MIDI map mode; all twelve are now the editor's own
+frames from the ignored test `the_quick_start_pngs` (docs/images/quick-start/README.md), so
+that an update renders them again. Host menus for rescanning (Logic, Live, REAPER) are given as
+examples and were not checked in those hosts for this record.

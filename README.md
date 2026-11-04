@@ -13,7 +13,9 @@ against them, the factory calibration procedures included.
 
 Hear it before you download: [the CA-72 on YouTube](https://youtu.be/QLfwGqYg4wU).
 
-New to the instrument? Start with the [illustrated quick-start guide](docs/quick-start.md).
+New to the instrument? Start with the [illustrated quick-start guide](docs/quick-start.md):
+a first sound, vibrato and modulation routing step by step, voices, QUALITY, headroom, presets,
+MIDI Learn, installing and troubleshooting.
 
 It is free software under the GNU General Public License, version 3 or later. Copyright ©
 2026 Idle Foundry Ltd.
@@ -63,6 +65,9 @@ signed.
    Idle Foundry, in VST3 and CLAP, and on macOS as an Audio Unit too (in Logic Pro and
    GarageBand, under **AU Instruments › Idle Foundry**). The macOS installer has the Audio
    Unit from 0.1.2 on.
+
+   The [quick-start guide](docs/quick-start.md#1-install-rescan-and-open) has these steps with
+   pictures, where some hosts keep their rescan, and what to check when the CA-72 is not found.
 
 The Windows installer is not yet signed, so the first time you run it Windows says "Windows
 protected your PC": click **More info**, then **Run anyway**. To install by hand instead,

@@ -1,28 +1,41 @@
 # Quick-start pictures
 
-These are rendered illustrations of CA-72 0.3.0, not captures from a particular host.
-They use the repository's own panel, strip, keyboard, preset, value-entry, MIDI Learn,
-arpeggiator and effects renderers, with `Skin::Worn` (the default realistic look), standard
-lettering and 0.6 pixels a panel unit before cropping and resizing.
+These are the editor's own frames of CA-72 0.3.1, not captures from a particular host: the
+plug-in's and the standalone's whole windows, drawn headlessly by the ignored test
+`the_quick_start_pngs` in `crates/ca72-plugin/src/editor.rs`, 1720 logical pixels wide at
+1.25 physical pixels each, in the default realistic look (`Skin::Worn`) and standard
+lettering. The test sets each state through the editor's parameters, pointer and keys, as a
+player would, so the tips, menus, notes and rings are the editor's own:
 
-The rendering follows `crates/ca72-panel/examples/png.rs` and `golden.rs`; the parameter
-lookup in `crates/ca72-plugin/examples/preset_png.rs` is another reference. The main
-control positions use this branch's `Ca72Params::default()` values, rather than the PNG
-example's demonstration patch. Strip readouts follow `editor.rs`'s `strip_scene`.
+```sh
+CA72_QUICK_START_PNG=<frames> cargo test -p ca72-plugin --features standalone-production \
+  --lib -- --ignored the_quick_start_pngs
+```
 
-- `01`: standalone keyboard, with TYPING off.
-- `02`: Init's panel and lower controls, with the standalone rail.
-- `03`: Init's upper panel, with numbered callouts.
-- `04`: oscillator 3 at LO, triangle, FREQUENCY below centre, OSC. 3 CONTROL off, its mixer
-  switch off, MODULATION MIX at OSC. 3, OSCILLATOR MODULATION on and MOD wheel at 0.2;
-  the separate filter controls alongside it.
-- `05`: four POLY voices, SCATTER, EVEN, WIDTH 70 %, INNER off.
-- `06`: QUALITY LO, with a key to all three settings.
-- `07`: Init's two OUTPUT sections.
-- `08`: the preset drawer, populated from this branch's `sounds/presets.toml`.
-- `09`: CUTOFF waiting for MIDI Learn, and a separate view typing 1.5 at that knob.
-- `10`: the examples' ARP and FX drawers, shown separately; effect names are illustrative.
+- `01`: the standalone as it first opens, the keyboard below.
+- `02`: a plug-in's window at Init, GLOBAL's page below.
+- `03`: oscillator 3 at LO on its triangle, OSC. 3 CONTROL off (its tip shown), OSCILLATOR
+  MODULATION on, MODULATION MIX at OSC. 3, the MOD wheel at 0.3; and the wheels.
+- `04`: the tips of MODULATION MIX, OSCILLATOR MODULATION, FILTER MODULATION and the
+  MODULATION wheel (decisions.md R-MOD-WORDING).
+- `05`: the LFO page, LFO 1's OUT on TUNE at 4 %, TUNE pointed at.
+- `06`: POLY, four voices, WIDTH 70 %.
+- `07`: QUALITY at LO, HI and ULTRA, ULTRA's first note (its threads are the rendering
+  computer's).
+- `08`: the panel's OUTPUT and GLOBAL's, DRIVE at 6 dB with its tip.
+- `09`: the presets' drawer over the factory library.
+- `10`: CUTOFF FREQUENCY's menu, then CUTOFF waiting for MIDI Learn.
+- `11`: the standalone's MIDI map mode, four controls learned, AMOUNT OF CONTOUR waiting.
+- `12`: the ARP drawer (ON), and the standalone's FX drawer with the tests' stand-in effects
+  (their names are illustrative).
 
-ImageMagick crops, combines and annotates the renders, strips metadata, and writes indexed
-256-colour PNGs. All ten pictures together are below 3 MB. For an update, render the
-controls and overlays again rather than painting a different setting onto a control.
+ImageMagick crops and combines the frames, strips metadata and writes indexed PNGs of 160
+colours, 1280 pixels wide at most; all twelve together are about 2.3 MB. The crop script
+and the frames are on the lab share, `/mnt/lab/artifacts/ca-72/issue-73/` (`crop.sh`,
+`frames/`). For an update, render the frames again rather than painting a different setting
+onto a picture.
+
+When FILTER POLES and FILTER MODE's four settings (decisions.md R-POLES, branch
+`filter-poles`) merge, the panel's filter column changes: `02`, `03`, `04` (FILTER
+MODULATION's tip), `05`, `08` and `10`–`11` need rendering again, and the guide's FILTER MODE
+wording checked.
