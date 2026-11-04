@@ -17722,6 +17722,52 @@ checks both states at the eight sizes, both looks and letterings: below its key 
 it, each column begun at a group's head, the rows as in the table, the lettering as it is where
 it fits (4K FIT included) and elsewhere only as much smaller as fits.
 
+**Round 5 (owner, 2026-11-04: allow a fifth column):** the settings' menu may be set in up to
+five columns (`SETTINGS_COLUMNS`), so that the standalone's longer menu keeps its size in
+smaller windows. The rule is unchanged: the fewest columns that fit, then the most even, then
+as little smaller as needed. Five are used only where four would make the text smaller.
+
+- *The plug-in's menu does not change.* Five columns of its groups are at least six rows tall,
+  as four are, and wider, so four stay where nothing fits too. LARGE at 860 keeps four columns
+  (6, 6, 4, 4) at 14.57 px. Its 385 frames are identical to round 4's.
+- *The standalone's* (STANDARD then LARGE, as it opens / at its fullest; smaller where in
+  bold):
+
+  | Window | STANDARD | LARGE |
+  |---|---|---|
+  | 4K FIT, 100 % and 150 % | 12, 15 / 16, 13 | 9, 9, 9 / 9, 11, 9 |
+  | SIZE 100 % | 9, 9, 9 / 9, 7, 7, 6 | 6, 6, 8, 7 / 6, 6, 6, 5, 6 (was 9, 7, 7, 6 at 16.50) |
+  | 1080p FIT (1513) | 9, 9, 9 / 9, 11, 9 | 9, 9, 9 / 9, 7, 7, 6 |
+  | Laptop (1076) | 6, 6, 8, 7 / 6, 6, 6, 5, 6 | 6, 6, 6, 4, 5 / 3, 6, 7, 7, 6, **15.00** |
+  | SIZE 75 % (1035) | 6, 6, 6, 4, 5 / 6, 6, 6, 5, 6 | 6, 6, 6, 4, 5, **16.72** / 3, 6, 7, 7, 6, **14.42** |
+  | 860 | 6, 6, 6, 4, 5 / 3, 6, 7, 7, 6, **11.99** | 6, 6, 6, 4, 5, **13.89** / 3, 6, 7, 7, 6, **11.99** |
+
+  As it opens, STANDARD keeps its full size at every size, against 13.72 and 11.40 px in round
+  4. At its fullest, the menu is still smaller than the plug-in's 13.49 px floor at 860
+  (11.99, up from 10.28).
+- *A lone short group.* Where the fullest menu is made smaller (the laptop and SIZE 75 % in
+  LARGE, 860 in both), the way that needs the least shrinking has LOOK alone in a first column
+  of three rows (3, 6, 7, 7, 6). It is narrower than the even 6, 6, 6, 5, 6 and the room left
+  of the key is what limits it. The even way would be about 3.5 % smaller: 14.48 px on the
+  laptop, 13.92 at SIZE 75 % and 11.57 at 860. As the owner restated the rule ("shrink as
+  little as needed"), the least shrink is kept. Wherever the menu fits, it has no lone short
+  group. Round 4's 12.60 px (860 LARGE at its fullest, with five columns) was measured on the
+  menu before the COPIED row widened it; with that row it is 11.99.
+- *Within the room and the window.* Every case, five columns included, opens with its right
+  edge at its key's, its left edge inside the window and its bottom above the window's
+  (`settings_menu_at`).
+
+**Evidence, round 5:** `/mnt/lab/artifacts/ca-72/issue-70/round5/` (`index.html`): 1:1 crops
+of each menu that changed (round 4 left, round 5 right), the plug-in's frames (`before/`,
+`after/`) and the standalone's (`before-standalone/`, `after-standalone/`), each with its
+`sizes.csv`, and golden frames against `1033538` (32 compared, 0 differ). *Tests:*
+`the_settings_menu_opens_below_its_key_at_every_size` (the plug-in's rows as round 3's, LARGE
+at 860 at 14.57 px), `the_standalones_settings_menu_opens_below_its_key_at_every_size` (the
+table above, STANDARD at full size as it opens at every size, each smaller em recorded), and
+`ca72-panel`'s `a_menus_columns_are_balanced` (the standalone's groups in five where four would
+be eight rows tall, four where they fit) and
+`a_menu_no_columns_fit_is_made_smaller_as_little_as_fits` (up to five).
+
 ## R-QUIET-PRINT. TICKS & TITLES: quieter ticks and sections' titles, a setting
 
 **Owner brief, 2026-11-04 (issue #145's "tick marks" and "big labels", measured in

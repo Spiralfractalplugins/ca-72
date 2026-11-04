@@ -10003,11 +10003,12 @@ mod tests {
     /// the rail, at 4K's FIT TO SCREEN (100 % and 150 %), SIZE's 100 % (at either), a 1080p
     /// screen's FIT TO SCREEN, a 1366 by 768 laptop's 1076, SIZE's 75 % and the grip's 860, in
     /// both looks and letterings (decisions.md R-READABILITY-MINIMUM): in as few columns as fit,
-    /// up to four, its groups as evenly spread as they go, its lettering at its size (never
-    /// under the 4K minimum) and its rows' pitch as they were; LARGE at 860, which four columns
-    /// do not fit, as little smaller as fits, and no smaller than round 1 had it there (which
-    /// shrank it to the window's height in one column, rising over the rail); each item found
-    /// where it is drawn.
+    /// up to five, its groups as evenly spread as they go, its lettering at its size (never
+    /// under the 4K minimum) and its rows' pitch as they were; LARGE at 860, which no columns
+    /// fit, as little smaller as fits (in four: five of its groups are as tall, six rows, and
+    /// wider), and no smaller than round 1 had it there (which shrank it to the window's height
+    /// in one column, rising over the rail); each item found where it is drawn. Five columns,
+    /// allowed for the standalone's longer menu (round 5), change it nowhere.
     #[test]
     fn the_settings_menu_opens_below_its_key_at_every_size() {
         // The window, its scale, and each lettering's columns' rows (the test's menu: LOOK,
@@ -10034,12 +10035,13 @@ mod tests {
                     let (m, got, at) = settings_menu_at(&mut e, (dpr, width), (skin, lettering));
                     assert_eq!(got, rows, "{at}: its columns' rows");
                     // Its lettering: as it is (so never under the 4K minimum), but for LARGE at
-                    // 860, made smaller only as far as fits and no smaller than round 1's.
+                    // 860, made smaller only as far as fits, as round 3 had it, and no smaller
+                    // than round 1's.
                     if width == MIN_WIDTH && lettering == Lettering::Large {
                         settings_menu_as_large_as_fits(&e, &m, &at);
-                        // (Round 1's em there, physical pixels: `sizes.csv`.)
+                        // (Round 1's em there and round 3's, physical pixels: `sizes.csv`.)
                         let em = m.size * e.renderer.scale();
-                        assert!(em >= 13.493, "{at}: {em}");
+                        assert!(em >= 13.493 && (em - 14.57).abs() < 0.005, "{at}: {em}");
                     } else {
                         let full = e.renderer.text_size() * MENU_TEXT;
                         assert_eq!(m.size, full, "{at}: not shrunk");
@@ -10049,44 +10051,53 @@ mod tests {
         }
     }
 
-    /// The standalone's settings menu (decisions.md R-READABILITY-MINIMUM, round 4): with
+    /// The standalone's settings menu (decisions.md R-READABILITY-MINIMUM, rounds 4 and 5): with
     /// STANDALONE and AGENTS after MPE, at the sizes the plug-in's is tried at, below its key and
-    /// not over it, in balanced columns that never split a group. As it opens (AGENTS off, its
-    /// setups to copy: 27 rows) and at its fullest (the audio not real-time, AGENTS allowed and
-    /// saying how they stand, a setup copied: 29). Its lettering as it is at 4K FIT TO SCREEN
-    /// and wherever its columns fit; in the smaller windows, where four columns of its groups
-    /// are taller than the room under the key, made smaller only as far as fits.
+    /// not over it, in balanced columns that never split a group, up to five. As it opens
+    /// (AGENTS off, its setups to copy: 27 rows) and at its fullest (the audio not real-time,
+    /// AGENTS allowed and saying how they stand, a setup copied: 29). Its lettering as it is at
+    /// 4K FIT TO SCREEN, wherever its columns fit and, as it opens in STANDARD, at every size;
+    /// in the smaller windows, where five columns of its groups are wider or taller than the
+    /// room left of and under the key, made smaller only as far as fits, to the em recorded.
     #[cfg(feature = "standalone-production")]
     #[test]
     fn the_standalones_settings_menu_opens_below_its_key_at_every_size() {
-        // Each window's columns' rows, STANDARD then LARGE, as it opens then at its fullest; a
-        // `true` where it is made smaller.
-        type Case<'a> = (&'a [usize], bool);
-        let (two, three, four): (Case, Case, Case) = (
-            ([12, 15].as_slice(), false),
-            (&[9, 9, 9], false),
-            (&[6, 6, 8, 7], false),
+        // Each window's columns' rows, STANDARD then LARGE, as it opens then at its fullest; the
+        // em (physical pixels, `sizes.csv`) where it is made smaller.
+        type Case<'a> = (&'a [usize], Option<f64>);
+        let (two, three, four, five): (Case, Case, Case, Case) = (
+            ([12, 15].as_slice(), None),
+            (&[9, 9, 9], None),
+            (&[6, 6, 8, 7], None),
+            (&[6, 6, 6, 4, 5], None),
         );
-        let small: Case = (&[6, 6, 8, 7], true);
-        let (two_full, three_full, four_full): (Case, Case, Case) = (
-            (&[16, 13], false),
-            (&[9, 11, 9], false),
-            (&[9, 7, 7, 6], false),
+        let five_at = |em| (five.0, Some(em));
+        let (two_full, three_full, four_full, five_full): (Case, Case, Case, Case) = (
+            (&[16, 13], None),
+            (&[9, 11, 9], None),
+            (&[9, 7, 7, 6], None),
+            (&[6, 6, 6, 5, 6], None),
         );
-        let small_full: Case = (&[9, 7, 7, 6], true);
+        // At its fullest, smaller: LOOK alone in its first column, the narrowest way and so the
+        // one that needs it least (the more even 6, 6, 6, 5, 6 is wider).
+        let small_full = |em| ([3, 6, 7, 7, 6].as_slice(), Some(em));
         let fhd = fitted_width_in(Some((1920.0, 1080.0)), art::Panel::OFFICIAL);
         #[rustfmt::skip]
         let cases: [(f64, u32, [Case; 2], [Case; 2]); 8] = [
             (1.0, 3026, [two, three], [two_full, three_full]),
             (1.5, 2017, [two, three], [two_full, three_full]),
-            (1.0, 1380, [three, four], [four_full, small_full]),
-            (1.5, 1380, [three, four], [four_full, small_full]),
+            (1.0, 1380, [three, four], [four_full, five_full]),
+            (1.5, 1380, [three, four], [four_full, five_full]),
             (1.0, fhd, [three, three], [three_full, four_full]),
-            (1.0, 1076, [four, small], [small_full, small_full]),
-            (1.0, 1035, [small, small], [small_full, small_full]),
-            (1.0, MIN_WIDTH, [small, small], [small_full, small_full]),
+            (1.0, 1076, [four, five], [five_full, small_full(14.996)]),
+            (1.0, 1035, [five, five_at(16.719)], [five_full, small_full(14.425)]),
+            (1.0, MIN_WIDTH, [five, five_at(13.892)], [small_full(11.986), small_full(11.986)]),
         ];
         for (dpr, width, opens, fullest) in cases {
+            assert_eq!(
+                opens[0].1, None,
+                "{width}: STANDARD as it opens, at its size"
+            );
             for (full, by_lettering) in [(false, opens), (true, fullest)] {
                 for skin in [Skin::Worn, Skin::Drawn] {
                     for (lettering, (rows, shrunk)) in [Lettering::Standard, Lettering::Large]
@@ -10113,8 +10124,10 @@ mod tests {
                             m.items
                         );
                         assert_eq!(got, rows, "{at}: its columns' rows");
-                        if shrunk {
+                        if let Some(em) = shrunk {
                             settings_menu_as_large_as_fits(&e, &m, &at);
+                            let got = m.size * e.renderer.scale();
+                            assert!((got - em).abs() < 0.005, "{at}: {got}");
                         } else {
                             let size = e.renderer.text_size() * MENU_TEXT;
                             assert_eq!(m.size, size, "{at}: not shrunk");
@@ -10211,12 +10224,12 @@ mod tests {
         (m, rows, at)
     }
 
-    /// The settings' menu `m` made smaller than its lettering, four columns not fitting: only
-    /// as far as fits.
+    /// The settings' menu `m` made smaller than its lettering, no columns fitting: only as far
+    /// as fits.
     fn settings_menu_as_large_as_fits(e: &Editing, m: &ca72_panel::learn::Menu, at: &str) {
         let full = e.renderer.text_size() * MENU_TEXT;
         let (w, h) = m.extent(e.renderer.fonts());
-        assert!(m.size < full, "{at}: four columns do not fit");
+        assert!(m.size < full, "{at}: no columns fit");
         let room = (m.x + w, art::H - m.y);
         assert!(
             w > room.0 * (1.0 - 1e-6) || h > room.1 * (1.0 - 1e-6),

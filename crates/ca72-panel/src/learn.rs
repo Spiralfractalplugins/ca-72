@@ -721,7 +721,9 @@ mod tests {
     /// The columns' heights as even as the groups allow, in their order, a group never split
     /// (the owner, 2026-11-04: "MPE sits alone in a short last column"): the settings' groups
     /// (three, three, three, three, four, two and two rows) in four columns of six, six, four
-    /// and four, not six, six, six and two; and in as few columns as fit.
+    /// and four, not six, six, six and two; and in as few columns as fit, up to five (the
+    /// standalone's, round 5: with STANDALONE and AGENTS, two and five rows more, in five of
+    /// six, six, six, four and five where four would be eight tall).
     #[test]
     fn a_menus_columns_are_balanced() {
         let fonts = Fonts::new();
@@ -735,15 +737,34 @@ mod tests {
             ("MPE", 1),
         ]);
         let tall = |rows: f64| m.row() * (rows + 1.0) + m.size * 0.4;
-        let four = m.clone().in_columns(&fonts, (W, tall(6.0)), 4);
+        // Four, not five: five of these groups are no shorter.
+        let four = m.clone().in_columns(&fonts, (W, tall(6.0)), 5);
         assert_eq!(split(&four), (vec![6, 12, 16], vec![6, 6, 4, 4]));
         // Room for eight: three columns (six, six and eight), not four.
-        let three = m.clone().in_columns(&fonts, (W, tall(8.0)), 4);
+        let three = m.clone().in_columns(&fonts, (W, tall(8.0)), 5);
         assert_eq!(split(&three), (vec![6, 12], vec![6, 6, 8]));
         // Room for eleven: two (nine and eleven).
-        let two = m.clone().in_columns(&fonts, (W, tall(11.0)), 4);
+        let two = m.clone().in_columns(&fonts, (W, tall(11.0)), 5);
         assert_eq!(split(&two), (vec![9], vec![9, 11]));
-        for menu in [&four, &three, &two] {
+        // The standalone's: room for six, five columns (as even as six, six, four, six and
+        // five, the longer first); four would be made smaller; room for eight, four.
+        let long = grouped(&[
+            ("LOOK", 2),
+            ("LETTERING", 2),
+            ("TICKS & TITLES", 2),
+            ("FREQUENCY DIALS", 2),
+            ("WINDOW", 3),
+            ("MOD WHEEL SOURCE", 1),
+            ("MPE", 1),
+            ("STANDALONE", 1),
+            ("AGENTS", 4),
+        ]);
+        let five = long.clone().in_columns(&fonts, (W, tall(6.0)), 5);
+        assert_eq!(split(&five), (vec![6, 12, 18, 22], vec![6, 6, 6, 4, 5]));
+        assert!(long.clone().in_columns(&fonts, (W, tall(6.0)), 4).size < long.size);
+        let four_long = long.clone().in_columns(&fonts, (W, tall(8.0)), 5);
+        assert_eq!(split(&four_long), (vec![6, 12, 20], vec![6, 6, 8, 7]));
+        for menu in [&four, &three, &two, &five, &four_long] {
             assert_eq!(menu.size, m.size);
             assert!(menu.columns.iter().all(|c| menu.heads.contains(&c.0)));
             assert!(menu.extent(&fonts).1 <= tall(11.0) + 1e-9);
@@ -768,17 +789,18 @@ mod tests {
         ]);
         let tall = |rows: f64| m.row() * (rows + 1.0) + m.size * 0.4;
         // Room for four rows' height, the width ample: four columns, the tallest six rows, made
-        // 10.4 / 14.4 of its size (no way of four columns or fewer has a column under six).
+        // 10.4 / 14.4 of its size (no way of five columns or fewer has a column under six, and
+        // of those that need it as little, four are the fewest).
         let room = (W, tall(4.0));
-        let small = m.clone().in_columns(&fonts, room, 4);
+        let small = m.clone().in_columns(&fonts, room, 5);
         assert_eq!(split(&small), (vec![6, 12, 16], vec![6, 6, 4, 4]));
         let (w, h) = small.extent(&fonts);
         assert!(h <= room.1 && h > room.1 * (1.0 - 1e-6), "{h}");
         assert!(w <= room.0);
         assert!((small.size / m.size - tall(4.0) / tall(6.0)).abs() < 1e-6);
         found_where_drawn(&fonts, &small);
-        // Every way, at most four columns: none fits larger.
-        for more in 0..4 {
+        // Every way, at most five columns: none fits larger.
+        for more in 0..5 {
             for starts in choose(&m.heads[1..], more) {
                 let mut one = m.clone();
                 one.columns = starts.iter().map(|&s| (s, 0.0)).collect();
@@ -789,10 +811,10 @@ mod tests {
         // Narrow as well: the width it fills, or the height.
         let (w4, _) = m
             .clone()
-            .in_columns(&fonts, (W, tall(6.0)), 4)
+            .in_columns(&fonts, (W, tall(6.0)), 5)
             .extent(&fonts);
         let room = (w4 * 0.6, tall(4.0));
-        let narrow = m.clone().in_columns(&fonts, room, 4);
+        let narrow = m.clone().in_columns(&fonts, room, 5);
         let (w, h) = narrow.extent(&fonts);
         assert!(w <= room.0 && h <= room.1, "{w} {h}");
         assert!(
@@ -802,7 +824,7 @@ mod tests {
         assert!(narrow.size < small.size);
         found_where_drawn(&fonts, &narrow);
         // A menu that fits is not made smaller.
-        assert_eq!(m.clone().in_columns(&fonts, (W, H), 4).size, m.size);
+        assert_eq!(m.clone().in_columns(&fonts, (W, H), 5).size, m.size);
     }
 
     /// A menu opened at the panel's bottom right corner is moved to fit inside it.

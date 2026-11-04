@@ -372,6 +372,30 @@ than the room under the key it is made smaller, as round 3 allows:
 Every other case keeps its lettering's size. The layout code is unchanged; a fifth column
 (measured, not adopted) would give 13.89 px at 860 in LARGE.
 
+### Round 5, 2026-11-04
+
+**The settings' menu may have five columns** (the owner's choice; decisions.md
+R-READABILITY-MINIMUM, round 5). The rule is as before: fewest columns that fit, then the most
+even, then as little smaller as needed. Five are used only where four would make the text
+smaller. The plug-in's menu does not change at any size: five columns of its groups are no
+shorter than four (six rows), so four stay. That includes LARGE at 860, at 14.57 px. The
+standalone's changes:
+
+| Window | Lettering | Settings' items, em in px, as it opens / at its fullest (round 4 → round 5) |
+|---|---|---|
+| SIZE 100 % | LARGE | 17.25 / 16.50 → 17.25 / 17.25 |
+| Laptop (1076) | STANDARD | 13.80 / 12.86 → 13.80 / 13.80 |
+| Laptop (1076) | LARGE | 14.26 / 12.86 → 17.25 / **15.00** |
+| SIZE 75 % | STANDARD | 13.72 / 12.37 → 13.80 / 13.80 |
+| SIZE 75 % | LARGE | 13.72 / 12.37 → **16.72** / **14.42** |
+| 860 | STANDARD | 11.40 / 10.28 → 13.80 / **11.99** |
+| 860 | LARGE | 11.40 / 10.28 → **13.89** / **11.99** |
+
+STANDARD now keeps its full size as it opens at every size. Where it is still made smaller at
+its fullest, the least shrink puts LOOK alone in a first column (3, 6, 7, 7, 6 rows). The more
+even 6, 6, 6, 5, 6 is wider, so it would be about 3.5 % smaller (11.57 px at 860). Round 4's
+12.60 px for 860 LARGE at its fullest was measured before the COPIED row widened the menu.
+
 **Evidence** is under `/mnt/lab/artifacts/ca-72/issue-70/`: `before/` and `after/` (308 frames
 each, with `sizes.csv`), `crops/` (1:1 before | after of each changed class, both looks),
 `golden-before/`, `golden-after/`, `golden-compare.txt` and `golden-regions.txt`; round 2's in
@@ -379,7 +403,9 @@ each, with `sizes.csv`), `crops/` (1:1 before | after of each changed class, bot
 golden frames against `dd23251`); round 3's in `round3/` (`index.html`, the matrix with 1080p
 FIT in `round3/after/`, crops of the settings' menu, golden frames against `ef41abf`: none
 differ); round 4's in `round4/` (`index.html`, crops of the standalone's menu, frames and
-`sizes.csv` in `round4/frames/`). Not tested: a
+`sizes.csv` in `round4/frames/`); round 5's in `round5/` (`index.html`, crops of each changed
+menu, round 4 left and round 5 right, the frames of both, golden frames against `1033538`:
+none differ). Not tested: a
 real 4K monitor, a host, Windows or macOS scaling, a human comfort trial.
 
 See [the complete small-text inventory](readability-4k-text.md).
