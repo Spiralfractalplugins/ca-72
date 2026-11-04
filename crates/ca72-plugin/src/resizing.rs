@@ -27,6 +27,7 @@ struct State {
     confirmed: Option<View>,
     requests: BTreeMap<u64, Request>,
     restore: Option<View>,
+    remembered_width: Option<u32>,
 }
 
 #[derive(Debug, Default)]
@@ -39,6 +40,7 @@ impl Resizing {
         s.confirmed = Some(view);
         s.requests.clear();
         s.restore = None;
+        s.remembered_width = None;
     }
 
     pub fn close(&self) {
@@ -107,6 +109,9 @@ impl Resizing {
         for (id, view, accepted) in done {
             s.requests.remove(&id);
             if accepted {
+                if s.confirmed.is_some_and(|old| old.width != view.width) && view.saved_width != 0 {
+                    s.remembered_width = Some(view.saved_width);
+                }
                 s.confirmed = Some(view);
                 if id == s.serial {
                     s.restore = None;
@@ -115,6 +120,11 @@ impl Resizing {
                 s.restore = s.confirmed;
             }
         }
+    }
+
+    /// Only a width change accepted by the host becomes the computer's default.
+    pub fn take_remembered_width(&self) -> Option<u32> {
+        self.0.lock().expect("resize state").remembered_width.take()
     }
 
     pub fn take_restore(&self) -> Option<View> {

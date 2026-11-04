@@ -794,6 +794,7 @@ impl Dropped {
 
 /// The editor, as the plug-in hands it to the host.
 pub struct Ca72Editor {
+    preferred_width: u32,
     params: Arc<Ca72Params>,
     meters: Arc<Meters>,
     local_notes: Arc<LocalNotes>,
@@ -974,7 +975,22 @@ impl Ca72Editor {
         meters: Arc<Meters>,
         local_notes: Arc<LocalNotes>,
     ) -> Self {
+        let settings = if cfg!(test) {
+            Settings::default()
+        } else {
+            Settings::load()
+        };
+        Self::with_settings(params, meters, local_notes, settings)
+    }
+
+    fn with_settings(
+        params: Arc<Ca72Params>,
+        meters: Arc<Meters>,
+        local_notes: Arc<LocalNotes>,
+        settings: Settings,
+    ) -> Self {
         Ca72Editor {
+            preferred_width: settings.editor_width,
             params,
             meters,
             local_notes,
@@ -1123,6 +1139,7 @@ impl Editor for Ca72Editor {
 
     fn size(&self) -> (u32, u32) {
         let width = match self.params.editor_width.load(Ordering::Relaxed) {
+            0 if self.preferred_width != 0 => clamp_width(self.preferred_width),
             0 => self.fitted(),
             w => clamp_width(w),
         };
@@ -2548,6 +2565,10 @@ impl Editing {
 
     fn reconcile_resize(&mut self) {
         self.params.editor_resizing.finish(self.resize_view());
+        // Keep only the final accepted width after a grip drag, without disk writes each frame.
+        if self.resizing.is_none() {
+            self.remember_width();
+        }
         if let Some(view) = self.params.editor_resizing.take_restore() {
             if view == self.resize_view() {
                 return;
@@ -2600,6 +2621,12 @@ impl Editing {
             );
             self.composed = None;
             self.resizing_window = true;
+        }
+    }
+
+    fn remember_width(&mut self) {
+        if let Some(width) = self.params.editor_resizing.take_remembered_width() {
+            self.keep_settings(Change::EditorWidth(width));
         }
     }
 
@@ -5951,6 +5978,7 @@ impl Drop for Editing {
     // else nothing is (decisions.md R34). It no longer watches the levels (the audio thread
     // stops measuring them when no editor does).
     fn drop(&mut self) {
+        self.remember_width();
         if self
             .learning
             .close(&self.params.midi_map)
@@ -13981,6 +14009,98 @@ mod tests {
             vec![Call::Begin(p), Call::Set(p, 1.0), Call::End(p)],
             "the MOD key flipped"
         );
+    }
+
+    #[test]
+    fn a_chosen_width_survives_a_new_instance_and_project_width_wins() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.toml");
+        Settings::keep(&path, Change::Lettering(Lettering::Large)).unwrap();
+        let (mut e, _, _) = editing();
+        e.settings_file = Some(path.clone());
+        assert!(e.resize(1500));
+        e.reconcile_resize();
+        let settings = Settings::read(&path);
+        assert_eq!(settings.editor_width, 1500);
+        assert_eq!(settings.lettering, Lettering::Large);
+        let params = Arc::new(Ca72Params::default());
+        let editor = Ca72Editor::with_settings(
+            Arc::clone(&params),
+            Arc::new(Meters::default()),
+            Arc::new(LocalNotes::default()),
+            settings,
+        );
+        assert_eq!(
+            editor.opening().0,
+            1500,
+            "fresh instance uses the computer preference"
+        );
+        params.editor_width.store(1800, Ordering::Relaxed);
+        assert_eq!(editor.opening().0, 1800, "saved project takes precedence");
+        assert_eq!(
+            Settings::read(&path).editor_width,
+            1500,
+            "recall does not change the preference"
+        );
+    }
+
+    #[test]
+    fn only_an_accepted_width_becomes_the_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.toml");
+        Settings::keep(&path, Change::EditorWidth(1200)).unwrap();
+        let (mut e, host, params) = editing();
+        e.settings_file = Some(path.clone());
+        host.fixed.store(true, Ordering::Relaxed);
+        assert!(!e.resize(1500));
+        e.reconcile_resize();
+        assert_eq!(Settings::read(&path).editor_width, 1200);
+        host.fixed.store(false, Ordering::Relaxed);
+        host.deferred.store(true, Ordering::Relaxed);
+        assert!(e.resize(1500));
+        let (id, _) = params.editor_resizing.requested().unwrap();
+        e.reconcile_resize();
+        assert_eq!(
+            Settings::read(&path).editor_width,
+            1200,
+            "queued is not accepted"
+        );
+        params.editor_resizing.answer(id, false);
+        e.reconcile_resize();
+        assert_eq!(
+            Settings::read(&path).editor_width,
+            1200,
+            "delayed refusal is not saved"
+        );
+        assert!(e.resize(1600));
+        let (id, _) = params.editor_resizing.requested().unwrap();
+        params.editor_resizing.answer(id, true);
+        e.reconcile_resize();
+        assert_eq!(Settings::read(&path).editor_width, 1600);
+        e.toggle_panel();
+        let (id, _) = params.editor_resizing.requested().unwrap();
+        params.editor_resizing.answer(id, true);
+        e.reconcile_resize();
+        assert_eq!(
+            Settings::read(&path).editor_width,
+            1600,
+            "panel height does not change default width"
+        );
+    }
+
+    #[test]
+    fn grip_drag_remembers_its_final_width_when_released() {
+        let (mut e, _, _) = editing();
+        e.resizing = Some((0.0, e.width));
+        e.resize(1500);
+        e.reconcile_resize();
+        assert_eq!(e.settings.editor_width, 0);
+        e.resize(1600);
+        e.reconcile_resize();
+        assert_eq!(e.settings.editor_width, 0);
+        e.resizing = None;
+        e.reconcile_resize();
+        assert_eq!(e.settings.editor_width, 1600);
     }
 
     #[test]

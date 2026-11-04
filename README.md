@@ -549,11 +549,13 @@ The editor works like the panel:
   position to go straight to it.
 - **Switches:** click.
 - **Wheels:** drag. The PITCH wheel settles into its centre detent when let go near it.
-- **Size:** the editor opens at 80 % of the screen's usable width. Drag the grip at the
+- **Size:** until you choose a size, the editor opens at 80 % of the screen's usable width.
+  Drag the grip at the
   bottom right corner to change it, or choose a size from the settings key's **WINDOW ›
   SIZE…**: 75 % to 200 % of the size it opens at on a 1920 by 1080 screen, or **FIT TO
   SCREEN**. Sizes too large for the screen can't be chosen. The panel keeps its proportions,
-  and a size you set is saved with the session.
+  and a size you set is saved with the session and becomes the default for new instances
+  on this computer. Existing projects keep their saved sizes.
 
 Hovering over a control shows its name and value.
 

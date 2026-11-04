@@ -3,7 +3,7 @@
 //! the look (the skin) the editor is drawn in, its lettering's size, how the FREQUENCY
 //! knobs' dials read, the MOD wheel's MIDI source (R-MODWHEEL-SOURCE), the standalone's TEMPO
 //! (R-ARP), whether agents may operate the standalone application (R-MCP), where MPE's zones
-//! come from (R-MPE) and where a timbre rests (R-MPE). In the shared
+//! come from (R-MPE), where a timbre rests (R-MPE), and the default window width. In the shared
 //! folder the preset library keeps (`library::shared_dir`), `CA-72/settings.toml`: read as the
 //! editor opens, and as one changes only that key written, the file read again under a lock
 //! every instance takes (`settings.toml.lock`), so that one editor's change never undoes
@@ -84,6 +84,9 @@ pub struct Settings {
     /// (decisions.md R-VELOCITY; SETTINGS: HOVER CABLES): on unless set. Kept as `hover_cables`,
     /// true or false.
     pub hover_cables: bool,
+    /// Last chosen window width in logical pixels; zero keeps automatic screen fitting.
+    /// Used only when an instance has no width saved in its project.
+    pub editor_width: u32,
 }
 
 /// A skin pack's id, as its manifest gives it (lower-case letters, digits, `-` and `.`, at
@@ -149,6 +152,7 @@ pub enum Change {
     Macros(bool),
     /// The cords from a hovered jack shown.
     HoverCables(bool),
+    EditorWidth(u32),
 }
 
 impl Change {
@@ -210,6 +214,7 @@ impl Change {
             }
             Change::Macros(shown) => ("left_area", if shown { "macros" } else { "wheels" }.into()),
             Change::HoverCables(on) => ("hover_cables", on.into()),
+            Change::EditorWidth(width) => ("editor_width", i64::from(width).into()),
         };
         t.insert(key.into(), value);
     }
@@ -236,6 +241,7 @@ impl Default for Settings {
             macro_colors: crate::lfo::MACRO_COLORS,
             macros_shown: false,
             hover_cables: true,
+            editor_width: 0,
         }
     }
 }
@@ -291,6 +297,11 @@ impl Settings {
         };
         let flag = |k: &str, or: bool| t.get(k).and_then(toml::Value::as_bool).unwrap_or(or);
         Settings {
+            editor_width: t
+                .get("editor_width")
+                .and_then(toml::Value::as_integer)
+                .and_then(|n| u32::try_from(n).ok())
+                .unwrap_or(0),
             shutter: flag("ultra_shutter", d.shutter),
             ultra_note_read: flag("ultra_note_read", d.ultra_note_read),
             agents: flag("agents", d.agents),
@@ -402,6 +413,7 @@ impl Settings {
             }
             Change::Macros(shown) => self.macros_shown = shown,
             Change::HoverCables(on) => self.hover_cables = on,
+            Change::EditorWidth(width) => self.editor_width = width,
         }
     }
 
@@ -722,6 +734,20 @@ mod tests {
         assert!(keep_fx_choice(&path, id(0)).is_err());
         assert!(keep_fx_order(&path, FxOrder::Recent).is_err());
         assert_eq!(std::fs::read_to_string(&path).expect("settings"), "bad = [");
+    }
+
+    #[test]
+    fn window_width_defaults_and_invalid_preferences_are_safe() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.toml");
+        assert_eq!(Settings::read(&path).editor_width, 0);
+        Settings::keep(&path, Change::EditorWidth(1500)).unwrap();
+        Settings::keep(&path, Change::Lettering(Lettering::Large)).unwrap();
+        assert_eq!(Settings::read(&path).editor_width, 1500);
+        for value in ["-1", "4294967296", "\"large\"", "true"] {
+            std::fs::write(&path, format!("editor_width = {value}\n")).unwrap();
+            assert_eq!(Settings::read(&path).editor_width, 0, "{value}");
+        }
     }
 
     /// The standalone's TEMPO: 120 for a new computer, kept within 30 to 300, a value out of
@@ -1308,6 +1334,7 @@ mod tests {
             macro_colors: crate::lfo::MACRO_COLORS,
             macros_shown: false,
             hover_cables: false,
+            editor_width: 0,
         };
         assert_eq!(Settings::read(&path), s);
         assert!(
@@ -1407,6 +1434,7 @@ mod tests {
                 macro_colors: crate::lfo::MACRO_COLORS,
                 macros_shown: false,
                 hover_cables: true,
+                editor_width: 0,
             }
         );
         let left: Vec<_> = std::fs::read_dir(path.parent().expect("its folder"))

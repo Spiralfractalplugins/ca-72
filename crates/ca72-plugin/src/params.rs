@@ -551,7 +551,7 @@ pub struct Ca72Params {
     /// (`settings.rs`), the arpeggiator's while the host gives none.
     pub tempo: Arc<AtomicU64>,
     /// The editor's width in logical pixels (its height follows the panel's proportions); 0
-    /// until it is resized, when it opens at a share of the screen.
+    /// until it is resized, when it uses the computer's preferred width or fits the screen.
     #[persist = "editor_width"]
     pub editor_width: Arc<AtomicU32>,
     /// Whether the lower panel's controls are shown, saved with the session, outside presets.

@@ -17490,3 +17490,18 @@ audio and filter channels are nonzero. Existing pair/allocation tests and strict
 all-feature workspace clippy pass. Inputs, WAVs and comparison data are under
 `release-0.3.1/filter-probe/` on the lab share. No hardware measurement or CPU
 improvement is claimed for this diagnostic repair.
+
+
+## R-WINDOW-DEFAULT. Remember the chosen width for new instances
+
+**Owner request, 2026-11-03.** Fix the KVR report that a chosen default window size is not
+remembered. Previously `editor_width` was saved only in the instance's host state.
+
+The last width chosen through the grip or WINDOW › SIZE is now also kept in this computer's
+`settings.toml`, using the existing locked, single-key settings writer. A new editor uses it
+only when the instance's project width is zero; a nonzero saved project width takes
+precedence. A missing or invalid preference keeps automatic screen fitting, and a numeric
+width is constrained by the existing editor limits. Project recall and lower-panel toggles
+do not change the computer preference. Only widths accepted by the host are kept, including
+asynchronous VST3 replies; rejected requests leave the preference alone. Grip changes are
+kept after release (or editor close), avoiding file writes on every frame of a drag.
