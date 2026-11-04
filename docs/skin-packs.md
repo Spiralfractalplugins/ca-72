@@ -5,11 +5,12 @@ the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/
 them, copy them and build on them under any terms you like. The CA-72 itself, its code and its
 official artwork are under the GNU General Public License, version 3 or later.*
 
-**Status: a prototype (decisions.md R-SKIN-PACKS).** The format, the checks and the CA-72's
-support for packs exist on the `skin-system` branch, with tests. Nothing has been released:
-there is no store, no seller agreement and no review process yet. Manual, unsigned packs remain
-the main route. The first-party public key is to ship in 0.3.0 so Idle Foundry can publish signed
-packs later without a plug-in update. The format may still change before its first release.
+**Status (decisions.md R-SKIN-PACKS).** The CA-72 reads skin packs from 0.3.0 on, and Idle
+Foundry's first-party public key is built in from 0.3.0, so Idle Foundry can publish signed
+packs without a plug-in update. Manual, unsigned packs installed by hand remain the main route:
+there is no store, no seller agreement and no review process yet. Packs say which revision of
+the panel's controls they were made for, and can name the earliest CA-72 they need (see
+Compatibility).
 
 A skin pack changes how the CA-72's editor looks: where each control is on the panel, how each
 looks, every legend, rule and title printed on it, the pictures its realistic look is made of,
@@ -208,7 +209,9 @@ cargo run -p ca72-panel --example check_pack -- path/to/pack preview.png
 ```
 
 This prints what the checks found and draws the panel in the pack's look, in both lettering
-sizes. Each finding has a stable code (`svg.refused`, `layout.overlap`, ...) and one of three
+sizes, at half a pixel a unit; `--scale <pixels a unit>` draws them at another size (the editor
+draws the panel at its window's physical width over 3108), and each preview's line gives the
+smallest click area and lettering in it, and the official panel's. Each finding has a stable code (`svg.refused`, `layout.overlap`, ...) and one of three
 severities:
 
 | Severity | What it means |
@@ -311,7 +314,7 @@ base = "realistic"           # how the controls are drawn: realistic (pictures) 
 layout = "layout.toml"       # optional: the official layout if absent
 art = "art/panel.svg"        # optional: drawn over the panel's surfaces, under its print
 fonts = { regular = "fonts/Face-Regular.otf", bold = "fonts/Face-Bold.otf" }  # optional
-face_tint = [1.03, 1.0, 0.94] # optional: the face picture's channels scaled (0 to 2)
+face_tint = [1.03, 1.0, 0.94] # optional: the pack's `face` picture's channels scaled (0 to 2)
 knob_caps = "turn"           # optional: "still" (the default) or "turn" (see Pictures)
 strip_art = "art/strip.svg"  # optional: drawn over the plug-in's strip (see The strip)
 keyboard_art = "art/keyboard.svg" # optional: drawn over the keyboard view's case (see The strip)
@@ -584,7 +587,7 @@ plate = [2578, -106]      # the name plate's top left corner (261 by 82)
 phones = [2855, 581, 34]  # optional: the PHONES jack, centre and radius
 screws = [[155.4, -22, 7]] # optional: the wooden strip's screws
 
-[[control]]               # one for each of the panel's 44 controls, no more
+[[control]]               # one for each of the panel's controls (listed below), no more
 param = "osc_mod"
 at = [444, 269]           # its centre
 size = [108, 50]          # a switch's or toggle's width and height, 16 to 240
@@ -640,7 +643,9 @@ The controls' parameters:
 > `filter_mod`, `keyboard_control_1`, `keyboard_control_2`, `cutoff`, `emphasis`,
 > `contour_amount`, `filter_attack`, `filter_decay`, `filter_sustain`, `loudness_attack`,
 > `loudness_decay`, `loudness_sustain`, `volume`, `main_output`, `a440`, `feedback`, `quality`,
-> `osc2_timed`, `osc3_timed`.
+> `osc2_timed`, `osc3_timed`, `osc1_shape_mod`, `osc2_shape_mod`, `osc3_shape_mod`.
+
+The [starter's layout](skin-packs/starter/layout.toml) places each of them once.
 
 `osc2_timed` and `osc3_timed` are oscillators 2's and 3's TIMED keys (revision 2 of the
 controls): small amber keys, taking no field but `at`, dressed by the `tab` and `tab-lit`
@@ -648,6 +653,12 @@ pictures as the strip's tabs are. Each prints its oscillator's note value to its
 plug-in's print, centred on the key, up to 26 units above and below its centre), and while one is on at
 its RANGE's LO its oscillator's FREQUENCY dial prints note values. A layout made for revision 1
 gets them from the plug-in, at their official places under oscillators 2's and 3's RANGE when
+nothing of the layout's is there.
+
+`osc1_shape_mod` to `osc3_shape_mod` are each oscillator's MOD key (revision 3 of the controls),
+keys as the TIMED ones are, taking no field but `at`: each is on the panel only while its
+oscillator's WAVEFORM is at CONTINUOUS, and prints MOD beside it. A layout made for revisions 1
+or 2 gets them from the plug-in, at their official places under the WAVEFORM selectors when
 nothing of the layout's is there.
 
 Revision 4 of the controls (0.3.0) adds the LFO page's 28 (`lfo1_waveform`, `lfo1_rate`,
@@ -704,9 +715,12 @@ its best on an earlier one.
 
 ## Making a pack with an AI agent
 
-Coding agents (Claude Code, Codex and others) can write a layout and SVG drawings well. Give
-the agent this document and the starter, have it run `check_pack` after every change and
-look at the preview, and keep what it reports. Record what the agent made in each asset's
+Coding agents (Claude Code, Codex and others) can write a layout and SVG drawings well. The
+[CA-72 skin pack agent skill](skin-packs/agent-skill) (CC0) teaches one the whole of it: from
+a user's description to a checked `.ifskin`, with this document and the starter, `check_pack`
+after every change and at the editor's smallest and largest sizes (`--scale`), and honest
+provenance. Without it, give the agent this document and the starter, have it run `check_pack`
+after every change and look at the preview, and keep what it reports. Record what the agent made in each asset's
 provenance: `origin = "generated"` and the `tool`. Whether such work is protected, and so
 can be licensed, differs between countries, so a marketplace's review will ask about it.
 

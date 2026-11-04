@@ -443,6 +443,37 @@ fn stopped_edits_and_session_restore_preserve_sound_and_reset_live_controls() {
     processor.deactivate();
 }
 
+/// MIDI BEND RANGE, set as the editor's PITCH wheel menu sets it (decisions.md R-BEND-RANGE),
+/// is saved in the session and restored from it, unlike the live wheels.
+#[test]
+fn the_session_keeps_midi_bend_range() {
+    let plugin = Ca72::default();
+    let params = plugin.parameters().clone();
+    let (_processor, session) =
+        Processor::new(plugin, &["pitch_wheel", "mod_wheel"]).expect("adapter");
+    let q = &params.midi_bend_range;
+    assert_eq!(q.value(), 2.0, "a new session's");
+    session.set_parameter(q.as_ptr(), q.preview_normalized(7.0));
+    assert!((q.value() - 7.0).abs() < 1e-6, "{}", q.value());
+    let saved = session.save().expect("saved");
+    let state: PluginState = serde_json::from_slice(&saved).expect("state");
+    assert!(
+        matches!(state.params["midi_bend_range"], ParamValue::F32(v) if (v - 7.0).abs() < 1e-6),
+        "{:?}",
+        state.params["midi_bend_range"]
+    );
+    session.set_parameter(q.as_ptr(), q.preview_normalized(2.0));
+    assert!((q.value() - 2.0).abs() < 1e-6, "{}", q.value());
+    session.restore(&saved).expect("restored");
+    assert!((q.value() - 7.0).abs() < 1e-6, "{}", q.value());
+    let fresh = Ca72::default();
+    let restored = fresh.parameters().clone();
+    let (_processor, session) =
+        Processor::new(fresh, &["pitch_wheel", "mod_wheel"]).expect("another session");
+    session.restore(&saved).expect("restored in a new process");
+    assert!((restored.midi_bend_range.value() - 7.0).abs() < 1e-6);
+}
+
 #[test]
 fn idle_adapter_overwrites_every_sample_and_preserves_circuit_settling() {
     let plugin = Ca72::default();

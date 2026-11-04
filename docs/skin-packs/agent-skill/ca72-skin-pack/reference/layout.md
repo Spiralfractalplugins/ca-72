@@ -1,7 +1,7 @@
 # The layout, `layout.toml`
 
-*CC0 1.0. Checked against the CA-72's `skin-packs` prototype, October 2026; `docs/skin-packs.md`
-is the authority.*
+*CC0 1.0. Checked against the CA-72 0.3.1's format, November 2026; `docs/skin-packs.md` is the
+authority, and the starter's `layout.toml` the list of controls a layout places.*
 
 ## The header
 
@@ -31,25 +31,38 @@ inside x 0 to 3108, y -130 to 795.
 1200) and the wooden strip another (`wood`, 60 to 200, or 0 for none; 130 if absent); the width
 stays 3108. Then everything stays inside x 0 to 3108, y `-wood` to `face`. Use it when the
 design needs room, not by default: a taller panel makes the editor's window taller at the same
-width. Four rows of knobs with legends need a face of about 1,000. Give the pack
-`requires = "ca-72 >= <the first version with [panel]>"` so that an older CA-72 refuses it
-with a reason instead of rejecting its layout.
+width. Four rows of knobs with legends need a face of about 1,000. It needs no `requires`:
+every CA-72 that reads packs (0.3.0 on) reads `[panel]`.
 
 The drawing (`art/panel.svg`) uses the same x but **y + wood** (130): see
 [drawing.md](drawing.md).
 
-## The 44 controls, by kind
+## The starter
 
-Every one must appear exactly once as a `[[control]]` with its `param` and `at` (its centre).
-Others are rejected (the left-hand column and the lower strip are the plug-in's own).
+`docs/skin-packs/starter/layout.toml` places every control the panel has, once, in three rows
+222 units apart across and 240 down (centres at y 120, 360 and 600), each control's legend 100
+below it and a rule under each row; the lamps, POWER, QUALITY's opening and the name plate are
+in the wooden strip. It has **no section titles** and doesn't group the controls as the
+official panel does: add titles, regroup or draw bands as the brief asks.
+
+## The controls, by kind
+
+Every control in the starter's `layout.toml` must appear exactly once as a `[[control]]` with
+its `param` and `at` (its centre); count them there
+(`grep -c '^\[\[control\]\]' layout.toml`) rather than trust a number written anywhere. Others
+are rejected: the strip's (the left hand's PITCH, MOD, GLIDE, DECAY and the rest; VOICES, STEREO,
+OUTPUT; the rail), the LFO page's and the macros' controls are the plug-in's own, and stay where
+they are. The table below is as of revision 3 of the panel's controls (`controls = 3`, the
+CA-72 0.3.x); if the starter or `docs/skin-packs.md` names a control or kind it doesn't have,
+they are right.
 
 | Kind | Params | Fields allowed besides `param`, `at` |
 |---|---|---|
-| Knob (21) | `tune`, `glide`, `mod_mix`, `osc2_frequency`, `osc3_frequency`, `osc1_volume`, `osc2_volume`, `osc3_volume`, `ext_volume`, `noise_volume`, `cutoff`, `emphasis`, `contour_amount`, `filter_attack`, `filter_decay`, `filter_sustain`, `loudness_attack`, `loudness_decay`, `loudness_sustain`, `volume`, `feedback` | `big = true/false` (`osc2_frequency`, `osc3_frequency` are big unless set false) |
-| Selector (6) | `osc1_range`, `osc2_range`, `osc3_range`, `osc1_waveform`, `osc2_waveform`, `osc3_waveform` | none |
-| Rocker (14) | `osc_mod`, `osc3_control`, `osc1_on`, `osc2_on`, `osc3_on`, `ext_on`, `noise_on`, `noise_type`, `filter_mode`, `filter_mod`, `keyboard_control_1`, `keyboard_control_2`, `main_output`, `a440` | `size = [w, h]` (16 to 240 each), `colour` (`blue`, `red`, `black`, `ivory`), `on` (`right`, `top`, `bottom`) |
-| Toggle (1) | `quality` | `size = [w, h]` (16 to 240; default 50 by 81), `across = true` |
-| Key (5) | `osc2_timed`, `osc3_timed` (oscillators 2's and 3's TIMED, added in revision 2); `osc1_shape_mod`, `osc2_shape_mod`, `osc3_shape_mod` (each oscillator's MOD, added in revision 3: on the panel only while its waveform is CONTINUOUS; place each under its WAVEFORM) | none |
+| Knob | `tune`, `glide`, `mod_mix`, `osc2_frequency`, `osc3_frequency`, `osc1_volume`, `osc2_volume`, `osc3_volume`, `ext_volume`, `noise_volume`, `cutoff`, `emphasis`, `contour_amount`, `filter_attack`, `filter_decay`, `filter_sustain`, `loudness_attack`, `loudness_decay`, `loudness_sustain`, `volume`, `feedback` | `big = true/false` (`osc2_frequency`, `osc3_frequency` are big unless set false) |
+| Selector | `osc1_range`, `osc2_range`, `osc3_range`, `osc1_waveform`, `osc2_waveform`, `osc3_waveform` | none |
+| Rocker | `osc_mod`, `osc3_control`, `osc1_on`, `osc2_on`, `osc3_on`, `ext_on`, `noise_on`, `noise_type`, `filter_mode`, `filter_mod`, `keyboard_control_1`, `keyboard_control_2`, `main_output`, `a440` | `size = [w, h]` (16 to 240 each), `colour` (`blue`, `red`, `black`, `ivory`), `on` (`right`, `top`, `bottom`) |
+| Toggle | `quality` | `size = [w, h]` (16 to 240; default 50 by 81), `across = true` |
+| Key | `osc2_timed`, `osc3_timed` (oscillators 2's and 3's TIMED, added in revision 2); `osc1_shape_mod`, `osc2_shape_mod`, `osc3_shape_mod` (each oscillator's MOD, added in revision 3: on the panel only while its waveform is CONTINUOUS; place each under its WAVEFORM) | none |
 
 A field that doesn't apply to a control's kind is rejected (`layout.control`). A rocker that
 is on at `top` or `bottom` reads best taller than wide (`size = [55, 111]`); one on at `right`
@@ -61,6 +74,20 @@ TIMED key prints its note value to its right, centred on the key, reaching up to
 centre): they are not in the layout and can't be changed. Leave room for them, including at
 the panel's edges: a control whose own dial or legends would be cut off by the edge goes to
 review (`layout.print-outside`), though its click area fits.
+
+## The panel's sections
+
+Users name the official panel's sections. Its controls belong to them so (names only: the
+official arrangement itself is GPL, rule 1):
+
+| Section | Controls |
+|---|---|
+| CONTROLLERS | `tune`, `glide`, `mod_mix`, `osc_mod` |
+| OSCILLATOR BANK | `osc3_control`, `osc1_range` to `osc3_range`, `osc2_timed`, `osc3_timed`, `osc2_frequency`, `osc3_frequency`, `osc1_waveform` to `osc3_waveform`, `osc1_shape_mod` to `osc3_shape_mod` |
+| MIXER | `osc1_volume`, `osc2_volume`, `osc3_volume`, `ext_volume`, `noise_volume` (its knobs); `osc1_on`, `osc2_on`, `osc3_on`, `ext_on`, `noise_on` (its five switches); `noise_type` |
+| MODIFIERS | `filter_mode`, `filter_mod`, `keyboard_control_1`, `keyboard_control_2`, `cutoff`, `emphasis`, `contour_amount`, `filter_attack`, `filter_decay`, `filter_sustain` (the filter and its contour); `loudness_attack`, `loudness_decay`, `loudness_sustain` (the loudness contour) |
+| OUTPUT | `volume`, `main_output`, `a440`, `feedback` |
+| (by POWER) | `quality` |
 
 ## Click areas and spacing
 
@@ -78,7 +105,11 @@ outside the panel (`layout.outside`). Click areas, from the centre:
 
 The starter spaces its columns 222 apart and its rows 240 apart, with legends 100 below each
 centre: copy that rhythm when regrouping, and check the large-lettering preview, where
-legends are wider.
+legends are wider. A rocker beside its knob needs about 165 between their centres (the knob's
+dial numbers reach about 100 to its side), so it can come about 56 closer than the starter has
+it. Between one row's legends (about 108 below its centres) and the next row's dial numbers
+(about 80 above its centres) the starter leaves about 50 units: room for a rule and a title of
+size 32 or so, centred on it.
 
 ## Fixtures
 
@@ -109,16 +140,22 @@ width = 2                 # 0.5 to 20
 text = "CUTOFF"           # 1 to 48 characters
 at = [x, y]
 # size = 16               # 6 to 80; without it the panel's legend size (19, large 22)
+# large_size = 18         # its size in the large lettering, if not `size`
 # large = [x, y]          # its place in the large lettering, if it must move there
 
 [[title]]                 # a section title, spaced out across its span; at most 16
 text = "FILTER"
 span = [x0, x1]           # x0 < x1
 baseline = y              # its top (baseline - 60) must be inside the panel too
-# size = 52               # 6 to 80
+# size = 52               # 6 to 80; 52 without it. Its capitals are about 0.72 of it tall:
+                          # to centre a title on a rule at y, baseline = y + 0.36 x size
 ```
 
-Legends are printed in capitals by convention; keep them short. One that runs off the panel
+Legends, titles and rules are printed in the plug-in's cream ink (`#ebe6d8`), in both looks and
+every pack: their colour can't be changed, so give them a face dark enough to read on. A
+title is spaced out across its whole span: give it a span a little wider than its text, and
+break a rule it sits on (two `[[line]]`s with a gap) rather than print over it. Legends are
+printed in capitals by convention; keep them short. One that runs off the panel
 in either lettering size, in the typeface used, is drawn cut off (`look.fit`, a review): move
 it in or shorten it. The built-in typeface prints Latin, Greek and Cyrillic, not Arabic or
 Chinese (`look.glyphs`, a review): for other scripts bring a typeface that has them. Text goes only in the layout:

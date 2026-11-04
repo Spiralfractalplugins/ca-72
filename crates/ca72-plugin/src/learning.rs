@@ -141,6 +141,9 @@ pub enum Item {
     /// (false) or CONTINUOUS.
     Rect(usize, bool),
     GlideRange(bool),
+    /// The PITCH wheel's in the standalone (decisions.md R-BEND-RANGE): MIDI BEND RANGE set to
+    /// so many hundredths of a semitone, or (none) typed in the wheel's entry field.
+    BendRange(Option<u16>),
     StandaloneSettings,
     WhatsNew,
     /// The settings' WINDOW: SIZE…, the SIZE menu wanted (R-SIZE).
@@ -232,6 +235,9 @@ pub enum Pressed {
     Rect(usize, bool),
     /// GLIDE's menu: NORMAL (false) or LONG (true).
     GlideRange(bool),
+    /// The PITCH wheel's menu in the standalone: MIDI BEND RANGE at so many hundredths of a
+    /// semitone, or (none) to be typed (decisions.md R-BEND-RANGE).
+    BendRange(Option<u16>),
     /// The settings' menu: the editor drawn in this look.
     Look(Skin),
     /// The settings' menu: the editor drawn in this installed pack's look.
@@ -323,6 +329,9 @@ pub struct Learning {
     pub lfo_timed: [bool; 4],
     /// Which of GLIDE's ranges its knob's menu marks (decisions.md R-GLIDE-LONG).
     pub glide_long: bool,
+    /// MIDI BEND RANGE (semitones), offered under the PITCH wheel's menu in the standalone; none
+    /// in a plug-in, whose host sets it (decisions.md R-BEND-RANGE).
+    pub bend_range: Option<f32>,
     pub fx_pins: Vec<crate::fx_view::PinInfo>,
     /// Where the MIDI map mode found a learnable whose control has no place of its own here
     /// (the arpeggiator's ON, HOLD and DIRECTION: R-MIDI-MAP): its note goes above that.
@@ -346,6 +355,34 @@ fn instruction(i: usize, notes: bool) -> &'static str {
         "MOVE A CONTROLLER OR PRESS A NOTE ON YOUR MIDI DEVICE"
     } else {
         "MOVE A CONTROLLER ON YOUR MIDI DEVICE"
+    }
+}
+
+/// The bend ranges the PITCH wheel's menu offers (decisions.md R-BEND-RANGE), in hundredths of
+/// a semitone: whole steps a keyboard's player commonly sets, then the wheel's full travel.
+pub fn bend_ranges() -> [u16; 6] {
+    [100, 200, 300, 500, 700, full_bend()]
+}
+
+/// The PITCH wheel's full travel in hundredths of a semitone: MIDI BEND RANGE's top.
+fn full_bend() -> u16 {
+    (ca72::modulation::PITCH_WHEEL_SEMITONES * 100.0).round() as u16
+}
+
+/// A bend range as the menu prints it: `1 SEMITONE`, `2 SEMITONES`, `4.5 SEMITONES`, the
+/// wheel's full travel named.
+fn bend_text(hundredths: u16) -> String {
+    let n = format!("{:.2}", f64::from(hundredths) / 100.0);
+    let n = n.trim_end_matches('0').trim_end_matches('.');
+    let unit = if hundredths == 100 {
+        "SEMITONE"
+    } else {
+        "SEMITONES"
+    };
+    if hundredths == full_bend() {
+        format!("{n} {unit} \u{b7} THE WHEEL'S FULL TRAVEL")
+    } else {
+        format!("{n} {unit}")
     }
 }
 
@@ -574,6 +611,29 @@ impl Learning {
             .into_iter()
             .map(|(it, t)| (it, t.to_owned()))
             .collect();
+        // The PITCH wheel's in the standalone: MIDI BEND RANGE, its common ranges, the one it
+        // is marked (listed if it is none of them), and a range typed (decisions.md
+        // R-BEND-RANGE). A plug-in's host sets it, so a plug-in's menu has none.
+        let pitch = matches!(not, Some(Target::Control(i) | Target::Legend(i, _))
+            if CONTROLS.get(i).is_some_and(|c| c.param == "pitch_wheel"));
+        let bend = self
+            .bend_range
+            .filter(|_| pitch && learnable.is_none())
+            .map(|v| (f64::from(v) * 100.0).round().max(0.0) as u16);
+        if let Some(now) = bend {
+            items.push((Item::Head, "BEND RANGE".into()));
+            let mut ranges = bend_ranges().to_vec();
+            if !ranges.contains(&now) {
+                ranges.push(now);
+                ranges.sort_unstable();
+            }
+            items.extend(
+                ranges
+                    .into_iter()
+                    .map(|c| (Item::BendRange(Some(c)), bend_text(c))),
+            );
+            items.push((Item::BendRange(None), "TYPE SEMITONES\u{2026}".into()));
+        }
         let mut extra_enabled: Vec<bool> = Vec::new();
         let mut extra_marked: Vec<bool> = Vec::new();
         let first_extra = items.len();
@@ -607,6 +667,7 @@ impl Learning {
                         // (The mode it is in marked, not chosen again.)
                         Item::Rect(n, v) => self.variable[*n] != *v,
                         Item::GlideRange(v) => self.glide_long != *v,
+                        Item::BendRange(Some(c)) => bend != Some(*c),
                         _ => true,
                     };
                     (t.clone(), enabled)
@@ -624,6 +685,7 @@ impl Learning {
                 .filter(|(k, (it, _))| {
                     matches!(it, Item::Rect(n, v) if self.variable[*n] == *v)
                         || matches!(it, Item::GlideRange(v) if self.glide_long == *v)
+                        || matches!(it, Item::BendRange(Some(c)) if bend == Some(*c))
                         || (*k >= first_extra && extra_marked[*k - first_extra])
                 })
                 .map(|(k, _)| k)
@@ -1176,6 +1238,7 @@ impl Learning {
             (Some(Item::List), l) => return Pressed::List(l.filter(|&i| i != MOD_WHEEL)),
             (Some(Item::Rect(n, variable)), _) => return Pressed::Rect(*n, *variable),
             (Some(Item::GlideRange(long)), _) => return Pressed::GlideRange(*long),
+            (Some(Item::BendRange(c)), _) => return Pressed::BendRange(*c),
             (Some(Item::Show), _) => return Pressed::Indicator(true),
             (Some(Item::Hide), _) => return Pressed::Indicator(false),
             (Some(Item::StandaloneSettings), _) => return Pressed::StandaloneSettings,

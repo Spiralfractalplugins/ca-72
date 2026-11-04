@@ -229,6 +229,12 @@ impl<P: Vst3Plugin> GuiContext for WrapperGuiContext<P> {
                     // without saying so (REAPER, bypassing the plugin) never sends.
                     if self.inner.is_processing.load(Ordering::SeqCst) {
                         self.inner.hold_edit(*hash, normalized);
+                        // A host that has stopped calling `process()` without saying so (REAPER,
+                        // a silent track while its transport is stopped) would leave the edit
+                        // held for a call that does not come, and the editor would draw the value
+                        // from before it (issue #146). It is set now, with any edit held before
+                        // it, so that none is set over it later (PATCHES.md, change 17).
+                        self.inner.set_held_edits_if_host_stopped();
                     } else {
                         self.inner.set_normalized_value_by_hash(
                             *hash,
@@ -263,6 +269,10 @@ impl<P: Vst3Plugin> GuiContext for WrapperGuiContext<P> {
         match &*self.inner.component_handler.borrow() {
             Some(handler) => match self.inner.param_ptr_to_hash.get(&param) {
                 Some(hash) => {
+                    // The gesture's edits held while the host still called, if it has stopped
+                    // since (PATCHES.md, change 17)
+                    self.inner.set_held_edits_if_host_stopped();
+
                     handler.end_edit(*hash);
                 }
                 None => nih_debug_assert_failure!("Unknown parameter: {:?}", param),
@@ -288,5 +298,14 @@ impl<P: Vst3Plugin> GuiContext for WrapperGuiContext<P> {
 
     fn set_state(&self, state: PluginState) {
         self.inner.set_state_object_from_gui(state)
+    }
+
+    fn idle(&self) {
+        // Edits held while the host still called, a gesture's last among them, if it has
+        // stopped since: no process call and no further edit may come to set them (PATCHES.md,
+        // change 17). The flag first, so that a frame with nothing held reads no clock.
+        if self.inner.any_held_edit.load(Ordering::Relaxed) {
+            self.inner.set_held_edits_if_host_stopped();
+        }
     }
 }
