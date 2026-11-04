@@ -943,7 +943,7 @@ mod tests {
             assert_eq!(c, o, "{}", o.param);
         }
         assert_eq!(a.power, art::POWER);
-        assert_eq!(a.texts.len(), 66);
+        assert_eq!(a.texts.len(), 65);
         assert_eq!(a.titles.len(), 5);
         assert_eq!(a.lines.len(), 15);
     }

@@ -671,7 +671,7 @@ Revision 8 of the controls adds FILTER POLES (`filter_poles`), a selector of fou
 QUALITY's, its rocker's `colour` and `on` no longer apply). A layout made for revisions 1 to 7
 loads with FILTER POLES placed by the plug-in (`layout.added`) and its FILTER MODE drawn as the
 toggle where the layout put its rocker (`layout.kind`); the layout's own legends for it (LO,
-HI) are printed as they were, so a pack brought up to revision 8 gives it LO, BAND and HIGH.
+HI) are printed as they were, so a pack brought up to revision 8 gives it LO, BAND and HI.
 
 ## Compatibility: packs keep working as the CA-72 changes
 

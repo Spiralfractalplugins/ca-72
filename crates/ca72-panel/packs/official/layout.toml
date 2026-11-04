@@ -503,12 +503,8 @@ at = [1764, 558]
 # under it, the original's switches under that.
 
 [[text]]
-text = "FILTER"
-at = [1910, 32]
-
-[[text]]
 text = "POLES"
-at = [1910, 54]
+at = [1910, 55]
 
 [[text]]
 text = "FILTER MODE"
@@ -527,9 +523,8 @@ size = 15
 large_size = 17
 
 [[text]]
-text = "HIGH"
-at = [1950, 351]
-large = [1942, 351]
+text = "HI"
+at = [1948, 351]
 size = 15
 large_size = 17
 

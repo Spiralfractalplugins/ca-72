@@ -17490,3 +17490,99 @@ audio and filter channels are nonzero. Existing pair/allocation tests and strict
 all-feature workspace clippy pass. Inputs, WAVs and comparison data are under
 `release-0.3.1/filter-probe/` on the lab share. No hardware measurement or CPU
 improvement is claimed for this diagnostic repair.
+
+## R-POLES. FILTER POLES, and FILTER MODE's BAND and STEEP HIGH
+
+**The owner, 2026-11-03**, of issue #151 (a request for the Voyager's filter: one to four poles,
+and two filters in series or parallel): "Let's make the number of poles switchable." Told how
+(the output taken from the stage chosen, the emphasis still from the fourth: the loop resonates
+at every setting, and four poles stays the filter as drawn to the bit) and shown two places on
+the panel (A, FILTER POLES at the switch column's foot, the column carried up; B, at its head in
+CUTOFF FREQUENCY's row, the column carried down): "As you recommend": B, its legends 1 to 4 (the
+slope in dB, 6 to 24, crowded CUTOFF's dial). "All quality modes should follow the same select
+tap." Of the mixes of the ladder's stages: "Tap mixes now", FILTER MODE becoming "LO, BAND, STEEP
+HIGH". Asked what a session or preset saved with 0.3's HI should load as, HI being off the panel:
+**HI kept, hidden** (its sound as saved; the toggle shows it at STEEP HIGH's place until its lever
+moves). The dual filter (series or parallel) is not this record's: a second ladder a voice, a
+project of its own.
+
+**The filter** (`vcf.rs`: `FilterMode`, `Vcf::set_shape`, `Vcf::shaped`, `mix`; agent decisions,
+not separately approved). The loop is not touched: whatever the setting, the same states to the
+bit (`filter_poles::the_loop_is_the_same_whatever_the_setting`), so LO at 4 poles, and HI from
+it, are the filter as drawn, and every factory preset renders the same to the bit at HI, ULTRA
+and LO (`preset_render` against 252c774, which sounds as 5090ae8). The output alone changes,
+worked out after each step from the step's states:
+- **LO at 1 to 3 poles** is the gain recovery amplifier as if its inputs read that stage's
+  capacitor instead of the fourth's: its followers' bases (W) moved by the difference, C5/C1's
+  charge as it is, and the output by the amplifier's current's change through its loads (R3,
+  and R7 less what of it the emphasis path takes back). A buffer of its own, that loads nothing.
+- **Its level is the drawn output's.** The followers' R31/R38 load the fourth stage: at the
+  lowest cutoffs, a few microamperes in the ladder, its passband loses up to 4 dB to them, which
+  the unloaded stages below do not. The others are taken down by the fourth's share of its
+  passband (E4 / (E4 + (2Vt + its drop) (1/R31 + the followers' base current's slope))).
+  Measured (EMPHASIS 0, a corner near 800 Hz): each tap's passband within 0.6 dB of the drawn.
+- **BAND and STEEP HIGH** are mixes of the stages, as an Xpander's: with s0 the first stage's
+  drive and s1 to s4 the stages' outputs, STEEP HIGH is (1 - G)^n of the drive (the nth
+  difference of s), BAND G (1 - G) at 1 and 2 poles, G^2 (1 - G) at 3, G^2 (1 - G)^2 at 4, each
+  at 0 dB at its peak on the open ladder. The differences are the stages' capacitor currents
+  over their emitter currents (2C dx/dt = E (in - out)), the step's own derivatives: nothing at
+  DC, exactly. The fourth stage's is an unloaded one's, following the third (`follow_free`: a
+  linear stage, trapezoidal, prewarped as the loop), since the loaded fourth stage's bass, 4 dB
+  short, left the mixes a floor (STEEP HIGH at 4 poles only 32 dB down two octaves under a 130 Hz
+  corner; 54 with it). They are read by the same amplifier into the same loads, alone (built on
+  the drawn output, C5/C1's charge and R7's top let LO's bass into them).
+- **Measured** (`filter_poles.rs`, at ULTRA's numerics and HI's): LO 6.0, 12.0, 18.0 and 24.0 dB
+  an octave above the corner; STEEP HIGH 6, 12, 18 and 24 under it (5.3 a pole an octave under
+  the corner), down to a floor near -64 dB, its passband the same at every setting; BAND's peak
+  at the corner (at 3 poles half an octave under it, as G^2 (1 - G)'s is), 6 dB an octave each
+  side at 1 and 2 poles, 6 and 12 at 3, 12 and 12 at 4. The mixes' passband is the loop's drive,
+  which the loop's feedback takes nothing from: at EMPHASIS 0 STEEP HIGH and BAND stand 2 to 2.6
+  dB over LO's passband, and further as EMPHASIS rises and LO's passband falls, as a ladder's
+  high-pass does. At EMPHASIS 10 every setting sings.
+- **A change crossfades** over 5 ms (`SHAPE_FADE`): the settings are different signals, and a
+  switch between them at once clicks (`a_change_crossfades`: no sample across the change moves
+  further than either setting's own do). A filter that has not run since it was made or reset
+  takes its setting at once, so that a session or preset starts as saved; 0.3's switch between
+  LO and HI, at once, now fades too.
+- **HI** is the direct branch less LO from the stage FILTER POLES picks.
+- **Its cost:** the mixes' unloaded fourth stage runs only while a mix is heard, and the light
+  voices take a change with the panel and run the drawn setting as before. `preset_cost` (POLY's
+  ten voices, two seconds a preset, 252c774 and this branch alternated three times, the least of
+  each): HI's median +0.4 % (-2.8 to +2.5 %), LO's +1.0 % (-1.4 to +3.7 %), inside their own
+  run-to-run spread (3.2 and 2.0 %). (With the unloaded stage run in every mode, HI's median was
+  +1.7 %, -0.3 to +3.4 %: hence its being run only for the mixes.) The other settings were not
+  timed: a few table reads a step.
+
+**The light voices (LO)** (`light.rs`: `Ladder::taps`, `shaped`): the same taps and mixes from
+their ladder's stages (four plain one-pole stages, the input pair's output the first's drive),
+the same crossfade (the old setting with its own copy of the output's coupling while it fades).
+Measured as the circuit's (`light::tests`): LO 6 dB an octave a pole, its fundamental within a dB
+of 4 poles'; STEEP HIGH 5.3 to 6 a pole under the corner, its passband the same at every
+setting; BAND at 4 poles falling as LO at 2 above the corner and rising as STEEP HIGH at 2
+under it.
+
+**The panel and the plug-in** (`filter-poles-ui`, merged here; agent decisions):
+- FILTER POLES, a selector of four places on the middle four of RANGE's six (legends 1 to 4) at
+  the switch column's head in CUTOFF FREQUENCY's row (1907, 175), POLES over it on CUTOFF
+  FREQUENCY's legend's line; FILTER MODE, NOTE PRIORITY's chrome toggle on its side (LO, BAND,
+  HI), under it; the original's three switches 150 units lower. The owner, of the first build on
+  the Mac: "abbreviate 'high' to 'hi' here so the text fits" (it ran into ATTACK TIME's dial),
+  "might be better to just say 'poles' instead of 'filter poles'". STEEP HIGH keeps its name
+  where there is room (its tip, hosts, the agents' values). The approved drawings take the
+  new column from the renderer.
+- Revision 8 of the panel's controls: a layout made for 1 to 7 loads with FILTER POLES placed by
+  the plug-in and its FILTER MODE drawn as the toggle where it put the rocker, its own legends
+  printed as they were (docs/skin-packs.md).
+- `filter_poles` (1 to 4, 4 by default): in presets (one without it is at 4), in sessions (one
+  saved before opens at 4, whatever the instance had), MIDI-learnable as a selector (a quarter of
+  0 to 127 each), in the agents' values (docs/mcp.md). `filter_mode` gains BAND (`band`) and STEEP
+  HIGH (`high`) after LO and HI (renamed "HI (0.3)" for hosts), which keep their places: a
+  session or preset saved with HI keeps it. A learned controller steps through LO, BAND and STEEP
+  HIGH only (a third each). A host's automation of FILTER MODE recorded in 0.3 is normalized: its
+  HI (1.0 of two) now reads STEEP HIGH (the last of four).
+- `ca72-lab` patches: `"filter_poles": 1` to `4`, `"filter_mode": "band"` or `"high"`.
+
+**Not done:** no ngspice bench of the taps and mixes: they are not a circuit's (an amplifier that
+loads nothing, the fourth stage's share of its passband, an unloaded fourth stage), only built
+from the stages' voltages and currents the loop's own validation covers (`vcf_realtime`); no
+factory preset uses the new settings (the owner's call); the dual filter.
