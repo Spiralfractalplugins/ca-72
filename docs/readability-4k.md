@@ -180,4 +180,232 @@ looks and the minimum viewport. Proposed reflows need their own small-screen and
 checks before implementation. The original review does not establish which build it tested;
 this survey makes no claim to reproduce that review's exact environment.
 
+## Follow-up, 2026-11-04: a minimum, and the classes raised to it
+
+Base `88575ba` (0.3.1). decisions.md R-READABILITY-MINIMUM records the decision. This pass
+renders the real editor (`the_readability_pngs` in the plug-in's editor tests, not the panel
+example) and measures each class of text, now including the LFO and MACRO pages, the typed
+value, the SIZE menu and 150 % host scaling.
+
+**The minimum:** x-height above 9 physical pixels (cap height at least 12.2) at FIT TO
+SCREEN on a 4K screen at 100 %, the warning line above. It applies to LARGE's panel print and
+to the tip, notes, menus and typed value in both letterings; STANDARD's panel print is the
+approved panel (R-LETTERING) and stays as it was.
+
+**Window sizes.** At 150 % a 4K screen is 2560 by 1440 logical pixels; FIT TO SCREEN gives
+2017 logical, 3026 physical, so the panel's print is the same size in physical pixels as at
+100 %, and only what is set in logical pixels differs. SIZE 100 % is 1380 logical (1380 or
+2070 physical). Since R-WINDOW-DEFAULT a new editor opens at the width last chosen on this
+computer, which may be smaller than FIT TO SCREEN.
+
+**Below the line before:** the tip, menu items, titles and group heads, and the typed value's
+unit in both letterings at 100 % (heads and unit still at 150 %); in LARGE, the dial captions
+(M-SEC., SEC., OSC. 3, NOISE, the LFOs' Hz and SEC.) and OSC. 3 CONTROL. Also below it and
+left: IDLE FOUNDRY (decorative) and STANDARD's panel numbers, captions, QUALITY, OSC. 3
+CONTROL and strip small print (the owner's STANDARD).
+
+**Changed:** tips, notes and menus are never smaller than the panel's legends (19 units,
+LARGE 22), which takes effect only above about 1960 logical pixels wide; menu group heads
+0.72 to 0.8 of the items; the typed value's unit 0.7 to 0.8 of its field; LARGE's dial captions
+16 to 17 and OSC. 3 CONTROL 16 to 17 (its LARGE place 488 to 491, keeping its clearance from
+the section's rule). Every class in the table now clears the line at 4K FIT TO SCREEN in LARGE,
+and every tip, note, menu and typed value does in STANDARD.
+
+x-height / cap height in physical pixels, from the em and the outlines (the panel's print is
+also stroked by 0.7 units, about 0.7 px more at 4K). Pixel ink heights in the renders agree
+within about half a pixel: the tip's cap 9.48 to 14.20 px, menu items 10.45 to 16.11, titles
+8.56 to 13.18, heads 7.50 to 13.00; LARGE's NOISE caption grew 0.78 px, an LFO's SEC. 0.89.
+
+#### 4K 100 %, FIT TO SCREEN (3026 px)
+
+| Class | STANDARD before | STANDARD after | LARGE before | LARGE after |
+|---|---:|---:|---:|---:|
+| Panel legends | 10.25 / 13.67 | 10.25 / 13.67 | 11.87 / 15.83 | 11.87 / 15.83 |
+| Section titles (CONTROLLERS … OUTPUT) | 28.05 / 37.41 | 28.05 / 37.41 | 28.05 / 37.41 | 28.05 / 37.41 |
+| Dial numbers (panel, strip, LFO, MACRO, ARP) | 8.09 / 10.79 | 8.09 / 10.79 | 9.17 / 12.23 | 9.17 / 12.23 |
+| Dial captions: M-SEC., SEC., OSC. 3, NOISE, LFO Hz and SEC. | 7.55 / 10.07 | 7.55 / 10.07 | 8.63 / 11.51 | 9.17 / 12.23 |
+| OSC. 3 CONTROL | 8.63 / 11.51 | 8.63 / 11.51 | 8.63 / 11.51 | 9.17 / 12.23 |
+| QUALITY ULTRA / HI / LO | 8.09 / 10.79 | 8.09 / 10.79 | 9.17 / 12.23 | 9.17 / 12.23 |
+| IDLE FOUNDRY (maker name, decorative) | 6.47 / 8.63 | 6.47 / 8.63 | 6.47 / 8.63 | 6.47 / 8.63 |
+| Strip legends, GLOBAL/ARP bank legends, LFO legends | 11.33 / 15.11 | 11.33 / 15.11 | 12.41 / 16.55 | 12.41 / 16.55 |
+| Strip small print (dB, L, R, %) | 8.63 / 11.51 | 8.63 / 11.51 | 9.71 / 12.95 | 9.71 / 12.95 |
+| Strip / arp / FX tab caps | 9.17 / 12.23 | 9.17 / 12.23 | 9.17 / 12.23 | 9.17 / 12.23 |
+| Rail caps (SAVE, PANEL, GLOBAL …) | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 |
+| Keyboard mapping letters (Book) | 9.59 / 12.95 | 9.59 / 12.95 | 9.59 / 12.95 | 9.59 / 12.95 |
+| Keyboard TYPING / PANIC / − / + | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 |
+| Presets drawer list, tags, MIDI list (dots, pitch 4) | 19.08 / 26.87 | 19.08 / 26.87 | 19.08 / 26.87 | 19.08 / 26.87 |
+| Tip, MIDI Learn note (Book) | 6.56 / 8.87 | 10.12 / 13.67 | 8.21 / 11.08 | 11.72 / 15.83 |
+| Menu items (Book, 1.15 × tip) | 7.55 / 10.20 | 11.64 / 15.72 | 9.44 / 12.75 | 13.47 / 18.20 |
+| Menu titles (Demi, 0.82 × items) | 6.27 / 8.36 | 9.66 / 12.89 | 7.84 / 10.45 | 11.19 / 14.93 |
+| Menu group heads (Demi, 0.72 → 0.8 × items) | 5.50 / 7.34 | 9.43 / 12.58 | 6.88 / 9.18 | 10.92 / 14.56 |
+| Typed value's unit (Book, 0.7 → 0.8 × field) | 5.28 / 7.14 | 9.31 / 12.58 | 6.61 / 8.92 | 10.78 / 14.56 |
+
+#### 4K 150 %, FIT TO SCREEN (2017 logical, 3026 px)
+
+| Class | STANDARD before | STANDARD after | LARGE before | LARGE after |
+|---|---:|---:|---:|---:|
+| Panel legends | 10.25 / 13.67 | 10.25 / 13.67 | 11.87 / 15.83 | 11.87 / 15.83 |
+| Section titles (CONTROLLERS … OUTPUT) | 28.05 / 37.41 | 28.05 / 37.41 | 28.05 / 37.41 | 28.05 / 37.41 |
+| Dial numbers (panel, strip, LFO, MACRO, ARP) | 8.09 / 10.79 | 8.09 / 10.79 | 9.17 / 12.23 | 9.17 / 12.23 |
+| Dial captions: M-SEC., SEC., OSC. 3, NOISE, LFO Hz and SEC. | 7.55 / 10.07 | 7.55 / 10.07 | 8.63 / 11.51 | 9.17 / 12.23 |
+| OSC. 3 CONTROL | 8.63 / 11.51 | 8.63 / 11.51 | 8.63 / 11.51 | 9.17 / 12.23 |
+| QUALITY ULTRA / HI / LO | 8.09 / 10.79 | 8.09 / 10.79 | 9.17 / 12.23 | 9.17 / 12.23 |
+| IDLE FOUNDRY (maker name, decorative) | 6.47 / 8.63 | 6.47 / 8.63 | 6.47 / 8.63 | 6.47 / 8.63 |
+| Strip legends, GLOBAL/ARP bank legends, LFO legends | 11.33 / 15.11 | 11.33 / 15.11 | 12.41 / 16.55 | 12.41 / 16.55 |
+| Strip small print (dB, L, R, %) | 8.63 / 11.51 | 8.63 / 11.51 | 9.71 / 12.95 | 9.71 / 12.95 |
+| Strip / arp / FX tab caps | 9.17 / 12.23 | 9.17 / 12.23 | 9.17 / 12.23 | 9.17 / 12.23 |
+| Rail caps (SAVE, PANEL, GLOBAL …) | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 |
+| Keyboard mapping letters (Book) | 9.59 / 12.95 | 9.59 / 12.95 | 9.59 / 12.95 | 9.59 / 12.95 |
+| Keyboard TYPING / PANIC / − / + | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 | 10.79 / 14.39 |
+| Presets drawer list, tags, MIDI list (dots, pitch 4) | 19.08 / 26.87 | 19.08 / 26.87 | 19.08 / 26.87 | 19.08 / 26.87 |
+| Tip, MIDI Learn note (Book) | 9.85 / 13.30 | 10.12 / 13.67 | 12.31 / 16.63 | 12.31 / 16.63 |
+| Menu items (Book, 1.15 × tip) | 11.32 / 15.30 | 11.64 / 15.72 | 14.15 / 19.12 | 14.15 / 19.12 |
+| Menu titles (Demi, 0.82 × items) | 9.40 / 12.54 | 9.66 / 12.89 | 11.75 / 15.68 | 11.75 / 15.68 |
+| Menu group heads (Demi, 0.72 → 0.8 × items) | 8.26 / 11.01 | 9.43 / 12.58 | 10.32 / 13.77 | 11.47 / 15.30 |
+| Typed value's unit (Book, 0.7 → 0.8 × field) | 7.93 / 10.71 | 9.31 / 12.58 | 9.91 / 13.39 | 11.32 / 15.30 |
+
+#### 4K 100 %, SIZE 100 % (1380 px)
+
+| Class | STANDARD before | STANDARD after | LARGE before | LARGE after |
+|---|---:|---:|---:|---:|
+| Panel legends | 4.67 / 6.23 | 4.67 / 6.23 | 5.41 / 7.22 | 5.41 / 7.22 |
+| Section titles (CONTROLLERS … OUTPUT) | 12.79 / 17.06 | 12.79 / 17.06 | 12.79 / 17.06 | 12.79 / 17.06 |
+| Dial numbers (panel, strip, LFO, MACRO, ARP) | 3.69 / 4.92 | 3.69 / 4.92 | 4.18 / 5.58 | 4.18 / 5.58 |
+| Dial captions: M-SEC., SEC., OSC. 3, NOISE, LFO Hz and SEC. | 3.44 / 4.59 | 3.44 / 4.59 | 3.94 / 5.25 | 4.18 / 5.58 |
+| OSC. 3 CONTROL | 3.94 / 5.25 | 3.94 / 5.25 | 3.94 / 5.25 | 4.18 / 5.58 |
+| QUALITY ULTRA / HI / LO | 3.69 / 4.92 | 3.69 / 4.92 | 4.18 / 5.58 | 4.18 / 5.58 |
+| IDLE FOUNDRY (maker name, decorative) | 2.95 / 3.94 | 2.95 / 3.94 | 2.95 / 3.94 | 2.95 / 3.94 |
+| Strip legends, GLOBAL/ARP bank legends, LFO legends | 5.17 / 6.89 | 5.17 / 6.89 | 5.66 / 7.55 | 5.66 / 7.55 |
+| Strip small print (dB, L, R, %) | 3.94 / 5.25 | 3.94 / 5.25 | 4.43 / 5.91 | 4.43 / 5.91 |
+| Strip / arp / FX tab caps | 4.18 / 5.58 | 4.18 / 5.58 | 4.18 / 5.58 | 4.18 / 5.58 |
+| Rail caps (SAVE, PANEL, GLOBAL …) | 4.92 / 6.56 | 4.92 / 6.56 | 4.92 / 6.56 | 4.92 / 6.56 |
+| Keyboard mapping letters (Book) | 4.37 / 5.91 | 4.37 / 5.91 | 4.37 / 5.91 | 4.37 / 5.91 |
+| Keyboard TYPING / PANIC / − / + | 4.92 / 6.56 | 4.92 / 6.56 | 4.92 / 6.56 | 4.92 / 6.56 |
+| Presets drawer list, tags, MIDI list (dots, pitch 4) | 8.70 / 12.25 | 8.70 / 12.25 | 8.70 / 12.25 | 8.70 / 12.25 |
+| Tip, MIDI Learn note (Book) | 6.56 / 8.87 | 6.56 / 8.87 | 8.21 / 11.08 | 8.21 / 11.08 |
+| Menu items (Book, 1.15 × tip) | 7.55 / 10.20 | 7.55 / 10.20 | 9.44 / 12.75 | 9.44 / 12.75 |
+| Menu titles (Demi, 0.82 × items) | 6.27 / 8.36 | 6.27 / 8.36 | 7.84 / 10.45 | 7.84 / 10.45 |
+| Menu group heads (Demi, 0.72 → 0.8 × items) | 5.50 / 7.34 | 6.12 / 8.16 | 6.88 / 9.18 | 7.65 / 10.20 |
+| Typed value's unit (Book, 0.7 → 0.8 × field) | 5.28 / 7.14 | 6.04 / 8.16 | 6.61 / 8.92 | 7.55 / 10.20 |
+
+**Small screens and hit targets.** At the 1366 by 768 laptop's 1076, SIZE 75 % (1035) and the
+grip's 860, the tips, control menus and the typed value have the extents and places they had
+before; only the heads and the unit are larger, within the same rows and fields. Every tip,
+menu and typed value stays inside the window at every size rendered. Menus are found where they
+are drawn (`Menu::hit` uses the same layout).
+
+### Round 2, 2026-11-04
+
+**The settings' menu** is set in columns where one would not fit below its key (decisions.md
+R-READABILITY-MINIMUM, round 2). Its lettering and row pitch are unchanged. Where it opens:
+
+| Window | STANDARD | LARGE |
+|---|---|---|
+| 4K FIT TO SCREEN, 100 % and 150 % | two columns, below its key | two columns, below its key |
+| SIZE 100 % | three columns, below its key | three columns, below its key |
+| Laptop (1076), SIZE 75 % | four columns, below its key | four columns, below its key |
+| 860 | four columns, below its key | four columns, over the rail and its key |
+
+In round 1 (and before it) it rose over the rail and its key at every one of these sizes. It is
+no longer shrunk to fit the window's height, so in small windows its items
+grow:
+
+| Window | Lettering | Settings' items, em in px |
+|---|---|---|
+| Laptop (1076) | LARGE | 16.88 → **17.25** |
+| SIZE 75 % | LARGE | 16.24 → **17.25** |
+| 860 | STANDARD | 13.49 → **13.80** |
+| 860 | LARGE | 13.49 → **17.25** |
+
+Every other size is unchanged (`round2/after/sizes.csv`).
+
+**OSC. 3 CONTROL in LARGE** is 5 units higher. Its CONTROL is now 8.1 px from RANGE's 32' at 4K
+FIT (7.1 before round 1, 3.2 after it); its size and x-height are as in round 1 (9.17 px).
+
+**TICKS & TITLES: QUIET** (issue #145, decisions.md R-QUIET-PRINT; off by default).
+- **Ticks:** 0.725 of their width (LARGE 0.8), 0.72 of their length, at 80 % ink. At 4K FIT
+  a dial's tick goes from 3.9 px wide and 12.7 long to 2.8 by 9.1.
+- **Section titles:** 0.75 of their size, at 80 % ink: 28.05 / 37.41 px x-height / cap height
+  become 21.04 / 28.06.
+
+Nothing else changes size.
+
+### Round 3, 2026-11-04
+
+**The settings' menu** now opens below its key at every size rendered, LARGE at 860 included
+(decisions.md R-READABILITY-MINIMUM, round 3). Its groups are spread over its columns as evenly
+as they go, and where four columns do not fit it is made only as much smaller as fits.
+
+| Window | STANDARD | LARGE |
+|---|---|---|
+| 4K FIT TO SCREEN, 100 % and 150 % | two columns (9, 11 rows) | two (9, 11) |
+| SIZE 100 % | three (6, 6, 8) | three (6, 6, 8) |
+| 1080p FIT TO SCREEN (1513) | two (9, 11) | three (6, 6, 8) |
+| Laptop (1076) | three (6, 6, 8) | four (6, 6, 4, 4) |
+| SIZE 75 % | four (6, 6, 4, 4) | four (6, 6, 4, 4) |
+| 860 | four (6, 6, 4, 4) | four (6, 6, 4, 4), smaller |
+
+The four-column layouts were six, six, six and two rows, with MPE alone in the last column.
+Round 2's table above gave the laptop's STANDARD as four columns; its frames show three. In
+`round3/after/sizes.csv` only one window and lettering changes size (the four 1080p rows are
+new, and match SIZE 100 %'s):
+
+| Window | Lettering | Settings' items, em in px (round 1 → round 2 → round 3) |
+|---|---|---|
+| 860 | LARGE | 13.49 → 17.25 (over the rail) → **14.57** (below its key) |
+
+### Round 4, 2026-11-04
+
+**The standalone's settings' menu** (STANDALONE and AGENTS added: 27 rows as it opens, 29 at
+its fullest) opens below its key at every size, in balanced columns, its lettering full size at
+4K FIT TO SCREEN (decisions.md R-READABILITY-MINIMUM, round 4). Where four columns are taller
+than the room under the key it is made smaller, as round 3 allows:
+
+| Window | Lettering | Settings' items, em in px (as it opens / at its fullest) |
+|---|---|---|
+| SIZE 100 % | LARGE | 17.25 / **16.50** |
+| Laptop (1076) | STANDARD | 13.80 / **12.86** |
+| Laptop (1076) | LARGE | **14.26** / **12.86** |
+| SIZE 75 % | both | **13.72** / **12.37** |
+| 860 | both | **11.40** / **10.28** |
+
+Every other case keeps its lettering's size. The layout code is unchanged; a fifth column
+(measured, not adopted) would give 13.89 px at 860 in LARGE.
+
+### Round 5, 2026-11-04
+
+**The settings' menu may have five columns** (the owner's choice; decisions.md
+R-READABILITY-MINIMUM, round 5). The rule is as before: fewest columns that fit, then the most
+even, then as little smaller as needed. Five are used only where four would make the text
+smaller. The plug-in's menu does not change at any size: five columns of its groups are no
+shorter than four (six rows), so four stay. That includes LARGE at 860, at 14.57 px. The
+standalone's changes:
+
+| Window | Lettering | Settings' items, em in px, as it opens / at its fullest (round 4 → round 5) |
+|---|---|---|
+| SIZE 100 % | LARGE | 17.25 / 16.50 → 17.25 / 17.25 |
+| Laptop (1076) | STANDARD | 13.80 / 12.86 → 13.80 / 13.80 |
+| Laptop (1076) | LARGE | 14.26 / 12.86 → 17.25 / **15.00** |
+| SIZE 75 % | STANDARD | 13.72 / 12.37 → 13.80 / 13.80 |
+| SIZE 75 % | LARGE | 13.72 / 12.37 → **16.72** / **14.42** |
+| 860 | STANDARD | 11.40 / 10.28 → 13.80 / **11.99** |
+| 860 | LARGE | 11.40 / 10.28 → **13.89** / **11.99** |
+
+STANDARD now keeps its full size as it opens at every size. Where it is still made smaller at
+its fullest, the least shrink puts LOOK alone in a first column (3, 6, 7, 7, 6 rows). The more
+even 6, 6, 6, 5, 6 is wider, so it would be about 3.5 % smaller (11.57 px at 860). Round 4's
+12.60 px for 860 LARGE at its fullest was measured before the COPIED row widened the menu.
+
+**Evidence** is under `/mnt/lab/artifacts/ca-72/issue-70/`: `before/` and `after/` (308 frames
+each, with `sizes.csv`), `crops/` (1:1 before | after of each changed class, both looks),
+`golden-before/`, `golden-after/`, `golden-compare.txt` and `golden-regions.txt`; round 2's in
+`round2/` (`index.html`, the matrix again in `round2/after/` with a `quiet` state, its crops and
+golden frames against `dd23251`); round 3's in `round3/` (`index.html`, the matrix with 1080p
+FIT in `round3/after/`, crops of the settings' menu, golden frames against `ef41abf`: none
+differ); round 4's in `round4/` (`index.html`, crops of the standalone's menu, frames and
+`sizes.csv` in `round4/frames/`); round 5's in `round5/` (`index.html`, crops of each changed
+menu, round 4 left and round 5 right, the frames of both, golden frames against `1033538`:
+none differ). Not tested: a
+real 4K monitor, a host, Windows or macOS scaling, a human comfort trial.
+
 See [the complete small-text inventory](readability-4k-text.md).

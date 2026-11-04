@@ -281,12 +281,13 @@ pub fn tools() -> Vec<Tool> {
         t(
             "ca72_settings_set",
             "settings.set",
-            "Change settings, as the SETTINGS menu does: `look` (REALISTIC or CLASSIC), `lettering` (STANDARD or LARGE), `frequency_dials` (SEMITONES or HARDWARE: how oscillators 2 and 3's FREQUENCY dials read; the sound stays as it is), `quality_indicator` (QUALITY's indicator shown or hidden), `mod_wheel_source` (what moves the MOD wheel, on any channel: `CC 1` to `CC 127` but the reserved ones, `CHANNEL AFTERTOUCH` or `POLYPHONIC AFTERTOUCH`), `mpe_input` (where MPE's zone comes from on this computer: AUTO, the controller's MPE Configuration Message; LOWER ZONE, fifteen member channels, for hosts that do not pass it on; or OFF), `timbre_rest` (where timbre, CC 74 or a host's brightness, moves nothing: CENTERED ON 64, FROM 0, or FROM THE NOTE'S START), `size` (the window's width in pixels, one of the SIZE menu's or FIT), `agents` (false turns agents off: this connection then ends, and only the player can turn them on again).",
+            "Change settings, as the SETTINGS menu does: `look` (REALISTIC or CLASSIC), `lettering` (STANDARD or LARGE), `ticks_and_titles` (STANDARD or QUIET: the panel's ticks and sections' titles as approved, or thinner, shorter, smaller and dimmer), `frequency_dials` (SEMITONES or HARDWARE: how oscillators 2 and 3's FREQUENCY dials read; the sound stays as it is), `quality_indicator` (QUALITY's indicator shown or hidden), `mod_wheel_source` (what moves the MOD wheel, on any channel: `CC 1` to `CC 127` but the reserved ones, `CHANNEL AFTERTOUCH` or `POLYPHONIC AFTERTOUCH`), `mpe_input` (where MPE's zone comes from on this computer: AUTO, the controller's MPE Configuration Message; LOWER ZONE, fifteen member channels, for hosts that do not pass it on; or OFF), `timbre_rest` (where timbre, CC 74 or a host's brightness, moves nothing: CENTERED ON 64, FROM 0, or FROM THE NOTE'S START), `size` (the window's width in pixels, one of the SIZE menu's or FIT), `agents` (false turns agents off: this connection then ends, and only the player can turn them on again).",
             |_| {
                 obj(
                     json!({
                         "look": {"type": "string", "enum": ["REALISTIC", "CLASSIC"]},
                         "lettering": {"type": "string", "enum": ["STANDARD", "LARGE"]},
+                        "ticks_and_titles": {"type": "string", "enum": ["STANDARD", "QUIET"]},
                         "frequency_dials": {"type": "string", "enum": ["SEMITONES", "HARDWARE"]},
                         "tempo": {"type": "number", "minimum": 30, "maximum": 300, "description": "Standalone TEMPO in BPM; follows the screen's own path."},
                         "quality_indicator": {"type": "boolean"},

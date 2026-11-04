@@ -17969,3 +17969,309 @@ and LFO keys, TYPING, MIDI and PANIC and the MIDI map mode; all twelve are now t
 frames from the ignored test `the_quick_start_pngs` (docs/images/quick-start/README.md), so
 that an update renders them again. Host menus for rescanning (Logic, Live, REAPER) are given as
 examples and were not checked in those hosts for this record.
+
+## R-READABILITY-MINIMUM. A 4K minimum for the tips, menus and LARGE's small print
+
+**Owner brief, 2026-11-04 (issue #70, with issue #145's suggestions):** measure every class of
+text at what a 3840 by 2160 screen gives at 100 % and 150 %, in both looks and letterings,
+choose a defensible minimum, raise only the classes found below it through the existing
+settings, keep hit targets, small screens and both looks, and leave the layout and the
+printed wording alone (#73 is changing modulation wording at the same time).
+
+**The minimum:** an x-height above 9 physical pixels (a cap height of at least 12.2) in the
+window a 4K screen at 100 % opens, FIT TO SCREEN's 3026 by 1728. It is R-READABILITY-4K's
+warning line, kept so that both surveys are read the same way; 9 pixels are already below
+the 0.2 degrees Legge and Bigelow give for fluent reading at 60 cm on a 27 or 32 inch 4K
+screen, so it is a floor, not a comfort target. It is held for LARGE's printed panel and for
+everything that is not the panel's print (tips, notes, menus, the typed value) in both
+letterings. STANDARD's panel print stays as approved (R-LETTERING: "this is just SOME
+people, so I want it as an option, not as a general change").
+
+**Measured, before:** the tip and every menu, which keep their logical size while the panel
+grows with the window, were the smallest print at 4K: the tip 6.56 px x-height (LARGE 8.21),
+menu items 7.55 (9.44), titles 6.27 (7.84), group heads 5.50 (6.88), the typed value's unit
+5.28 (6.61), against the panel's legends at 10.25 (11.87). In LARGE the dial captions
+(M-SEC., SEC., MODULATION MIX's OSC. 3 and NOISE, the LFOs' Hz and SEC.) and OSC. 3 CONTROL
+were 8.63. At 150 % the tip (9.85) and items cleared the line; group heads (8.26) and the
+unit (7.93) did not. `docs/readability-4k.md` has the whole table.
+
+**Built:**
+- `Renderer::text_size`, the tip's, notes' and menus' size, is never smaller than the panel's
+  legends (19 units, LARGE 22). Below about 1960 logical pixels wide at 100 % (LARGE 2120)
+  the logical size is the larger, so nothing changes there: the 1080p, laptop, SIZE and
+  grip-minimum windows draw their tips and menus at the sizes they had. At FIT TO SCREEN on 4K at 100 % the tip goes
+  from 12 to 18.5 px (LARGE 15 to 21.4), x-height 10.12 (11.72).
+- A menu's group heads are 0.8 of its items, not 0.72; the title stays 0.82, with its band and
+  colour, and the heads keep their colour and spacing. The rows and widths are unchanged.
+- The typed value's unit is 0.8 of its field, not 0.7.
+- In LARGE the dials' captions take the numbers' size, 17 (`Lettering::caption`; STANDARD
+  keeps 14), and the official layout gives OSC. 3 CONTROL `large_size = 17`, its LARGE place
+  2 units further right (491) so that it keeps the clearance it had from the section's rule.
+
+**Not built, from #145 (measured, for the owner):** the dials' ticks are 4 units wide and 13
+long (58 to 71 from the centre, plus round caps), in the lettering's colour, where the
+numbers' strokes are about 2.9 units (LARGE 3.2); the section titles are 52-unit Demi, 37.4 px
+cap height at 4K against the legends' 13.7, also in the lettering's colour. Thinner, shorter
+or dimmer ticks and smaller or dimmer titles are changes to the approved panel's drawing, and
+neither enlarges the parameters' print by itself: the numbers are placed at their own radius
+(86 units), not at the ticks' ends, and the titles' room is below the controls, not between
+them. Both are left for the owner's eye; a `[look]` option would be their route.
+
+**Agent decisions** (not separately approved): the floor's reference (the panel's legend size,
+so a tip is never smaller than the legends it explains); 0.8 for heads and unit; OSC. 3
+CONTROL's 2-unit move. Its CONTROL now comes within about two pixels of RANGE's 32' at the
+corner (as before, it does not touch), and the owner should look at that crop. A 4K settings'
+menu is now too tall to drop below its key and is moved up over the rail's right end, as
+R-LETTERING describes for LARGE on a 1080p screen. Not changed: IDLE FOUNDRY (the maker's
+name, 6.47 px), STANDARD's panel print, the presets' drawer (19.08 at 4K), the FX chooser,
+and any window the user has made smaller (SIZE 100 % on a 4K screen is 1380 wide, and a width
+remembered from another screen opens at that width: R-WINDOW-DEFAULT).
+
+**Evidence (Linux, 2026-11-04):** `the_readability_pngs` (ignored, `$CA72_READABILITY_PNG`)
+renders the real editor at 4K 100 % and 150 % (FIT TO SCREEN and SIZE 100 %), a 1366 by 768
+laptop's 1076, SIZE 75 % and the 860 minimum, both looks and letterings, eleven states
+(GLOBAL, the tip, CUTOFF's menu, the settings' and SIZE menus, a typed value, KEYS, LFO,
+MACRO, ARP, the presets' drawer), with `sizes.csv` of the live editor's ems. Before (`88575ba`)
+and after, 308 frames each, are under `/mnt/lab/artifacts/ca-72/issue-70/`, with 1:1
+before/after crops of each changed class. Pixel ink heights agree with the outline arithmetic
+within about half a pixel (the tip's cap 9.48 to 14.20 px, menu items 10.45 to 16.11, heads
+7.50 to 13.00, LARGE's NOISE caption +0.78). On the laptop, SIZE 75 % and minimum windows the
+tips, menu items and menus' extents and places are as before (only the heads and the unit are
+larger); every tip, menu and field stays inside its window, and menus' hit areas come from the
+same layout as their drawing. The official looks' golden frames (`examples/golden`) differ in 18 of 32:
+all 16 LARGE frames at the captions and OSC. 3 CONTROL (and, in the two at scale 1.0 with the
+tip, the tip), and the two STANDARD frames at scale 1.0 with the tip, at the tip alone; the 14
+other STANDARD frames are identical. `approved.png` and `approved-large.png` are unchanged and
+still pass. `cargo test -p ca72-panel`: 160 passed, 9 ignored; `cargo test -p ca72-plugin
+--features standalone-production`: 738 passed, 76 ignored; clippy on both crates (all targets, all
+features, `-D warnings`) and `cargo fmt --all` clean. Not tried: a real 4K monitor, a host,
+Windows or macOS scaling, a human comfort trial.
+
+**Round 2 (owner, 2026-11-04: fix what round 1 flagged, with screenshots):**
+- *OSC. 3 CONTROL in LARGE* moves 5 units up (`large = [491, 475]` and `[491, 494]`, still 17,
+  still in the switch column; STANDARD untouched). Its CONTROL is now 8.1 physical pixels from
+  RANGE's 32' at 4K's FIT TO SCREEN, against 7.1 before round 1 and 3.2 after it, in both looks.
+  Its gap to the section rule is as before (as STANDARD's). The gap to its switch grows from 24
+  to 29 pixels (STANDARD's is 15). The rule is on its left and 32' below its right, so moving up
+  is the only room it has.
+- *The settings' menu* is set in columns where it would not fit below its key in one
+  (`Menu::in_columns`). It uses as few columns as fit, up to four and no wider than the room
+  left of the key. Each column begins at a group's head, with the tallest column as short as
+  the groups allow and the longer first. A rule separates the columns.
+
+  Its lettering and row pitch are as they were, so nothing goes under the minimum; a tighter row
+  or a smaller size would have been needed instead (its heads are 9.43 pixels at 4K, so only 4 %
+  of size was spare). The room under the key is 758 drawing units. Where the menu opens:
+
+  | Window | Lettering | Columns | Opens |
+  |---|---|---|---|
+  | 4K FIT TO SCREEN (100 % and 150 %) | both | two | below its key |
+  | SIZE 100 % | both | three | below its key |
+  | The laptop's 1076, SIZE 75 % | both | four | below its key |
+  | The 860 minimum | STANDARD | four | below its key |
+  | The 860 minimum | LARGE | four | over the rail and its key, as before |
+
+  In round 1 it rose over the rail and its key at every size in the matrix. A 1080p screen's
+  FIT TO SCREEN, which in LARGE opened upward before round 1, also opens below
+  its key now, in three columns (by the same arithmetic as SIZE 100 %; not rendered).
+
+  Since it is no longer shrunk to fit the window's height, its items are larger in small
+  windows: 13.49 to 13.80 pixels' em at 860 in STANDARD (17.25 in LARGE), and 16.88 and 16.24
+  to 17.25 in LARGE on the laptop and at SIZE 75 %. Every other menu is as it was: one column,
+  placed as before.
+
+**Evidence, round 2:** `/mnt/lab/artifacts/ca-72/issue-70/round2/` (`index.html`): the matrix
+again (336 frames, with a `quiet` state), 1:1 crops, and golden frames against `dd23251`.
+
+- *Golden frames:* 16 of 32 differ, the LARGE ones, each only at OSC. 3 CONTROL (face units
+  448 to 535 by 467 to 506). The STANDARD ones are identical, and none shows a menu.
+- *The editor's frames against round 1's:* the LARGE ones differ at OSC. 3 CONTROL, and the
+  settings' ones at the menu. The presets' drawer differs at the build's commit printed in
+  it. Every other frame is identical.
+
+`cargo test -p ca72-panel`: 162 passed, 9 ignored. `cargo test -p ca72-plugin --features
+standalone-production`: 740 passed, 76 ignored. Clippy (both crates, all targets and features,
+`-D warnings`) and `cargo fmt --all` are clean.
+
+**Round 3 (owner, 2026-11-04: LARGE at the 860 minimum still rose over the rail and covered its
+key; at the laptop's 1076 and SIZE 75 % MPE sat alone in a short fourth column):**
+- *Balanced columns.* Of the ways to set the groups in a given number of columns (each column
+  begun at a group's head, so a group is never split, the groups in order top to bottom, left
+  to right), `Menu::in_columns` now takes the one with the most even columns among those that
+  fit: the least sum of the columns' rows squared (their total is fixed, so this is the least
+  spread), then the shortest tallest column, then the longer first. Fewer columns are still
+  tried first, so it uses three where three fit, not four. The settings' groups (three, three,
+  three, three, four, two and two rows) go into four columns as six, six, four and four (MOD
+  WHEEL SOURCE and MPE together), not six, six, six and two.
+- *Shrink-to-fit after columns.* Where no way of setting it in up to four columns fits the room
+  below the key and left of it, the menu's lettering (and with it its rows and columns) is made
+  smaller, only as far as the way that needs the least shrinking requires (the fewer columns,
+  then the most even, where two need the same). This puts back the shrink-to-fit that round 2
+  removed, but after the columns. In the matrix it happens only in LARGE at the 860 minimum:
+  four columns (six, six, four and four rows) at 14.57 px em. That is below round 2's 17.25,
+  which did not fit and rose over the rail, and above round 1's 13.49, which shrank one column
+  to the window's height and also rose over it. The R-READABILITY-MINIMUM floor is a 4K FIT
+  TO SCREEN rule. At 4K FIT the menu has room for 13 to 16 rows a column, so it never shrinks
+  there.
+
+  | Window | STANDARD | LARGE |
+  |---|---|---|
+  | 4K FIT TO SCREEN, 100 % and 150 % | two: 9, 11 rows | two: 9, 11 |
+  | SIZE 100 % (100 % and 150 %) | three: 6, 6, 8 | three: 6, 6, 8 |
+  | 1080p FIT TO SCREEN (1513) | two: 9, 11 | three: 6, 6, 8 |
+  | Laptop (1076) | three: 6, 6, 8 | four: 6, 6, **4, 4** (was 6, 6, 6, 2) |
+  | SIZE 75 % (1035) | four: 6, 6, **4, 4** (was 6, 6, 6, 2) | four: 6, 6, **4, 4** (was 6, 6, 6, 2) |
+  | 860 | four: 6, 6, **4, 4** (was 6, 6, 6, 2) | four: 6, 6, 4, 4, **14.57 px**, below its key (was 17.25, over the rail) |
+
+  Every one now opens below its key without covering it. Round 2's table gave the laptop's
+  STANDARD as four columns; its frames show three (6, 6, 8), as now. In the standalone the
+  STANDALONE and AGENTS groups add up to about ten rows. By the same arithmetic these still fit
+  at 4K FIT, and in small windows they may shrink the menu. That has not been rendered.
+
+**Agent decisions, round 3** (not separately approved): the measure of even (the sum of the
+squares, then the tallest, then the longer first), and that the shrink is chosen across every
+column count up to four, the least shrink winning.
+
+**Evidence, round 3:** `/mnt/lab/artifacts/ca-72/issue-70/round3/` (`index.html`): the matrix
+again with 1080p FIT added (384 frames, `after/sizes.csv`), round 2's code at 1080p FIT
+(`round2-1080p/`), 1:1 crops of the settings' menu and its key (round 2 left, round 3 right) at
+4K FIT, SIZE 100 %, 1080p FIT, the laptop, SIZE 75 % and 860, both looks and letterings, and
+golden frames against `ef41abf`.
+
+- *The editor's frames against round 2's:* only the settings' menu differs, at the laptop in
+  LARGE, SIZE 75 % and 860 in both letterings. The presets' drawer differs at the build's commit
+  printed in it. Every other frame is identical, including 1080p FIT, where nothing changed.
+- *Golden frames:* 32 compared, 0 differ.
+- *Tests:* `the_settings_menu_opens_below_its_key_at_every_size` checks every size above, both
+  looks and both letterings: the menu is below its key and not over it, its columns' rows are as
+  in the table, it is not shrunk except LARGE at 860, and there it is no smaller than round 1's
+  13.49 px and fills the room. `ca72-panel`'s `a_menus_columns_are_balanced` and
+  `a_menu_no_columns_fit_is_made_smaller_as_little_as_fits` cover the same rules.
+
+**Round 4 (2026-11-04, a check of the standalone's menu; no layout change):** the standalone's
+settings' menu adds STANDALONE (AUDIO & MIDI…, and its NOT REAL-TIME row when that is so) and
+AGENTS (ALLOW, OFF, how they stand while allowed, and the two setups to copy) after MPE: 27 rows
+as it opens, 29 at its fullest. It opens below its key without covering it at every size, both
+looks and both letterings, in balanced columns that never split a group. At 4K FIT TO SCREEN
+its lettering is as it is (two columns in STANDARD, three in LARGE), so the fifth column the
+brief allowed there was not needed and was not added.
+
+  | Window | STANDARD (opens / fullest) | LARGE (opens / fullest) |
+  |---|---|---|
+  | 4K FIT, 100 % and 150 % | 12, 15 / 16, 13 | 9, 9, 9 / 9, 11, 9 |
+  | SIZE 100 % | 9, 9, 9 / 9, 7, 7, 6 | 6, 6, 8, 7 / 9, 7, 7, 6, smaller |
+  | 1080p FIT (1513) | 9, 9, 9 / 9, 11, 9 | 9, 9, 9 / 9, 7, 7, 6 |
+  | Laptop (1076) | 6, 6, 8, 7 / 9, 7, 7, 6, smaller | 6, 6, 8, 7 / 9, 7, 7, 6, both smaller |
+  | SIZE 75 % (1035), 860 | 6, 6, 8, 7 / 9, 7, 7, 6, both smaller | the same |
+
+  Four columns of its groups are eight or nine rows tall, more than the room under the key in
+  the smaller windows, so there it is made smaller: em 14.26 px as it opens in LARGE on the
+  laptop, 13.72 at SIZE 75 % and 11.40 at 860; at its fullest 16.50 (SIZE 100 % LARGE), 12.86,
+  12.37 and 10.28. That is below the 13.49 px the plug-in's keeps at 860 (round 1's em there),
+  but that floor is the plug-in's; R-READABILITY-MINIMUM's is a 4K FIT rule, and the plug-in's
+  menu is unchanged. Measured, not adopted: a fifth column would keep it full size as it opens
+  in STANDARD everywhere and give 13.89 px at 860 in LARGE (12.60 at its fullest). It would also
+  change the plug-in's 860 LARGE, so it is left to the owner.
+
+**Agent decisions, round 4** (not separately approved): the test's standalone has its host and
+its bridge through two test-only, per-thread switches (`standalone_settings::AS_STANDALONE`,
+`agent::setup::TEST_BRIDGE`), as the host's handle is the process's and would put STANDALONE in
+every other test's menu; its fullest state is the one with the most rows and the widest row.
+
+**Evidence, round 4:** `/mnt/lab/artifacts/ca-72/issue-70/round4/` (`index.html`): 1:1 crops of
+the standalone's menu and its key (as it opens left, at its fullest right) at 4K FIT, SIZE 100 %,
+1080p FIT, the laptop, SIZE 75 % and 860, both looks and letterings; the frames and their
+`sizes.csv` in `frames/`. *Tests:* `the_standalones_settings_menu_opens_below_its_key_at_every_size`
+checks both states at the eight sizes, both looks and letterings: below its key and not over
+it, each column begun at a group's head, the rows as in the table, the lettering as it is where
+it fits (4K FIT included) and elsewhere only as much smaller as fits.
+
+**Round 5 (owner, 2026-11-04: allow a fifth column):** the settings' menu may be set in up to
+five columns (`SETTINGS_COLUMNS`), so that the standalone's longer menu keeps its size in
+smaller windows. The rule is unchanged: the fewest columns that fit, then the most even, then
+as little smaller as needed. Five are used only where four would make the text smaller.
+
+- *The plug-in's menu does not change.* Five columns of its groups are at least six rows tall,
+  as four are, and wider, so four stay where nothing fits too. LARGE at 860 keeps four columns
+  (6, 6, 4, 4) at 14.57 px. Its 385 frames are identical to round 4's.
+- *The standalone's* (STANDARD then LARGE, as it opens / at its fullest; smaller where in
+  bold):
+
+  | Window | STANDARD | LARGE |
+  |---|---|---|
+  | 4K FIT, 100 % and 150 % | 12, 15 / 16, 13 | 9, 9, 9 / 9, 11, 9 |
+  | SIZE 100 % | 9, 9, 9 / 9, 7, 7, 6 | 6, 6, 8, 7 / 6, 6, 6, 5, 6 (was 9, 7, 7, 6 at 16.50) |
+  | 1080p FIT (1513) | 9, 9, 9 / 9, 11, 9 | 9, 9, 9 / 9, 7, 7, 6 |
+  | Laptop (1076) | 6, 6, 8, 7 / 6, 6, 6, 5, 6 | 6, 6, 6, 4, 5 / 3, 6, 7, 7, 6, **15.00** |
+  | SIZE 75 % (1035) | 6, 6, 6, 4, 5 / 6, 6, 6, 5, 6 | 6, 6, 6, 4, 5, **16.72** / 3, 6, 7, 7, 6, **14.42** |
+  | 860 | 6, 6, 6, 4, 5 / 3, 6, 7, 7, 6, **11.99** | 6, 6, 6, 4, 5, **13.89** / 3, 6, 7, 7, 6, **11.99** |
+
+  As it opens, STANDARD keeps its full size at every size, against 13.72 and 11.40 px in round
+  4. At its fullest, the menu is still smaller than the plug-in's 13.49 px floor at 860
+  (11.99, up from 10.28).
+- *A lone short group.* Where the fullest menu is made smaller (the laptop and SIZE 75 % in
+  LARGE, 860 in both), the way that needs the least shrinking has LOOK alone in a first column
+  of three rows (3, 6, 7, 7, 6). It is narrower than the even 6, 6, 6, 5, 6 and the room left
+  of the key is what limits it. The even way would be about 3.5 % smaller: 14.48 px on the
+  laptop, 13.92 at SIZE 75 % and 11.57 at 860. As the owner restated the rule ("shrink as
+  little as needed"), the least shrink is kept. Wherever the menu fits, it has no lone short
+  group. Round 4's 12.60 px (860 LARGE at its fullest, with five columns) was measured on the
+  menu before the COPIED row widened it; with that row it is 11.99.
+- *Within the room and the window.* Every case, five columns included, opens with its right
+  edge at its key's, its left edge inside the window and its bottom above the window's
+  (`settings_menu_at`).
+
+**Evidence, round 5:** `/mnt/lab/artifacts/ca-72/issue-70/round5/` (`index.html`): 1:1 crops
+of each menu that changed (round 4 left, round 5 right), the plug-in's frames (`before/`,
+`after/`) and the standalone's (`before-standalone/`, `after-standalone/`), each with its
+`sizes.csv`, and golden frames against `1033538` (32 compared, 0 differ). *Tests:*
+`the_settings_menu_opens_below_its_key_at_every_size` (the plug-in's rows as round 3's, LARGE
+at 860 at 14.57 px), `the_standalones_settings_menu_opens_below_its_key_at_every_size` (the
+table above, STANDARD at full size as it opens at every size, each smaller em recorded), and
+`ca72-panel`'s `a_menus_columns_are_balanced` (the standalone's groups in five where four would
+be eight rows tall, four where they fit) and
+`a_menu_no_columns_fit_is_made_smaller_as_little_as_fits` (up to five).
+
+## R-QUIET-PRINT. TICKS & TITLES: quieter ticks and sections' titles, a setting
+
+**Owner brief, 2026-11-04 (issue #145's "tick marks" and "big labels", measured in
+R-READABILITY-MINIMUM):** do them as an opt-in option in the settings key's menu, beside the
+lettering's choice and in its style. The official panel stays as approved by default. When on:
+- the scale ticks are thinner (about the numerals' strokes), shorter, and a shade dimmer than
+  the lettering;
+- the five sections' titles are smaller and a shade dimmer.
+
+Route it through the skin system, as a `[look]` option a pack can set, whose built-in default
+draws as today. Persist it as the lettering is. Off, nothing changes.
+
+**Built:**
+- **The menu:** the settings' menu has TICKS & TITLES, STANDARD or QUIET (marked as
+  LETTERING's are), after LETTERING. It is kept for the computer in `settings.toml` as
+  `ticks_and_titles = "standard"` or `"quiet"` (anything else reads as standard), as
+  `lettering` is.
+- **Agents:** they set it with `ca72_settings_set {ticks_and_titles}`.
+- **Packs:** a pack sets it with `[look] ticks_and_titles = "quiet"` (an unknown value refuses
+  the pack: `look.ticks-and-titles`). A look that sets it prints quiet whatever the setting.
+  Without it, the built-in looks draw as approved.
+
+**QUIET draws** (`art::TicksTitles`):
+- **Ticks:** every tick of the panel's dials and selectors and of the strip's dials is 0.725 of
+  its width (0.8 in LARGE: 2.9 and 3.2 units for the dials' 4, the numbers' strokes). Each is
+  0.72 of its length from its inner end (a dial's 13 units become 9.4, so the gap to the numbers
+  widens), and at 80 % of the lettering's ink.
+- **Titles:** the five titles are 0.75 of their size (52 units become 39), on the same
+  baselines, spaced to 0.75 of their spans, at 80 % ink.
+- Every legend, number and rule is as it was. The arpeggiator's, the expression's and the LFO
+  page's drawers keep their ticks: they are drawn by their own renderers from the look's base
+  and lettering, not from the panel's layout.
+
+**Agent decisions** (not separately approved):
+- the name, TICKS & TITLES: STANDARD | QUIET, in the menu's head-and-choices wording;
+- the factors;
+- the selectors' and the strip's ticks included, so that the panel's ticks match;
+- the drawers left out.
+
+**Evidence:** `/mnt/lab/artifacts/ca-72/issue-70/round2/` (`quiet-*`, `after/*-quiet.png`).
+Off, every frame is as round 1's (the golden frames and the matrix). A test holds the off frame
+to the approved one, to the pixel. Another holds QUIET's print to the ticks and the five titles
+alone.

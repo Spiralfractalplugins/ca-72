@@ -948,14 +948,19 @@ mod tests {
         assert_eq!(a.lines.len(), 15);
     }
 
-    /// QUALITY's small print follows LARGE, while older packs keep their fixed sizes.
+    /// QUALITY's small print and OSC. 3 CONTROL follow LARGE (R-READABILITY-4K,
+    /// R-READABILITY-MINIMUM), while older packs keep their fixed sizes.
     #[test]
     fn large_small_print_is_optional_and_checked() {
         use art::Lettering::{Large, Standard};
         let a = Arrangement::official();
-        assert_eq!(a.texts.iter().filter(|t| t.large_size.is_some()).count(), 3);
+        assert_eq!(a.texts.iter().filter(|t| t.large_size.is_some()).count(), 5);
         for text in a.texts.iter().filter(|t| t.size == Some(15.0)) {
             assert_eq!(text.size_in(Standard), 15.0, "{}", text.text);
+            assert_eq!(text.size_in(Large), 17.0, "{}", text.text);
+        }
+        for text in a.texts.iter().filter(|t| t.size == Some(16.0)) {
+            assert_eq!(text.size_in(Standard), 16.0, "{}", text.text);
             assert_eq!(text.size_in(Large), 17.0, "{}", text.text);
         }
         let old = include_str!("../tests/compat/v1/official-layout.toml");

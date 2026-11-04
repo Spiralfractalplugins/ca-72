@@ -12,7 +12,7 @@ use resvg::tiny_skia::{
 use resvg::usvg;
 
 use crate::arrangement::Arrangement;
-use crate::art::{self, Blend, H, Layer, Layout, Lettering, W};
+use crate::art::{self, Blend, H, Layer, Layout, Lettering, TicksTitles, W};
 use crate::controls::{CONTROLS, Kind, Mark, feedback_silent};
 use crate::fonts::{FAMILY, Fonts};
 use crate::learn::{self, Menu, Note};
@@ -402,7 +402,22 @@ impl Renderer {
 
     /// A renderer drawing the panel in `look` (a skin pack's, or a built-in one).
     pub fn with_pack(look: Look, lettering: Lettering, scale: f64, ui: f64) -> Self {
+        Self::printing(look, lettering, TicksTitles::Standard, scale, ui)
+    }
+
+    /// The same, its ticks and sections' titles quiet where `print` (the settings' TICKS &
+    /// TITLES) or the look asks for them so (decisions.md R-QUIET-PRINT).
+    pub fn printing(
+        look: Look,
+        lettering: Lettering,
+        print: TicksTitles,
+        scale: f64,
+        ui: f64,
+    ) -> Self {
         let mut r = Self::blank(look, lettering, scale, ui, true);
+        if print == TicksTitles::Quiet {
+            r.layout = r.layout.clone().printing(TicksTitles::Quiet);
+        }
         r.draw_background();
         r
     }
@@ -420,7 +435,8 @@ impl Renderer {
             .fonts
             .and_then(|(regular, bold)| Fonts::with(regular, bold).ok())
             .unwrap_or_default();
-        let layout = Layout::measure_in(&fonts, lettering, &arrangement);
+        let layout =
+            Layout::measure_in(&fonts, lettering, &arrangement).printing(look.ticks_titles);
         let options = usvg::Options {
             fontdb: fonts.database(),
             font_family: FAMILY.into(),
@@ -476,6 +492,11 @@ impl Renderer {
     /// The size its lettering is printed at.
     pub fn lettering(&self) -> Lettering {
         self.layout.lettering()
+    }
+
+    /// How its ticks and sections' titles are printed (the look's or the settings' choice).
+    pub fn print(&self) -> TicksTitles {
+        self.layout.print()
     }
 
     /// Redraws everything at a new scale.
@@ -1251,10 +1272,12 @@ impl Renderer {
         out
     }
 
-    /// The lettering's size of the tip, a note and a menu, in drawing units (its logical pixels at
-    /// this scale).
+    /// The lettering's size of the tip, a note and a menu, in drawing units: its logical pixels at
+    /// this scale, but never smaller than the panel's legends, which grow with the window where
+    /// these would not (a 4K screen at 100 %: decisions.md R-READABILITY-MINIMUM).
     pub fn text_size(&self) -> f64 {
-        TIP_TEXT * self.layout.lettering().text() * self.ui / self.scale
+        let lettering = self.layout.lettering();
+        (TIP_TEXT * lettering.text() * self.ui / self.scale).max(lettering.legend())
     }
 
     /// Control `i` at `v` (normalized) as this look draws it, alone, for a frame drawn apart (the
@@ -2349,6 +2372,88 @@ mod tests {
     use crate::controls::index;
     use crate::ultra::Opening;
     use std::time::Instant;
+
+    /// TICKS & TITLES (decisions.md R-QUIET-PRINT): off, the panel as approved, to the pixel;
+    /// QUIET, every tick the panel and the strip print (the dials' and the selectors') thinner,
+    /// shorter from its inner end and dimmer, the five sections' titles smaller and dimmer on
+    /// their baselines, and every other text as it was. A look that asks for it prints quiet
+    /// whatever the setting.
+    #[test]
+    fn quiet_print_thins_the_ticks_and_titles_and_nothing_else() {
+        for lettering in [Lettering::Standard, Lettering::Large] {
+            let frame = |look: Look, print| {
+                let mut r = Renderer::printing(look, lettering, print, 0.25, 1.0);
+                r.render(&Scene::default());
+                (r.print(), r.frame().data().to_vec())
+            };
+            let mut approved = Renderer::with_look(Skin::Drawn, lettering, 0.25, 1.0);
+            approved.render(&Scene::default());
+            let off = frame(Look::classic(), TicksTitles::Standard);
+            assert_eq!(off.0, TicksTitles::Standard);
+            assert!(off.1 == approved.frame().data(), "off: as approved");
+            let on = frame(Look::classic(), TicksTitles::Quiet);
+            assert_eq!(on.0, TicksTitles::Quiet);
+            assert!(on.1 != off.1);
+            let look = Look {
+                ticks_titles: TicksTitles::Quiet,
+                ..Look::classic()
+            };
+            assert_eq!(frame(look, TicksTitles::Standard), on, "the look's own");
+
+            let arrangement = Arrangement::official();
+            let layout = approved.layout().clone();
+            let quiet = layout.clone().printing(TicksTitles::Quiet);
+            let standard = art::printed(&layout, &arrangement);
+            let printed = art::printed(&quiet, &arrangement);
+            let elements = |svg: &str, tag: &str| -> Vec<String> {
+                svg.split('<')
+                    .filter(|e| e.starts_with(tag))
+                    .map(str::to_owned)
+                    .collect()
+            };
+            let (a, b) = (elements(&standard, "text "), elements(&printed, "text "));
+            assert_eq!(a.len(), b.len());
+            let retitled: Vec<&str> = a
+                .iter()
+                .zip(&b)
+                .filter(|(a, b)| a != b)
+                .map(|(_, b)| {
+                    assert!(
+                        b.contains("fill-opacity='0.8'"),
+                        "only the titles change: {b}"
+                    );
+                    &b[b.rfind('>').map_or(0, |k| k + 1)..]
+                })
+                .collect();
+            let titles: Vec<&str> = arrangement.titles.iter().map(|t| t.text.as_str()).collect();
+            assert_eq!(retitled, titles);
+            // Every tick quiet, and the rules between sections as they were.
+            let (a, b) = (elements(&standard, "line "), elements(&printed, "line "));
+            assert_eq!(a.len(), b.len());
+            let ticks = b
+                .iter()
+                .filter(|e| e.contains("stroke-opacity='0.8'"))
+                .count();
+            let width = |e: &str| -> f64 {
+                let w = e.split("stroke-width='").nth(1).unwrap_or("0");
+                w[..w.find('\'').unwrap_or(0)].parse().unwrap_or(0.0)
+            };
+            let k = if lettering == Lettering::Large {
+                0.8
+            } else {
+                0.725
+            };
+            for (a, b) in a.iter().zip(&b) {
+                if b.contains("stroke-opacity='0.8'") {
+                    assert!((width(b) - width(a) * k).abs() < 1e-3, "{a} {b}");
+                } else {
+                    assert_eq!(a, b);
+                }
+            }
+            // (The panel's dials' and selectors' and the strip's dials': well over two hundred.)
+            assert!(ticks > 200, "{ticks}");
+        }
+    }
 
     /// A frame put together again where it changed is the frame put together whole, to the
     /// bit: through knobs turned above the strip and on it, a switch, a tip coming and going.

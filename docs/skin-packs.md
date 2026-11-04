@@ -323,6 +323,7 @@ drawer_art = "art/drawer.svg" # optional: drawn over the presets' drawer's face 
 drawer_lettering = "type"    # optional: its displays in "dots" (the default) or the typeface
 drawer_legends = "caps"      # optional, no longer used: its keys' legends are always on them
 drawer_titles = "centre"     # optional: its sections' titles at their "left" (the default) or centred
+ticks_and_titles = "quiet"   # optional: the panel's ticks and titles "standard" (the default) or "quiet"
 
 [look.colours]               # optional: the strip's (see The strip), each "#rrggbb"
 lamp = "#ffa040"             # its readouts' lit segments, its displays' dots, the voices' drops
@@ -345,6 +346,14 @@ walnut = "pictures/walnut.svg"
   the face, the realistic look's trim and shadows) and under its print, controls, screws and
   jacks. Nothing outside the panel is drawn. The strip below the panel, which holds the
   plug-in's own controls, has a drawing of its own (`strip_art`: see The strip).
+- **Quiet ticks and titles** (`ticks_and_titles = "quiet"`): the panel's and the strip's dials'
+  and selectors' ticks printed thinner (about the dials' numbers' strokes: 0.725 of their
+  width, 0.8 in the large lettering), shorter (0.72 of their length, from their inner ends) and
+  a shade dimmer than the lettering (80 % of its ink), and the panel's sections' titles (its
+  layout's `[[title]]`s) at 0.75 of their size, spaced in the same proportion on the same
+  baselines, as dim. Nothing else moves. It is what a player gets with the settings' TICKS &
+  TITLES: QUIET, in any look; a look that sets it prints so whatever that says. Without it, the
+  panel is printed as approved. A CA-72 older than this setting passes over it (`look.unknown`).
 - **The typeface** prints the panel's legends, titles, dial numbers, tips and menus. It is used
   only if it has a glyph for every legend and for everything the plug-in prints itself
   (printable ASCII, "–" and "…"); otherwise the built-in typeface (URW Gothic) is used and the

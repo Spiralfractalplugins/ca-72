@@ -438,13 +438,15 @@ at = [822, 471]
 text = "OSC. 3"
 at = [488, 490]
 size = 16
-large = [488, 480]
+large_size = 17
+large = [491, 475]
 
 [[text]]
 text = "CONTROL"
 at = [488, 509]
 size = 16
-large = [488, 499]
+large_size = 17
+large = [491, 494]
 
 # MIXER.
 [[text]]

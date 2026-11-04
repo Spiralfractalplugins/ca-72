@@ -15,6 +15,10 @@ pub struct Field {
     pub selected: bool,
 }
 
+/// The unit's lettering, against the digits' size (0.7 left it the smallest print in a 4K
+/// window: decisions.md R-READABILITY-MINIMUM).
+const UNIT: f64 = 0.8;
+
 impl Field {
     pub fn placed(
         mut self,
@@ -24,7 +28,7 @@ impl Field {
     ) -> Self {
         let size = self.size;
         let text = self.text.chars().count() as f64 * 6.0 * size / 7.0;
-        let unit = fonts.advance(self.unit, size * 0.7, Weight::Regular, 0.0);
+        let unit = fonts.advance(self.unit, size * UNIT, Weight::Regular, 0.0);
         let w = (text + unit + size * 3.0).max(size * 8.0);
         let h = size * 2.2;
         let fit = ((right - left) / (w + size * 0.6))
@@ -98,7 +102,7 @@ impl Field {
             "<text x='{}' y='{}' text-anchor='end' font-size='{}' fill='#b5b0a4'>{}</text>",
             N(w - pad),
             N(size * 1.45),
-            N(size * 0.7),
+            N(size * UNIT),
             escape(self.unit)
         );
         Layer {

@@ -15,7 +15,18 @@ use plugin_kit_standalone::{
 static REQUESTED: AtomicBool = AtomicBool::new(false);
 
 pub fn available() -> bool {
+    #[cfg(test)]
+    if AS_STANDALONE.get() {
+        return true;
+    }
     AppHandle::current().is_some()
+}
+
+#[cfg(test)]
+thread_local! {
+    /// A test's editor on this thread made as the standalone's, its host there (the host's
+    /// handle is the process's, and would put STANDALONE in every test's settings).
+    pub(crate) static AS_STANDALONE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 pub fn request_open() {
     if available() {
