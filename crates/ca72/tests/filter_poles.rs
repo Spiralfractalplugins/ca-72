@@ -69,6 +69,41 @@ fn octaves(lo: f64, hi: f64, per: usize) -> Vec<f64> {
         .collect()
 }
 
+/// NOTCH's response near the corner, for the record (`-- --ignored --nocapture`).
+#[test]
+#[ignore]
+fn print_notch() {
+    let freqs = octaves(250.0, 4_000.0, 16);
+    for r14 in [R14_0, 3e3] {
+        for n in 1..=4u8 {
+            let r = response(
+                FilterMode::Notch,
+                n,
+                r14,
+                I0_HIGH,
+                Quality::HighFidelity,
+                &freqs,
+            );
+            let (k, low) = r
+                .iter()
+                .enumerate()
+                .fold((0, f64::MAX), |a, (k, &d)| if d < a.1 { (k, d) } else { a });
+            let ends = response(
+                FilterMode::Notch,
+                n,
+                r14,
+                I0_HIGH,
+                Quality::HighFidelity,
+                &[62.5, 16_000.0],
+            );
+            eprintln!(
+                "R14 {r14:>6} NOTCH {n}: deepest {low:.1} dB at {:.0} Hz; 62 Hz {:.1}, 16 kHz {:.1}",
+                freqs[k], ends[0], ends[1]
+            );
+        }
+    }
+}
+
 /// Prints every setting's response (`cargo test -p ca72 --test filter_poles -- --ignored
 /// --nocapture`), for the record.
 #[test]
@@ -299,4 +334,45 @@ fn a_change_crossfades() {
         at <= 1.05 * own,
         "{at:.3e} V a sample across the change, {own:.3e} V in either"
     );
+}
+
+/// NOTCH: at 1, 2 and 4 poles its deepest within a third of an octave of BAND's peak, 30 dB
+/// under its passband (16 kHz, STEEP HIGH's within half a dB) at 2 poles and 40 at 4; at
+/// EMPHASIS 7.5 still there, within a third of an octave, 25 and 35 dB down: the loop's feedback
+/// moves the poles, not the zeros.
+#[test]
+fn notch_stays_at_the_corner() {
+    let freqs = octaves(250.0, 4_000.0, 16);
+    let deepest = |r: &[f64]| {
+        r.iter()
+            .enumerate()
+            .fold((0, f64::MAX), |a, (k, &d)| if d < a.1 { (k, d) } else { a })
+    };
+    for q in QUALITIES {
+        let band = at_800(FilterMode::Band, 2, q, &freqs);
+        let peak = band
+            .iter()
+            .enumerate()
+            .fold((0, f64::MIN), |a, (k, &d)| if d > a.1 { (k, d) } else { a })
+            .0;
+        let high = at_800(FilterMode::High, 2, q, &[16_000.0])[0];
+        for (n, depth, rung) in [(1u8, 30.0, 25.0), (2, 30.0, 25.0), (4, 40.0, 35.0)] {
+            let pass = at_800(FilterMode::Notch, n, q, &[16_000.0])[0];
+            assert!(
+                (pass - high).abs() < 0.5,
+                "{q:?} NOTCH {n}: passband {pass:.1} dB, STEEP HIGH's {high:.1}"
+            );
+            for (r14, want) in [(R14_0, depth), (3e3, rung)] {
+                let r = response(FilterMode::Notch, n, r14, I0_HIGH, q, &freqs);
+                let (k, low) = deepest(&r);
+                let octaves = (freqs[k] / freqs[peak]).log2();
+                assert!(
+                    octaves.abs() <= 1.0 / 3.0 && low < pass - want,
+                    "{q:?} NOTCH {n}, R14 {r14}: {low:.1} dB at {:.0} Hz, BAND's peak at {:.0}",
+                    freqs[k],
+                    freqs[peak]
+                );
+            }
+        }
+    }
 }

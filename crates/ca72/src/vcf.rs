@@ -1244,6 +1244,10 @@ pub enum FilterMode {
     Band,
     /// STEEP HIGH: a high-pass mixed from the ladder's stages, 6 dB an octave a pole.
     High,
+    /// NOTCH: the low-pass and the high-pass of the same order together, mixed from the
+    /// ladder's stages; the loop's feedback moves its poles, not its zeros, so that it stays at
+    /// the corner whatever the emphasis.
+    Notch,
 }
 
 /// FILTER POLES's default: the fourth stage, the filter as drawn.
@@ -1262,10 +1266,18 @@ const BAND_GAIN: [f64; 4] = [2.0, 2.0, 2.598_076_211_353_316, 4.0];
 /// less its output in its pair's tanh, its capacitor's current (the input pair's output for
 /// the first's input): with s0 the first stage's drive and s1..s4 the stages' outputs, d[j] =
 /// s(j) - s(j+1). STEEP HIGH is (1 - G)^n of the drive, the nth difference of s; BAND is
-/// G (1 - G) (1 and 2 poles), G^2 (1 - G) (3) or G^2 (1 - G)^2 (4) of it.
-pub(crate) fn mix(mode: FilterMode, poles: u8, d: [f64; 4]) -> f64 {
+/// G (1 - G) (1 and 2 poles), G^2 (1 - G) (3) or G^2 (1 - G)^2 (4) of it. NOTCH is
+/// G^2 + (1 - G)^2 = (1 + s^2) / (1 + s)^2 at 1 and 2 poles, that squared at 4 (G^4 + 2 G^2 (1 -
+/// G)^2 + (1 - G)^4), and at 3 the 2-pole notch through one stage more (G^3 + G (1 - G)^2): its
+/// low-pass terms the stages' outputs themselves, `s` (s[2] to s[4]; the others unused).
+pub(crate) fn mix(mode: FilterMode, poles: u8, d: [f64; 4], s: [f64; 5]) -> f64 {
     let n = poles.clamp(1, 4);
     match mode {
+        FilterMode::Notch => match n {
+            1 | 2 => s[2] + d[0] - d[1],
+            3 => s[3] + d[1] - d[2],
+            _ => s[4] + 2.0 * (d[2] - d[3]) + d[0] - 3.0 * d[1] + 3.0 * d[2] - d[3],
+        },
         FilterMode::High => match n {
             1 => d[0],
             2 => d[0] - d[1],
@@ -1671,7 +1683,12 @@ impl Vcf {
         let (q, x0) = self.mode;
         let q = (q * (1.0 - a) + a * (x + x0)) / (1.0 + a);
         self.mode = (q, x);
-        let mix = |s: Shape| matches!(s.mode, FilterMode::Band | FilterMode::High);
+        let mix = |s: Shape| {
+            matches!(
+                s.mode,
+                FilterMode::Band | FilterMode::High | FilterMode::Notch
+            )
+        };
         if mix(self.shape) || self.fade.is_some_and(|(s, _)| mix(s)) {
             self.follow_free();
         } else {
@@ -1756,7 +1773,7 @@ impl Vcf {
                     let w = y[W] - y[3] + loaded * y[usize::from(shape.poles) - 1];
                     v + gain * (amp(w) - amp(y[W]))
                 }
-                FilterMode::Band | FilterMode::High => {
+                FilterMode::Band | FilterMode::High | FilterMode::Notch => {
                     // Each stage's capacitor current over its emitter current, in its pair's
                     // tanh: 2C dx/dt = E (in - out); the fourth's unloaded
                     // ([`Vcf::follow_free`]).
@@ -1769,7 +1786,17 @@ impl Vcf {
                             2.0 * bias.c_stage[j] * f[j] / (p * bias.e[j])
                         }
                     });
-                    let w = loaded * volts * mix(shape.mode, shape.poles, d);
+                    // NOTCH's low-pass terms: the second stage's output, and the third's and the
+                    // unloaded fourth's ([`Vcf::follow_free`]).
+                    let s = if shape.mode == FilterMode::Notch {
+                        let (third, fourth) = self.free.unwrap_or((0.0, 0.0));
+                        let second =
+                            crate::fast::tanh(y[1] / (2.0 * bias.vt_stage[1] + bias.v_stage[1]));
+                        [0.0, 0.0, second, third, fourth]
+                    } else {
+                        [0.0; 5]
+                    };
+                    let w = loaded * volts * mix(shape.mode, shape.poles, d, s);
                     gain * (amp(w) - amp(0.0))
                 }
             }

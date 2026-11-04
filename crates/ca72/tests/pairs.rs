@@ -62,6 +62,7 @@ fn pair_matches_alone(qa: Quality, qb: Quality, seconds: f64, one_emphasis: bool
             15_000 => each(&|v| v.panel.filter_poles = 2),
             18_000 => each(&|v| v.panel.filter_mode = ca72::vcf::FilterMode::High),
             21_000 => each(&|v| v.panel.filter_mode = ca72::vcf::FilterMode::Band),
+            22_500 => each(&|v| v.panel.filter_mode = ca72::vcf::FilterMode::Notch),
             24_000 if !one_emphasis => each(&|v| v.panel.emphasis = 0.2),
             36_000 => each(&|v| v.note(60, false)),
             48_000 => each(&|v| v.note(64, true)),

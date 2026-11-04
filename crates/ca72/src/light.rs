@@ -1092,7 +1092,7 @@ type Coupling = (f32, f32, f32);
 
 /// The ladder's output in FILTER MODE and FILTER POLES `shape` (decisions.md R-POLES), from
 /// its fourth stage's `y` and its `taps`: LO (and HI) the stage FILTER POLES picks, BAND and
-/// STEEP HIGH the circuit's mixes ([`crate::vcf::mix`]) of the stages.
+/// STEEP HIGH and NOTCH the circuit's mixes ([`crate::vcf::mix`]) of the stages.
 #[inline(always)]
 fn shaped(shape: Shape, y: f32, taps: &[f32; 5]) -> f32 {
     match shape {
@@ -1100,7 +1100,7 @@ fn shaped(shape: Shape, y: f32, taps: &[f32; 5]) -> f32 {
         (FilterMode::Lo | FilterMode::Hi, n) => taps[usize::from(n)],
         (mode, n) => {
             let d = core::array::from_fn(|j| f64::from(taps[j] - taps[j + 1]));
-            crate::vcf::mix(mode, n, d) as f32
+            crate::vcf::mix(mode, n, d, taps.map(f64::from)) as f32
         }
     }
 }
@@ -3385,6 +3385,34 @@ mod tests {
             "{at:.3e} a sample across the change, {own:.3e} in either"
         );
         assert!(play(Some(0), FilterMode::Lo) == high, "set before it plays");
+    }
+
+    /// NOTCH as the circuit's: at 2 and 4 poles its deepest partial (of the 4th to the 20th,
+    /// CUTOFF 5) within one of BAND's loudest (the sawtooth's own fall taken out), 20 dB (2 poles) and 30 dB (4) under the same
+    /// partial in LO at 1 pole.
+    #[test]
+    fn notch_is_where_band_peaks() {
+        let harmonics: Vec<u32> = (4..=20).collect();
+        let band = partials(0.5, FilterMode::Band, 2, &harmonics);
+        let open = partials(0.5, FilterMode::Lo, 1, &harmonics);
+        // (BAND's partials less the sawtooth's own fall, 1/h.)
+        let flat = |k: usize| band[k] + 20.0 * f64::from(harmonics[k]).log10();
+        let loudest = (0..band.len())
+            .max_by(|&a, &b| flat(a).total_cmp(&flat(b)))
+            .unwrap();
+        for (n, depth) in [(2u8, 20.0), (4, 30.0)] {
+            let notch = partials(0.5, FilterMode::Notch, n, &harmonics);
+            let k = (0..notch.len())
+                .min_by(|&a, &b| (notch[a] - open[a]).total_cmp(&(notch[b] - open[b])))
+                .unwrap();
+            let below = open[k] - notch[k];
+            assert!(
+                k.abs_diff(loudest) <= 1 && below > depth,
+                "NOTCH {n}: partial {} {below:.1} dB under LO 1's, BAND's loudest {}",
+                harmonics[k],
+                harmonics[loudest]
+            );
+        }
     }
 
     /// BAND at 4 poles as the circuit's, G^2 (1 - G)^2: far above the corner (CUTOFF 5, about

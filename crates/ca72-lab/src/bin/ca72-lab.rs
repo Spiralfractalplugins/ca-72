@@ -1471,9 +1471,10 @@ fn set_control(p: &mut ca72::voice::Panel, k: &str, v: &serde_json::Value) -> Re
                 Some("hi") => ca72::vcf::FilterMode::Hi,
                 Some("band") => ca72::vcf::FilterMode::Band,
                 Some("high") => ca72::vcf::FilterMode::High,
+                Some("notch") => ca72::vcf::FilterMode::Notch,
                 _ => {
                     return Err(format!(
-                        "panel key \"filter_mode\" is \"lo\", \"band\", \"high\" or \"hi\", not {v}"
+                        "panel key \"filter_mode\" is \"lo\", \"band\", \"high\", \"notch\" or \"hi\", not {v}"
                     ));
                 }
             }
