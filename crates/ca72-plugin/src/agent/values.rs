@@ -357,7 +357,7 @@ pub fn table(p: &Ca72Params) -> Vec<Entry<'_>> {
         ),
         e(
             "filter_mode",
-            "FILTER MODE (LO, BAND or STEEP HIGH; HI is 0.3's)",
+            "FILTER MODE (LO, BAND, STEEP HIGH or NOTCH; HI is 0.3's)",
             F,
             &p.filter_mode,
             Plain,

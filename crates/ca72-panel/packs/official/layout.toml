@@ -180,30 +180,29 @@ size = [44, 114]
 colour = "blue"
 on = "bottom"
 
-# The switch column between MIXER and MODIFIERS.
+# The switch column between MIXER and MODIFIERS: FILTER MODE a selector of four places under
+# FILTER POLES (decisions.md R-POLES), both three quarters of RANGE's size.
 [[control]]
 param = "filter_mode"
-at = [1907, 316]
-size = [80.83333333333333, 50]
-across = true
+at = [1907, 322]
 
 [[control]]
 param = "filter_mod"
-at = [1907, 441]
+at = [1907, 463]
 size = [108, 50]
 colour = "red"
 on = "right"
 
 [[control]]
 param = "keyboard_control_1"
-at = [1907, 536]
+at = [1907, 558]
 size = [108, 48]
 colour = "red"
 on = "right"
 
 [[control]]
 param = "keyboard_control_2"
-at = [1907, 636]
+at = [1907, 658]
 size = [108, 48]
 colour = "red"
 on = "right"
@@ -211,7 +210,7 @@ on = "right"
 # FILTER POLES (decisions.md R-POLES), at the switch column's head.
 [[control]]
 param = "filter_poles"
-at = [1907, 175]
+at = [1907, 160]
 
 # MODIFIERS.
 [[control]]
@@ -298,22 +297,22 @@ to = [1122, 788]
 width = 4
 
 [[line]]
-from = [1908, 345]
-to = [1908, 374]
+from = [1908, 389]
+to = [1908, 396]
 width = 4
 
 [[line]]
-from = [1908, 469]
-to = [1908, 506]
+from = [1908, 491]
+to = [1908, 528]
 width = 4
 
 [[line]]
-from = [1908, 564]
-to = [1908, 570]
+from = [1908, 586]
+to = [1908, 592]
 width = 4
 
 [[line]]
-from = [1908, 664]
+from = [1908, 686]
 to = [1908, 788]
 width = 4
 
@@ -499,8 +498,9 @@ at = [1764, 407]
 text = "PINK"
 at = [1764, 558]
 
-# The switch column: FILTER POLES at its head (decisions.md R-POLES), FILTER MODE's toggle
-# under it, the original's switches under that.
+# The switch column: FILTER POLES at its head (decisions.md R-POLES), FILTER MODE's selector
+# under it (its legends the plug-in's pictures of its responses), the original's switches under
+# that, FILTER MODULATION's ON serving KEYBOARD CONTROL 1 too.
 
 [[text]]
 text = "POLES"
@@ -508,66 +508,40 @@ at = [1910, 55]
 
 [[text]]
 text = "FILTER MODE"
-at = [1910, 262]
-
-[[text]]
-text = "BAND"
-at = [1907, 285]
-size = 15
-large_size = 17
-
-[[text]]
-text = "LO"
-at = [1866, 351]
-size = 15
-large_size = 17
-
-[[text]]
-text = "HI"
-at = [1948, 351]
-size = 15
-large_size = 17
+at = [1910, 228]
 
 [[text]]
 text = "FILTER"
-at = [1910, 386]
+at = [1910, 408]
 
 [[text]]
 text = "MODULATION"
-at = [1910, 406]
+at = [1910, 428]
 
 [[text]]
 text = "ON"
-at = [1954, 479]
-large = [1944, 479]
+at = [1954, 501]
 
-[[text]]
-text = "ON"
-at = [1954, 500]
-large = [1944, 500]
 
 [[text]]
 text = "1"
-at = [1837, 535]
+at = [1837, 557]
 
 [[text]]
 text = "KEYBOARD"
-at = [1910, 581]
-large = [1910, 576]
+at = [1910, 603]
 
 [[text]]
 text = "CONTROL"
-at = [1910, 598]
-large = [1910, 596]
+at = [1910, 620]
 
 [[text]]
 text = "2"
-at = [1837, 635]
+at = [1837, 657]
 
 [[text]]
 text = "ON"
-at = [1954, 673]
-large = [1944, 673]
+at = [1954, 695]
 
 # MODIFIERS.
 [[text]]

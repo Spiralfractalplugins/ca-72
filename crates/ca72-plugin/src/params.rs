@@ -342,8 +342,8 @@ fn shape_param(name: &str, n: usize) -> FloatParam {
 }
 
 /// FILTER MODE, which the original does not have (decisions.md R46, R-POLES): LO, the filter's
-/// low-pass, from the stage FILTER POLES picks; BAND and STEEP HIGH, a band-pass and a high-pass
-/// mixed from the ladder's stages, FILTER POLES their slopes. HI, 0.3's (the hardware
+/// low-pass, from the stage FILTER POLES picks; BAND, STEEP HIGH and NOTCH, a band-pass, a
+/// high-pass and a notch mixed from the ladder's stages, FILTER POLES their slopes. HI, 0.3's (the hardware
 /// reference's high-pass: the mixer's output less the filter's), is no longer on the panel but
 /// is kept second, where it was, for the sessions and presets saved with it (a preset keeps a
 /// mode by its place).
@@ -361,6 +361,9 @@ pub enum FilterMode {
     #[id = "high"]
     #[name = "STEEP HIGH"]
     High,
+    #[id = "notch"]
+    #[name = "NOTCH"]
+    Notch,
 }
 
 impl FilterMode {
@@ -371,6 +374,7 @@ impl FilterMode {
             FilterMode::Hi => ca72::vcf::FilterMode::Hi,
             FilterMode::Band => ca72::vcf::FilterMode::Band,
             FilterMode::High => ca72::vcf::FilterMode::High,
+            FilterMode::Notch => ca72::vcf::FilterMode::Notch,
         }
     }
 }

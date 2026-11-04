@@ -117,8 +117,7 @@ For a new pack, in `$PACK/skin.toml`:
 In `$PACK/layout.toml`, keep `controls = 3` as the starter has it. It names the revision of the
 CA-72's controls the layout was made for, so that a later CA-72 can place controls added since
 (the starter is revision 3: FILTER POLES, added in 8, is placed by the plug-in and FILTER MODE
-drawn as its toggle, with notes; to place FILTER POLES yourself and size FILTER MODE's toggle,
-say `controls = 8` and place both).
+drawn as its selector, with notes; to place both yourself, say `controls = 8` and place them).
 
 ### 3. Run the first check
 

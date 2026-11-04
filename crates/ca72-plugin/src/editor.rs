@@ -574,32 +574,35 @@ impl Operated for WaveformSwitch {
     }
 }
 
-/// FILTER MODE's toggle (decisions.md R-POLES): its lever left (LO), out (BAND) or right (STEEP
-/// HIGH). 0.3's HI, which the panel no longer offers, shows at STEEP HIGH's place and stays in
-/// effect until the lever is moved off it.
-struct FilterModeSwitch {
+/// FILTER MODE's selector (decisions.md R-POLES): its places 1 to 4 of the six LO, BAND, STEEP
+/// HIGH and NOTCH. 0.3's HI, which the panel no longer offers, shows at STEEP HIGH's place and
+/// stays in effect until the selector is moved off it.
+struct FilterModeSelector {
     params: Arc<Ca72Params>,
 }
 
-impl FilterModeSwitch {
-    /// The mode at the toggle's position `normalized` (0, 0.5, 1).
+impl FilterModeSelector {
+    /// The mode at the selector's place `normalized` (k / 5).
     fn at(normalized: f32) -> crate::params::FilterMode {
         use crate::params::FilterMode as M;
-        [M::Lo, M::Band, M::High][interact::toggle_position(f64::from(normalized))]
+        let place = (f64::from(normalized) * 5.0).round().clamp(1.0, 4.0) as usize;
+        [M::Lo, M::Band, M::High, M::Notch][place - 1]
     }
 
-    /// Where the toggle shows `mode`.
+    /// Where the selector shows `mode`.
     fn place(mode: crate::params::FilterMode) -> f32 {
         use crate::params::FilterMode as M;
-        match mode {
-            M::Lo => 0.0,
-            M::Band => 0.5,
-            M::High | M::Hi => 1.0,
-        }
+        let place = match mode {
+            M::Lo => 1.0,
+            M::Band => 2.0,
+            M::High | M::Hi => 3.0,
+            M::Notch => 4.0,
+        };
+        place / 5.0
     }
 }
 
-impl Operated for FilterModeSwitch {
+impl Operated for FilterModeSelector {
     fn value(&self) -> f32 {
         Self::place(self.params.filter_mode.value())
     }
@@ -609,7 +612,7 @@ impl Operated for FilterModeSwitch {
     fn text(&self, normalized: f32) -> String {
         let p = &self.params.filter_mode;
         let now = p.value();
-        let mode = if normalized == Self::place(now) {
+        let mode = if Self::at(normalized) == Self::at(Self::place(now)) {
             now
         } else {
             Self::at(normalized)
@@ -622,8 +625,8 @@ impl Operated for FilterModeSwitch {
     fn set(&self, s: &ParamSetter<'_>, normalized: f32) {
         let p = &self.params.filter_mode;
         let now = p.value();
-        // (HI where the lever is already: kept.)
-        let mode = if normalized == Self::place(now) {
+        // (HI where the selector already is: kept.)
+        let mode = if Self::at(normalized) == Self::at(Self::place(now)) {
             now
         } else {
             Self::at(normalized)
@@ -1619,7 +1622,7 @@ struct Editing {
     freq_knobs: [FreqKnob; 2],
     waveforms: [WaveformSwitch; 3],
     /// FILTER MODE's toggle and FILTER POLES's selector, through their places (R-POLES).
-    filter_mode_switch: FilterModeSwitch,
+    filter_mode_switch: FilterModeSelector,
     poles: PolesSelector,
     /// The LFO page (decisions.md R-LFO): its renderer and what it shows; the knobs' rings, a
     /// dragged assignment and the hover pop-up over the panel, and what they show; the editor's
@@ -1897,7 +1900,7 @@ impl Editing {
             params: Arc::clone(&params),
             n,
         });
-        let filter_mode_switch = FilterModeSwitch {
+        let filter_mode_switch = FilterModeSelector {
             params: Arc::clone(&params),
         };
         let poles = PolesSelector {
@@ -7546,13 +7549,18 @@ mod tests {
         use crate::params::FilterMode as M;
         let no_library = || Library::at(std::env::temp_dir().join("ca72-editor-tests-no-library"));
         let mode = ca72_panel::controls::index("filter_mode").expect("a control");
+        let Kind::Selector(modes) = CONTROLS[mode].kind else {
+            panic!("a selector")
+        };
         let (cx, cy) = CONTROLS[mode].centre();
         let (mut e, host, params) = editing();
         let ptr = params.filter_mode.as_ptr();
         e.update_scene();
-        assert_eq!(e.scene.values[mode], 0.0);
-        for (dx, want) in [(30.0, M::High), (0.0, M::Band)] {
-            let p = at(&e, (cx + dx, cy));
+        assert_eq!(art::position(e.scene.values[mode]), 1);
+        // A legend clicked: its mode (NOTCH, then BAND).
+        for (place, want) in [(4, M::Notch), (2, M::Band)] {
+            let (lx, ly) = e.renderer.layout().legend_at(modes, place);
+            let p = at(&e, (cx + lx, cy + ly));
             click(&mut e, p);
             let v = params.filter_mode.preview_normalized(want);
             assert_eq!(
@@ -7560,7 +7568,7 @@ mod tests {
                 vec![Call::Begin(ptr), Call::Set(ptr, v), Call::End(ptr)]
             );
         }
-        // 0.3's HI: at STEEP HIGH's place, kept there, BAND when the lever moves.
+        // 0.3's HI: at STEEP HIGH's place, kept there, BAND when the selector moves.
         let params = Ca72Params {
             filter_mode: EnumParam::new("Filter Mode", M::Hi),
             ..Ca72Params::default()
@@ -7568,8 +7576,9 @@ mod tests {
         let (mut e, host, params) = editing_of(params, no_library());
         let ptr = params.filter_mode.as_ptr();
         e.update_scene();
-        assert_eq!(e.scene.values[mode], 1.0);
-        let p = at(&e, (cx + 30.0, cy));
+        assert_eq!(art::position(e.scene.values[mode]), 3);
+        let (lx, ly) = e.renderer.layout().legend_at(modes, 3);
+        let p = at(&e, (cx + lx, cy + ly));
         click(&mut e, p);
         let hi = params.filter_mode.preview_normalized(M::Hi);
         assert!(
@@ -7578,7 +7587,8 @@ mod tests {
                 .all(|c| !matches!(c, Call::Set(_, v) if *v != hi)),
             "HI kept"
         );
-        let p = at(&e, (cx, cy));
+        let (lx, ly) = e.renderer.layout().legend_at(modes, 2);
+        let p = at(&e, (cx + lx, cy + ly));
         click(&mut e, p);
         let band = params.filter_mode.preview_normalized(M::Band);
         assert_eq!(

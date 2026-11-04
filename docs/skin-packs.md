@@ -378,7 +378,7 @@ this setting passes over it (`look.unknown`) and draws the caps still.
 | `power` | POWER's rocker, its upper half raised | 112 × 320 |
 | `jewel` | POWER's lamp in its bezel (OVERLOAD's darker one is made from it) | 256 × 252 |
 | `jack`, `screw` | A jack's ring nut; a screw head | 256 × 251, 96 × 96 |
-| `toggle-up`, `toggle-mid`, `toggle-down` | The toggles' (QUALITY's, FILTER MODE's on its side), its nut in the same place in all three | 180 × 291 |
+| `toggle-up`, `toggle-mid`, `toggle-down` | QUALITY's toggle, its nut in the same place in all three | 180 × 291 |
 | `ultra-lens-off`, `ultra-lens-on`, `ultra-bezel-off`, `ultra-bezel-on`, `ultra-floor` | ULTRA's lamp: its lens, its bezel (the lens cut out), dark and lit; the well's floor | 300 × 300 |
 | `tesla-lens-off`, `tesla-lens-on`, `tesla-bezel-off`, `tesla-bezel-on` | ULTRA's Tesla lamp, as the amber one | 300 × 300 |
 | `hamster-wheel`, `hamster-asleep` | LO's hamster's wheel; the hamster asleep | 300 × 300, 300 × 289 |
@@ -667,11 +667,13 @@ naming one is refused, and a layout made for revisions 1 to 6 loads as it did.
 
 Revision 8 of the controls adds FILTER POLES (`filter_poles`), a selector of four places (1 to
 4, on the middle four of RANGE's six; the plug-in prints its legends), and makes FILTER MODE
-(`filter_mode`) a toggle of three positions (LO, BAND and STEEP HIGH; `size` and `across` as
-QUALITY's, its rocker's `colour` and `on` no longer apply). A layout made for revisions 1 to 7
-loads with FILTER POLES placed by the plug-in (`layout.added`) and its FILTER MODE drawn as the
-toggle where the layout put its rocker (`layout.kind`); the layout's own legends for it (LO,
-HI) are printed as they were, so a pack brought up to revision 8 gives it LO, BAND and HI.
+(`filter_mode`) a selector of four places too (LO, BAND, STEEP HIGH and NOTCH; the plug-in draws
+its legends, pictures of the four responses, as it does WAVEFORM's). Both are three quarters of
+RANGE's size, their legends as large as RANGE's; a selector takes no fields, so FILTER MODE's
+rocker's `size`, `colour` and `on` no longer apply. A layout made for revisions 1 to 7 loads with
+FILTER POLES placed by the plug-in (`layout.added`) and its FILTER MODE drawn as the selector
+where the layout put its rocker (`layout.kind`); the layout's own legends for the rocker (LO,
+HI) are printed as they were, so a pack brought up to revision 8 drops them.
 
 ## Compatibility: packs keep working as the CA-72 changes
 

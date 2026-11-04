@@ -17491,7 +17491,7 @@ all-feature workspace clippy pass. Inputs, WAVs and comparison data are under
 `release-0.3.1/filter-probe/` on the lab share. No hardware measurement or CPU
 improvement is claimed for this diagnostic repair.
 
-## R-POLES. FILTER POLES, and FILTER MODE's BAND and STEEP HIGH
+## R-POLES. FILTER POLES, and FILTER MODE's BAND, STEEP HIGH and NOTCH
 
 **The owner, 2026-11-03**, of issue #151 (a request for the Voyager's filter: one to four poles,
 and two filters in series or parallel): "Let's make the number of poles switchable." Told how
@@ -17539,6 +17539,17 @@ worked out after each step from the step's states:
   which the loop's feedback takes nothing from: at EMPHASIS 0 STEEP HIGH and BAND stand 2 to 2.6
   dB over LO's passband, and further as EMPHASIS rises and LO's passband falls, as a ladder's
   high-pass does. At EMPHASIS 10 every setting sings.
+- **NOTCH** (the owner, 2026-11-03: "If we can do a band, how hard is it to do a notch?", then
+  "let's do it. add the notch with a 4 position selector"): the low-pass and the high-pass of the
+  same order together, (1 + s^2) / (1 + s)^2 = G^2 + (1 - G)^2 at 1 and 2 poles, that squared at
+  4, and at 3 the 2-pole notch through one stage more (G^3 + G (1 - G)^2); its low-pass terms the
+  stages' outputs (the second's and third's from their capacitors through their pairs' tanh,
+  the unloaded fourth's), its high-pass terms the capacitor currents. The loop's feedback moves
+  its poles, not its zeros: it stays at the corner whatever the emphasis. Measured
+  (`notch_stays_at_the_corner`, a corner near 900 Hz): 38 dB deep at 1 and 2 poles, 39 at 3, 50
+  at 4 (EMPHASIS 0); 31, 32 and 42 at EMPHASIS 7.5, within a third of an octave of BAND's peak.
+  Its top is STEEP HIGH's passband; its bottom, the low-pass's, falls with EMPHASIS as LO's
+  does. The light voices' at BAND's peak, 30 dB down.
 - **A change crossfades** over 5 ms (`SHAPE_FADE`): the settings are different signals, and a
   switch between them at once clicks (`a_change_crossfades`: no sample across the change moves
   further than either setting's own do). A filter that has not run since it was made or reset
@@ -17561,26 +17572,38 @@ of 4 poles'; STEEP HIGH 5.3 to 6 a pole under the corner, its passband the same 
 setting; BAND at 4 poles falling as LO at 2 above the corner and rising as STEEP HIGH at 2
 under it.
 
-**The panel and the plug-in** (`filter-poles-ui`, merged here; agent decisions):
+**The panel and the plug-in** (`filter-poles-ui`, merged here; agent decisions unless quoted):
 - FILTER POLES, a selector of four places on the middle four of RANGE's six (legends 1 to 4) at
-  the switch column's head in CUTOFF FREQUENCY's row (1907, 175), POLES over it on CUTOFF
-  FREQUENCY's legend's line; FILTER MODE, NOTE PRIORITY's chrome toggle on its side (LO, BAND,
-  HI), under it; the original's three switches 150 units lower. The owner, of the first build on
-  the Mac: "abbreviate 'high' to 'hi' here so the text fits" (it ran into ATTACK TIME's dial),
-  "might be better to just say 'poles' instead of 'filter poles'". STEEP HIGH keeps its name
-  where there is room (its tip, hosts, the agents' values). The approved drawings take the
+  the switch column's head in CUTOFF FREQUENCY's row, POLES over it on CUTOFF FREQUENCY's
+  legend's line. The owner, of the first build on the Mac: "might be better to just say 'poles'
+  instead of 'filter poles'" (and of the toggle FILTER MODE first was, "abbreviate 'high' to
+  'hi' here so the text fits").
+- FILTER MODE, with NOTCH, a selector of four places under it in ATTACK TIME's row (LO, BAND,
+  STEEP HIGH, NOTCH). Its legends are pictures of the responses, as WAVEFORM's are of the waves
+  ("Use visual filter indicators instead of using names like 'notch' which don't fit on the
+  panel"; of the band-pass's first picture, a flat-topped peak: "Why not make the band the
+  inversion of the notch?"): every passband on one line, the low-pass and the high-pass each
+  other's mirror, the band-pass the notch turned over. STEEP HIGH and NOTCH keep their names
+  where there is room (the tip, hosts, the agents' values).
+- Both selectors three quarters of RANGE's size, their legends as large as RANGE's (the second
+  mock-up, both full size, left KEYBOARD CONTROL 2 among the section titles, the column's
+  divider through FILTER MODULATION's and KEYBOARD CONTROL's legends and its ON on ATTACK TIME's
+  dial: "Lots of problems here"). The original's three switches at their own spacing, 172 units
+  lower, the divider's breaks with them; "We don't need both 'on' stencils here": FILTER
+  MODULATION's ON serves KEYBOARD CONTROL 1 too, its own gone. The approved drawings take the
   new column from the renderer.
 - Revision 8 of the panel's controls: a layout made for 1 to 7 loads with FILTER POLES placed by
-  the plug-in and its FILTER MODE drawn as the toggle where it put the rocker, its own legends
+  the plug-in and its FILTER MODE drawn as the selector where it put the rocker, its own legends
   printed as they were (docs/skin-packs.md).
 - `filter_poles` (1 to 4, 4 by default): in presets (one without it is at 4), in sessions (one
   saved before opens at 4, whatever the instance had), MIDI-learnable as a selector (a quarter of
-  0 to 127 each), in the agents' values (docs/mcp.md). `filter_mode` gains BAND (`band`) and STEEP
-  HIGH (`high`) after LO and HI (renamed "HI (0.3)" for hosts), which keep their places: a
-  session or preset saved with HI keeps it. A learned controller steps through LO, BAND and STEEP
-  HIGH only (a third each). A host's automation of FILTER MODE recorded in 0.3 is normalized: its
-  HI (1.0 of two) now reads STEEP HIGH (the last of four).
-- `ca72-lab` patches: `"filter_poles": 1` to `4`, `"filter_mode": "band"` or `"high"`.
+  0 to 127 each), in the agents' values (docs/mcp.md). `filter_mode` gains BAND (`band`), STEEP
+  HIGH (`high`) and NOTCH (`notch`) after LO and HI (renamed "HI (0.3)" for hosts), which keep
+  their places: a session or preset saved with HI keeps it, shown at STEEP HIGH's place until the
+  selector moves. A learned controller steps through LO, BAND, STEEP HIGH and NOTCH only (a
+  quarter each). A host's automation of FILTER MODE recorded in 0.3 is normalized: its HI (1.0 of
+  two) now reads NOTCH (the last of five).
+- `ca72-lab` patches: `"filter_poles": 1` to `4`, `"filter_mode": "band"`, `"high"` or `"notch"`.
 
 **Not done:** no ngspice bench of the taps and mixes: they are not a circuit's (an amplifier that
 loads nothing, the fourth stage's share of its passband, an unloaded fourth stage), only built

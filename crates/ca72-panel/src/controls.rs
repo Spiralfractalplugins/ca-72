@@ -87,14 +87,26 @@ pub enum Legends {
     Waves3,
     /// FILTER POLES's (decisions.md R-POLES): 1 to 4, on the middle four of the six places.
     Poles,
+    /// FILTER MODE's (decisions.md R-POLES): LO, BAND, STEEP HIGH and NOTCH on the middle four,
+    /// pictures of their responses.
+    Modes,
 }
 
 impl Legends {
     /// The places of the six it stops at: all six, or FILTER POLES's middle four.
     pub fn places(self) -> core::ops::RangeInclusive<usize> {
         match self {
-            Legends::Poles => 1..=4,
+            Legends::Poles | Legends::Modes => 1..=4,
             _ => 0..=5,
+        }
+    }
+
+    /// Its size against RANGE's and WAVEFORM's: the filter's two (decisions.md R-POLES) three
+    /// quarters, so that both fit the switch column over the original's switches.
+    pub fn scale(self) -> f64 {
+        match self {
+            Legends::Poles | Legends::Modes => 0.75,
+            _ => 1.0,
         }
     }
 
@@ -596,15 +608,15 @@ pub const LFO_FIRST: usize = 68;
 /// "under the oscillator range selector", 2026-10-20), and its MOD key under its WAVEFORM's.
 pub const KEY_BELOW_RANGE: f64 = 84.0;
 
-/// How far down FILTER POLES at the switch column's head moved the original's switches under it
-/// (decisions.md R-POLES).
-pub const COLUMN_DOWN: f64 = 150.0;
+/// How far down FILTER POLES and FILTER MODE at the switch column's head moved the original's
+/// switches under them (decisions.md R-POLES).
+pub const COLUMN_DOWN: f64 = 172.0;
 
-/// FILTER MODE's toggle, under FILTER POLES (decisions.md R-POLES).
-pub const FILTER_MODE_Y: f64 = 316.0;
+/// FILTER MODE's selector, under FILTER POLES in ATTACK TIME's row (decisions.md R-POLES).
+pub const FILTER_MODE_Y: f64 = 322.0;
 
 /// FILTER POLES, at the switch column's head in CUTOFF FREQUENCY's row (decisions.md R-POLES).
-pub const FILTER_POLES_AT: (f64, f64) = (1907.0, 175.0);
+pub const FILTER_POLES_AT: (f64, f64) = (1907.0, 160.0);
 
 /// The MIXER's rows.
 const ROWS: [f64; 5] = [170.0, 274.0, 377.0, 481.0, 583.0];
@@ -727,20 +739,14 @@ pub const CONTROLS: [Control; 117] = [
     // Across MIXER and MODIFIERS: the filter's mode, modulation and keyboard control, under
     // FILTER POLES at the column's head (decisions.md R-POLES; FILTER POLES itself is last in
     // this table). FILTER MODE, which the original does not have (decisions.md R46, R-POLES):
-    // NOTE PRIORITY's toggle on its side, its lever left for LO, out for BAND, right for STEEP
-    // HIGH.
-    Control {
-        param: "filter_mode",
-        label: "FILTER MODE (LO, BAND or STEEP HIGH)",
-        place: Place::Panel,
-        x: 1907.0,
-        y: FILTER_MODE_Y,
-        kind: Kind::Toggle {
-            w: crate::art::TOGGLE.1,
-            h: crate::art::TOGGLE.0,
-            across: true,
-        },
-    },
+    // a selector of four places, LO, BAND, STEEP HIGH and NOTCH, its legends pictures of them.
+    selector(
+        "filter_mode",
+        "FILTER MODE (LO, BAND, STEEP HIGH or NOTCH)",
+        1907.0,
+        FILTER_MODE_Y,
+        Legends::Modes,
+    ),
     switch(
         "filter_mod",
         "FILTER MODULATION",

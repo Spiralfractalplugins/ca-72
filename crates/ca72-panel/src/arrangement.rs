@@ -943,18 +943,17 @@ mod tests {
             assert_eq!(c, o, "{}", o.param);
         }
         assert_eq!(a.power, art::POWER);
-        assert_eq!(a.texts.len(), 65);
+        assert_eq!(a.texts.len(), 61);
         assert_eq!(a.titles.len(), 5);
         assert_eq!(a.lines.len(), 15);
     }
 
-    /// QUALITY's and FILTER MODE's small print follows LARGE, while older packs keep their fixed
-    /// sizes.
+    /// QUALITY's small print follows LARGE, while older packs keep their fixed sizes.
     #[test]
     fn large_small_print_is_optional_and_checked() {
         use art::Lettering::{Large, Standard};
         let a = Arrangement::official();
-        assert_eq!(a.texts.iter().filter(|t| t.large_size.is_some()).count(), 6);
+        assert_eq!(a.texts.iter().filter(|t| t.large_size.is_some()).count(), 3);
         for text in a.texts.iter().filter(|t| t.size == Some(15.0)) {
             assert_eq!(text.size_in(Standard), 15.0, "{}", text.text);
             assert_eq!(text.size_in(Large), 17.0, "{}", text.text);
@@ -1208,8 +1207,8 @@ mod tests {
 
     /// A layout made before FILTER POLES (decisions.md R-POLES; revision 7, FILTER MODE a
     /// rocker at the column's head as it was) loads on this build: FILTER POLES placed by the
-    /// plug-in where it is free, FILTER MODE drawn as its toggle where the layout has it, with
-    /// notes, nothing refused.
+    /// plug-in, FILTER MODE drawn as its selector where the layout has it, with notes, nothing
+    /// refused.
     #[test]
     fn a_layout_made_before_filter_poles_gets_it() {
         let mut text = OFFICIAL.replacen(MADE_FOR, "controls = 7", 1);
@@ -1218,7 +1217,7 @@ mod tests {
         let end = start + text[start..].find("\n\n").expect("its end");
         text = format!("{}{}", &text[..block], &text[end + 2..]);
         text = text.replacen(
-            "param = \"filter_mode\"\nat = [1907, 316]\nsize = [80.83333333333333, 50]\nacross = true",
+            "param = \"filter_mode\"\nat = [1907, 322]",
             "param = \"filter_mode\"\nat = [1907, 169]\nsize = [108, 48]\ncolour = \"red\"\non = \"right\"",
             1,
         );
@@ -1231,10 +1230,7 @@ mod tests {
         );
         let mode = crate::controls::index("filter_mode").expect("a control");
         assert_eq!((a.controls[mode].x, a.controls[mode].y), (1907.0, 169.0));
-        assert!(matches!(
-            a.controls[mode].kind,
-            Kind::Toggle { across: true, .. }
-        ));
+        assert_eq!(a.controls[mode].kind, CONTROLS[mode].kind);
         let poles = crate::controls::index("filter_poles").expect("a control");
         assert_eq!(a.controls[poles].kind, CONTROLS[poles].kind);
         // Made for revision 8, the same layout should have placed FILTER POLES: refused.
