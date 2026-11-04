@@ -1303,6 +1303,22 @@ struct Shape {
 }
 
 impl Shape {
+    fn index(self) -> usize {
+        self.mode as usize * 4 + usize::from(self.poles - 1)
+    }
+    fn at(i: usize) -> Self {
+        Self {
+            mode: [
+                FilterMode::Lo,
+                FilterMode::Hi,
+                FilterMode::Band,
+                FilterMode::High,
+                FilterMode::Notch,
+            ][i / 4],
+            poles: (i % 4 + 1) as u8,
+        }
+    }
+
     const DRAWN: Shape = Shape {
         mode: FilterMode::Lo,
         poles: POLES,
@@ -1372,7 +1388,7 @@ pub struct Vcf {
     /// FILTER MODE and FILTER POLES ([`Vcf::set_shape`]), and the one being faded from with
     /// what is left of its share.
     shape: Shape,
-    fade: Option<(Shape, f64)>,
+    fade: Option<([f64; 20], f64)>,
     /// The direct branch's coupling (FILTER MODE's HI): its capacitor's voltage and its last
     /// input, V.
     mode: (f64, f64),
@@ -1663,7 +1679,14 @@ impl Vcf {
             poles: poles.clamp(1, 4),
         };
         if shape != self.shape {
-            self.fade = self.f_prev.map(|_| (self.shape, 1.0));
+            self.fade = self.f_prev.map(|_| {
+                let (mut weights, left) = self.fade.unwrap_or(([0.0; 20], 0.0));
+                for w in &mut weights {
+                    *w *= left;
+                }
+                weights[self.shape.index()] += 1.0 - left;
+                (weights, 1.0)
+            });
             self.shape = shape;
         }
     }
@@ -1689,7 +1712,14 @@ impl Vcf {
                 FilterMode::Band | FilterMode::High | FilterMode::Notch
             )
         };
-        if mix(self.shape) || self.fade.is_some_and(|(s, _)| mix(s)) {
+        if mix(self.shape)
+            || self.fade.is_some_and(|(weights, _)| {
+                weights
+                    .iter()
+                    .enumerate()
+                    .any(|(i, w)| *w > 0.0 && mix(Shape::at(i)))
+            })
+        {
             self.follow_free();
         } else {
             self.free = None;
@@ -1698,7 +1728,12 @@ impl Vcf {
         match self.fade {
             None => now,
             Some((from, left)) => {
-                let then = self.shaped(from, v, x - q);
+                let then = from
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, w)| **w > 0.0)
+                    .map(|(i, w)| w * self.shaped(Shape::at(i), v, x - q))
+                    .sum::<f64>();
                 let left = left - self.h / SHAPE_FADE;
                 self.fade = (left > 0.0).then_some((from, left));
                 let left = left.max(0.0);

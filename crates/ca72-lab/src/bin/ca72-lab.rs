@@ -750,6 +750,9 @@ fn stim(rest: &[String]) -> Res {
     for (k, v) in json["panel"].as_object().into_iter().flatten() {
         set_control(&mut panel, k, v)?;
     }
+    if json["panel"]["filter_mode"] == "hi" {
+        panel.filter_mode = ca72::vcf::FilterMode::Hi;
+    }
     panel.quality = q;
     let t0 = std::time::Instant::now();
     let mut voice = Voice::new(f64::from(rate), panel);
@@ -926,6 +929,9 @@ fn render_patch(
     let mut panel = Panel::default();
     for (k, v) in json["panel"].as_object().into_iter().flatten() {
         set_control(&mut panel, k, v)?;
+    }
+    if json["panel"]["filter_mode"] == "hi" {
+        panel.filter_mode = ca72::vcf::FilterMode::Hi;
     }
     // Moves: [[time s, key, value], ...] set a control as the patch plays: the wheels, a
     // sweep, a switch.
@@ -1465,10 +1471,10 @@ fn set_control(p: &mut ca72::voice::Panel, k: &str, v: &serde_json::Value) -> Re
         "tune" => p.tune = knob((-1.0, 1.0))?,
         "osc_mod" => p.osc_mod = switch()?,
         "filter_mod" => p.filter_mod = switch()?,
-        "filter_mode" => {
+        "filter_mode" | "filter_shape" => {
             p.filter_mode = match v.as_str() {
                 Some("lo") => ca72::vcf::FilterMode::Lo,
-                Some("hi") => ca72::vcf::FilterMode::Hi,
+                Some("hi") if k == "filter_mode" => ca72::vcf::FilterMode::Hi,
                 Some("band") => ca72::vcf::FilterMode::Band,
                 Some("high") => ca72::vcf::FilterMode::High,
                 Some("notch") => ca72::vcf::FilterMode::Notch,
@@ -1906,6 +1912,23 @@ mod tests {
     use super::{set_control, stim, wav_f32};
     use ca72::voice::Panel;
     use serde_json::json;
+
+    #[test]
+    fn filter_shape_patch_key_accepts_the_four_panel_shapes() {
+        let mut p = ca72::voice::Panel::default();
+        for (name, mode) in [
+            ("lo", ca72::vcf::FilterMode::Lo),
+            ("band", ca72::vcf::FilterMode::Band),
+            ("high", ca72::vcf::FilterMode::High),
+            ("notch", ca72::vcf::FilterMode::Notch),
+        ] {
+            set_control(&mut p, "filter_shape", &serde_json::json!(name)).unwrap();
+            assert_eq!(p.filter_mode, mode);
+        }
+        assert!(set_control(&mut p, "filter_shape", &serde_json::json!("hi")).is_err());
+        set_control(&mut p, "filter_mode", &serde_json::json!("hi")).unwrap();
+        assert_eq!(p.filter_mode, ca72::vcf::FilterMode::Hi);
+    }
 
     #[test]
     fn hi_stim_capture_keeps_its_filter_voltage_channel() {

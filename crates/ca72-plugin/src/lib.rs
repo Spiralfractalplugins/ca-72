@@ -563,8 +563,15 @@ impl Ca72 {
             return false;
         };
         let normalized = learn::normalized_for(&self.params, i, target, seven);
+        let mode_changed = learn::LEARNABLE
+            .get(i)
+            .is_some_and(|l| l.id == "filter_mode")
+            && self.params.filter_mode.value() == params::FilterMode::Hi;
+        if mode_changed {
+            context.set_parameter_normalized(self.params.filter_mode.as_ptr(), 0.0, timing);
+        }
         if target.at(normalized) {
-            return false;
+            return mode_changed;
         }
         context.set_parameter_normalized(target.ptr(), normalized, timing);
         if let Some(k) = learn::LEARNABLE.get(i).and_then(|l| smooth::index(l.id)) {
@@ -729,6 +736,10 @@ impl Plugin for Ca72 {
         }
         // And before FILTER POLES: 4, the filter as drawn, whatever the instance had (decisions.md
         // R-POLES). (FILTER MODE keeps its own, HI among them.)
+        state
+            .params
+            .entry("filter_shape".to_owned())
+            .or_insert(ParamValue::I32(0));
         if !state.params.contains_key("filter_poles") {
             state.params.insert(
                 "filter_poles".to_owned(),
@@ -1907,6 +1918,13 @@ mod tests {
             ),
             Some(ParamValue::I32(2))
         ));
+        assert!(matches!(
+            filtered(vec![], "filter_shape"),
+            Some(ParamValue::I32(0))
+        ));
+        assert!(
+            matches!(filtered(vec![("filter_shape".to_owned(), ParamValue::String("notch".to_owned()))], "filter_shape"), Some(ParamValue::String(id)) if id == "notch")
+        );
         let hi = (
             "filter_mode".to_owned(),
             ParamValue::String("hi".to_owned()),
@@ -3142,6 +3160,28 @@ mod tests {
     /// A learned controller sets its parameter at its event's sample, through the host (the
     /// host told once, at that time; a value the parameter already has, not again), with no
     /// editor open; the parameter is at the new value at once.
+    #[test]
+    fn learned_filter_selector_leaves_legacy_hi_and_steps_shapes() {
+        let mut p = initialised(false);
+        let mut c = hostless(&p);
+        c.set_parameter_normalized(p.params.filter_mode.as_ptr(), 1.0, 0);
+        p.params
+            .midi_map
+            .assign(learnable("filter_mode"), on(0, 74));
+        assert!(p.midi(cc(10, 0, 74, 0), &mut c));
+        for (value, shape) in [
+            (0, params::FilterShape::Lo),
+            (32, params::FilterShape::Band),
+            (64, params::FilterShape::High),
+            (127, params::FilterShape::Notch),
+        ] {
+            c.push_event(cc(10, 0, 74, value));
+            block(&mut p, &mut c, 256);
+            assert_eq!(p.params.filter_mode.value(), params::FilterMode::Lo);
+            assert_eq!(p.params.filter_shape.value(), shape);
+        }
+    }
+
     #[test]
     fn a_learned_controller_sets_its_parameter_at_its_sample_through_the_host() {
         let mut p = initialised(false);

@@ -1345,7 +1345,7 @@ pub struct Light {
     /// output coupling; a crossfade's step a filter sample; whether the filter has run since
     /// it was made or reset (if not, a change is taken at once).
     shape: Shape,
-    fade: Option<(Shape, f32, Coupling)>,
+    fade: Option<([(f32, Coupling); 20], f32)>,
     fade_step: f32,
     ran: bool,
     /// The filter's passband at its cutoff (control rate).
@@ -1722,7 +1722,22 @@ impl Light {
         // (decisions.md R-POLES).
         let shape = (p.filter_mode, p.filter_poles.clamp(1, 4));
         if shape != self.shape {
-            self.fade = self.ran.then_some((self.shape, 1.0, self.coupling));
+            self.fade = self.ran.then(|| {
+                let (mut from, left) = self.fade.unwrap_or(([(0.0, self.coupling); 20], 0.0));
+                for (w, _) in &mut from {
+                    *w *= left;
+                }
+                let i = self.shape.0 as usize * 4 + usize::from(self.shape.1 - 1);
+                let (weight, coupling) = &mut from[i];
+                let add = 1.0 - left;
+                let total = *weight + add;
+                if total > 0.0 {
+                    coupling.1 = (coupling.1 * *weight + self.coupling.1 * add) / total;
+                    coupling.2 = (coupling.2 * *weight + self.coupling.2 * add) / total;
+                }
+                *weight = total;
+                (from, 1.0)
+            });
             self.shape = shape;
         }
         // (MOD moves a CONTINUOUS shape only with the wheel forward: R-CONTINUOUS-WAVE.)
@@ -2190,12 +2205,26 @@ impl Light {
             lo
         };
         let lo = coupled(self.shape, &mut self.coupling);
-        let then = self.fade.map(|(shape, left, mut coupling)| {
-            let lo = coupled(shape, &mut coupling);
-            (shape, left, coupling, lo)
-        });
+        let shape_at = |i: usize| {
+            (
+                [
+                    FilterMode::Lo,
+                    FilterMode::Hi,
+                    FilterMode::Band,
+                    FilterMode::High,
+                    FilterMode::Notch,
+                ][i / 4],
+                (i % 4 + 1) as u8,
+            )
+        };
+        let mut then = self.fade;
         let hi = |shape: Shape| shape.0 == FilterMode::Hi;
-        let direct = if hi(self.shape) || then.is_some_and(|t| hi(t.0)) {
+        let direct = if hi(self.shape)
+            || then.is_some_and(|(from, _)| {
+                from.iter()
+                    .enumerate()
+                    .any(|(i, (w, _))| *w > 0.0 && hi(shape_at(i)))
+            }) {
             let (a, x0, y0) = self.mode;
             let d = self.direct * bus;
             let direct = a * (y0 + d - x0);
@@ -2209,11 +2238,17 @@ impl Light {
         };
         let out = |shape: Shape, lo: f32| if hi(shape) { direct - lo } else { lo };
         let mut y = out(self.shape, lo);
-        if let Some((shape, left, coupling, lo)) = then {
-            let left = left - self.fade_step;
-            self.fade = (left > 0.0).then_some((shape, left, coupling));
-            let left = left.max(0.0);
-            y = out(shape, lo) * left + y * (1.0 - left);
+        if let Some((ref mut from, left)) = then {
+            let mut previous = 0.0;
+            for (i, (weight, coupling)) in from.iter_mut().enumerate() {
+                if *weight > 0.0 {
+                    let shape = shape_at(i);
+                    previous += *weight * out(shape, coupled(shape, coupling));
+                }
+            }
+            let left = (left - self.fade_step).max(0.0);
+            self.fade = (left > 0.0).then_some((*from, left));
+            y = previous * left + y * (1.0 - left);
         }
         self.filter_down.push(f64::from(y))
     }
@@ -3353,7 +3388,7 @@ mod tests {
     /// at once.
     #[test]
     fn a_change_crossfades() {
-        let play = |change: Option<usize>, from: FilterMode| {
+        let play = |change: Option<usize>, from: FilterMode, back: Option<usize>| {
             let mut l = Light::new(48_000.0);
             let mut p = measuring();
             p.cutoff = 0.4;
@@ -3366,6 +3401,10 @@ mod tests {
                         p.filter_mode = FilterMode::High;
                         l.set_panel(&p);
                     }
+                    if back == Some(i) {
+                        p.filter_mode = FilterMode::Lo;
+                        l.set_panel(&p);
+                    }
                     l.tick(0.0)
                 })
                 .collect::<Vec<_>>()
@@ -3375,16 +3414,24 @@ mod tests {
                 .map(|w| (w[1] - w[0]).abs())
                 .fold(0.0f64, f64::max)
         };
-        let lo = play(None, FilterMode::Lo);
-        let high = play(None, FilterMode::High);
-        let switched = play(Some(24_000), FilterMode::Lo);
+        let lo = play(None, FilterMode::Lo, None);
+        let high = play(None, FilterMode::High, None);
+        let switched = play(Some(24_000), FilterMode::Lo, None);
         let own = steepest(&lo[12_000..]).max(steepest(&high[12_000..]));
+        for delay in [1, 120] {
+            let interrupted = play(Some(24_000), FilterMode::Lo, Some(24_000 + delay));
+            let step = steepest(&interrupted[23_000..26_000]);
+            assert!(step <= 1.1 * own, "interrupted at {delay}: {step} vs {own}");
+        }
         let at = steepest(&switched[23_000..26_000]);
         assert!(
             at <= 1.05 * own,
             "{at:.3e} a sample across the change, {own:.3e} in either"
         );
-        assert!(play(Some(0), FilterMode::Lo) == high, "set before it plays");
+        assert!(
+            play(Some(0), FilterMode::Lo, None) == high,
+            "set before it plays"
+        );
     }
 
     /// NOTCH as the circuit's: at 2 and 4 poles its deepest partial (of the 4th to the 20th,

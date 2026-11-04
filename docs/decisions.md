@@ -18381,13 +18381,22 @@ under it.
   printed as they were (docs/skin-packs.md).
 - `filter_poles` (1 to 4, 4 by default): in presets (one without it is at 4), in sessions (one
   saved before opens at 4, whatever the instance had), MIDI-learnable as a selector (a quarter of
-  0 to 127 each), in the agents' values (docs/mcp.md). `filter_mode` gains BAND (`band`), STEEP
-  HIGH (`high`) and NOTCH (`notch`) after LO and HI (renamed "HI (0.3)" for hosts), which keep
-  their places: a session or preset saved with HI keeps it, shown at STEEP HIGH's place until the
-  selector moves. A learned controller steps through LO, BAND, STEEP HIGH and NOTCH only (a
-  quarter each). A host's automation of FILTER MODE recorded in 0.3 is normalized: its HI (1.0 of
-  two) now reads NOTCH (the last of five).
-- `ca72-lab` patches: `"filter_poles": 1` to `4`, `"filter_mode": "band"`, `"high"` or `"notch"`.
+  0 to 127 each), in the agents' values (docs/mcp.md). The owner approved a separate parameter on
+  **2026-11-04**: host `filter_mode` keeps exactly 0.3's LO and HI, their ids, names and order.
+  Normalized 1.0 still means HI; 0.0 selects the new `filter_shape` (LO, BAND, STEEP HIGH,
+  NOTCH). Missing shapes in old presets and sessions read LO. HI overrides the shape and shows
+  at STEEP HIGH's place until the selector moves. Moving the panel selector sets the shape and
+  the legacy mode to LO. Learned controllers step the four shapes and set LO too. The panel
+  layout key stays `filter_mode` for skin packs; agents use `filter_shape` for the four shapes
+  and `filter_mode` for LO/HI (docs/mcp.md).
+- `ca72-lab` patches accept `"filter_shape": "lo"`, `"band"`, `"high"` or `"notch"`;
+  `"filter_mode": "hi"` overrides a patch's shape. The existing effective-mode spellings remain
+  accepted for lab patches.
+- **Fixed 2026-11-04:** interrupted 5 ms fades start from the blend currently heard on both
+  quality paths, using fixed arrays for the twenty possible mode/pole pairs. The light path
+  retains each contribution's coupling state (coalescing equal shapes by weighted state).
+  No allocation occurs in a fade; the drawn setting retains its fast path when no fade is active.
+
 
 **Not done:** no ngspice bench of the taps and mixes: they are not a circuit's (an amplifier that
 loads nothing, the fourth stage's share of its passband, an unloaded fourth stage), only built

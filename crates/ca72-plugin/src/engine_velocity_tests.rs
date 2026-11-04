@@ -310,13 +310,16 @@ fn the_velocity_never_moves_an_lfos_knobs_or_tempo() {
 /// CURVE and FLOOR are the last parameters, a straight line from 0 by default, and reach the
 /// engine only while the velocity moves something.
 #[test]
-fn curve_and_floor_are_last_and_reach_the_engine_only_when_assigned() {
+fn curve_and_floor_keep_their_positions_and_reach_the_engine_only_when_assigned() {
     use crate::lfo::Source;
     use nih_plug::prelude::Params;
     let p = crate::params::Ca72Params::default();
     let ids: Vec<String> = p.param_map().into_iter().map(|(id, ..)| id).collect();
     let n = ids.len();
-    assert_eq!(&ids[n - 2..], ["velocity_curve", "velocity_floor"]);
+    assert_eq!(
+        &ids[n - 3..],
+        ["velocity_curve", "velocity_floor", "filter_shape"]
+    );
     assert_eq!(p.velocity_curve.value(), 0.0);
     assert_eq!(p.velocity_floor.value(), 0.0);
     let c = p.controls_with(&|k| {

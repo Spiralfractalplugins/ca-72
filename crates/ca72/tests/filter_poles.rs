@@ -329,6 +329,15 @@ fn a_change_crossfades() {
     let high = run(&[(1, FilterMode::High)]);
     let switched = run(&[(24_000, FilterMode::High)]);
     let own = steepest(&lo[12_000..]).max(steepest(&high[12_000..]));
+    for delay in [1, 120] {
+        let interrupted = run(&[
+            (24_000, FilterMode::High),
+            (24_000 + delay, FilterMode::Lo),
+            (24_001 + delay, FilterMode::Band),
+        ]);
+        let step = steepest(&interrupted[23_000..26_000]);
+        assert!(step <= 1.1 * own, "interrupted at {delay}: {step} vs {own}");
+    }
     let at = steepest(&switched[23_000..26_000]);
     assert!(
         at <= 1.05 * own,

@@ -269,7 +269,8 @@ the parameter's id in `ca72_set`/`ca72_get`, unless it says otherwise.
 | | each one's ON | rockers | on/off (oscillator 1 on, the rest off) | `osc1_on`, `osc2_on`, `osc3_on`, `ext_on`, `noise_on` |
 | | NOISE (WHITE or PINK) | rocker | White, Pink (White) | `noise_type` |
 | MODIFIERS | FILTER POLES (decisions.md R-POLES) | selector | 1 to 4 (4): LO's stage, BAND's and STEEP HIGH's slopes | `filter_poles` |
-| | FILTER MODE | 4-way selector | LO, BAND, STEEP HIGH, NOTCH (LO); "HI (0.3)", 0.3's high-pass, no longer on the panel, is kept for what was saved with it and can be set | `filter_mode` |
+| | FILTER MODE | legacy host choice | LO, HI (LO); HI overrides FILTER SHAPE, preserving 0.3 automation | `filter_mode` |
+| | FILTER SHAPE | 4-way selector | LO, BAND, STEEP HIGH, NOTCH (LO); heard when FILTER MODE is LO | `filter_shape` |
 | | FILTER MODULATION | rocker | on/off (off) | `filter_mod` |
 | | KEYBOARD CONTROL 1 and 2 | rockers | on/off (1 on, 2 off) | `keyboard_control_1`, `keyboard_control_2` |
 | | CUTOFF FREQUENCY | knob | -5 to +5 (0) | `cutoff` |

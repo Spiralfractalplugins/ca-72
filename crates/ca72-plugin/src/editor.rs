@@ -584,58 +584,56 @@ struct FilterModeSelector {
 }
 
 impl FilterModeSelector {
-    /// The mode at the selector's place `normalized` (k / 5).
-    fn at(normalized: f32) -> crate::params::FilterMode {
-        use crate::params::FilterMode as M;
+    fn at(normalized: f32) -> crate::params::FilterShape {
+        use crate::params::FilterShape as M;
         let place = (f64::from(normalized) * 5.0).round().clamp(1.0, 4.0) as usize;
         [M::Lo, M::Band, M::High, M::Notch][place - 1]
     }
-
-    /// Where the selector shows `mode`.
-    fn place(mode: crate::params::FilterMode) -> f32 {
-        use crate::params::FilterMode as M;
-        let place = match mode {
-            M::Lo => 1.0,
-            M::Band => 2.0,
-            M::High | M::Hi => 3.0,
-            M::Notch => 4.0,
-        };
-        place / 5.0
+    fn place(mode: crate::params::FilterShape) -> f32 {
+        use crate::params::FilterShape as M;
+        match mode {
+            M::Lo => 1.0 / 5.0,
+            M::Band => 2.0 / 5.0,
+            M::High => 3.0 / 5.0,
+            M::Notch => 4.0 / 5.0,
+        }
     }
 }
-
 impl Operated for FilterModeSelector {
     fn value(&self) -> f32 {
-        Self::place(self.params.filter_mode.value())
+        if self.params.filter_mode.value() == crate::params::FilterMode::Hi {
+            3.0 / 5.0
+        } else {
+            Self::place(self.params.filter_shape.value())
+        }
     }
     fn default(&self) -> f32 {
-        Self::place(self.params.filter_mode.default_plain_value())
+        Self::place(self.params.filter_shape.default_plain_value())
     }
     fn text(&self, normalized: f32) -> String {
-        let p = &self.params.filter_mode;
-        let now = p.value();
-        let mode = if Self::at(normalized) == Self::at(Self::place(now)) {
-            now
-        } else {
-            Self::at(normalized)
-        };
-        p.normalized_value_to_string(p.preview_normalized(mode), true)
+        if self.params.filter_mode.value() == crate::params::FilterMode::Hi
+            && normalized == self.value()
+        {
+            return "HI (0.3)".to_owned();
+        }
+        let p = &self.params.filter_shape;
+        p.normalized_value_to_string(p.preview_normalized(Self::at(normalized)), true)
     }
     fn begin(&self, s: &ParamSetter<'_>) {
         s.begin_set_parameter(&self.params.filter_mode);
+        s.begin_set_parameter(&self.params.filter_shape);
     }
     fn set(&self, s: &ParamSetter<'_>, normalized: f32) {
-        let p = &self.params.filter_mode;
-        let now = p.value();
-        // (HI where the selector already is: kept.)
-        let mode = if Self::at(normalized) == Self::at(Self::place(now)) {
-            now
-        } else {
-            Self::at(normalized)
-        };
-        s.set_parameter(p, mode);
+        if self.params.filter_mode.value() == crate::params::FilterMode::Hi
+            && normalized == self.value()
+        {
+            return;
+        }
+        s.set_parameter(&self.params.filter_mode, crate::params::FilterMode::Lo);
+        s.set_parameter(&self.params.filter_shape, Self::at(normalized));
     }
     fn end(&self, s: &ParamSetter<'_>) {
+        s.end_set_parameter(&self.params.filter_shape);
         s.end_set_parameter(&self.params.filter_mode);
     }
 }
@@ -708,7 +706,7 @@ fn param<'a>(p: &'a Ca72Params, id: &str) -> Option<&'a dyn Operated> {
         "noise_type" => &p.noise_type,
         "osc3_on" => &p.osc3_on,
         "osc3_volume" => &p.osc3_volume,
-        "filter_mode" => &p.filter_mode,
+        "filter_mode" => &p.filter_shape,
         "filter_poles" => &p.filter_poles,
         "quality" => &p.quality,
         "filter_mod" => &p.filter_mod,
@@ -7700,7 +7698,7 @@ mod tests {
     /// four places its poles, the selector's outer two never reached.
     #[test]
     fn filter_mode_and_poles_operate_their_parameters_through_their_places() {
-        use crate::params::FilterMode as M;
+        use crate::params::FilterShape as M;
         let no_library = || Library::at(std::env::temp_dir().join("ca72-editor-tests-no-library"));
         let mode = ca72_panel::controls::index("filter_mode").expect("a control");
         let Kind::Selector(modes) = CONTROLS[mode].kind else {
@@ -7708,7 +7706,7 @@ mod tests {
         };
         let (cx, cy) = CONTROLS[mode].centre();
         let (mut e, host, params) = editing();
-        let ptr = params.filter_mode.as_ptr();
+        let ptr = params.filter_shape.as_ptr();
         e.update_scene();
         assert_eq!(art::position(e.scene.values[mode]), 1);
         // A legend clicked: its mode (NOTCH, then BAND).
@@ -7716,25 +7714,32 @@ mod tests {
             let (lx, ly) = e.renderer.layout().legend_at(modes, place);
             let p = at(&e, (cx + lx, cy + ly));
             click(&mut e, p);
-            let v = params.filter_mode.preview_normalized(want);
+            let v = params.filter_shape.preview_normalized(want);
             assert_eq!(
                 host.take(),
-                vec![Call::Begin(ptr), Call::Set(ptr, v), Call::End(ptr)]
+                vec![
+                    Call::Begin(params.filter_mode.as_ptr()),
+                    Call::Begin(ptr),
+                    Call::Set(params.filter_mode.as_ptr(), 0.0),
+                    Call::Set(ptr, v),
+                    Call::End(ptr),
+                    Call::End(params.filter_mode.as_ptr())
+                ]
             );
         }
         // 0.3's HI: at STEEP HIGH's place, kept there, BAND when the selector moves.
         let params = Ca72Params {
-            filter_mode: EnumParam::new("Filter Mode", M::Hi),
+            filter_mode: EnumParam::new("Filter Mode", crate::params::FilterMode::Hi),
             ..Ca72Params::default()
         };
         let (mut e, host, params) = editing_of(params, no_library());
-        let ptr = params.filter_mode.as_ptr();
+        let ptr = params.filter_shape.as_ptr();
         e.update_scene();
         assert_eq!(art::position(e.scene.values[mode]), 3);
         let (lx, ly) = e.renderer.layout().legend_at(modes, 3);
         let p = at(&e, (cx + lx, cy + ly));
         click(&mut e, p);
-        let hi = params.filter_mode.preview_normalized(M::Hi);
+        let hi = 1.0;
         assert!(
             host.take()
                 .iter()
@@ -7744,10 +7749,17 @@ mod tests {
         let (lx, ly) = e.renderer.layout().legend_at(modes, 2);
         let p = at(&e, (cx + lx, cy + ly));
         click(&mut e, p);
-        let band = params.filter_mode.preview_normalized(M::Band);
+        let band = params.filter_shape.preview_normalized(M::Band);
         assert_eq!(
             host.take(),
-            vec![Call::Begin(ptr), Call::Set(ptr, band), Call::End(ptr)]
+            vec![
+                Call::Begin(params.filter_mode.as_ptr()),
+                Call::Begin(ptr),
+                Call::Set(params.filter_mode.as_ptr(), 0.0),
+                Call::Set(ptr, band),
+                Call::End(ptr),
+                Call::End(params.filter_mode.as_ptr())
+            ]
         );
 
         // FILTER POLES: at 4, the fourth place; a legend its poles; a click steps toward it.

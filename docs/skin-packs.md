@@ -747,3 +747,7 @@ These are each flagged for separate review, and none is supported:
 - packs shared between plug-ins (bundles are the marketplace's: several packs sold together);
 - telling the user that a pack has an update (the marketplace does, when the user opens it;
   the plug-in never asks the network).
+
+The panel layout key `filter_mode` remains unchanged for pack compatibility. It operates the
+new host parameter `filter_shape`; moving it also sets the legacy host `filter_mode` to LO.
+A saved HI is displayed at STEEP HIGH until the selector moves (R-POLES).

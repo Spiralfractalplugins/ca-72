@@ -1158,7 +1158,7 @@ pub fn target(p: &Ca72Params, i: usize) -> Option<&dyn Target> {
         "osc3_volume" => &p.osc3_volume,
         "osc3_on" => &p.osc3_on,
         "noise_type" => &p.noise_type,
-        "filter_mode" => &p.filter_mode,
+        "filter_mode" => &p.filter_shape,
         "filter_poles" => &p.filter_poles,
         "filter_mod" => &p.filter_mod,
         "keyboard_control_1" => &p.keyboard_control_1,
@@ -1237,9 +1237,9 @@ pub fn normalized_for(p: &Ca72Params, i: usize, target: &dyn Target, value: u8) 
         // FILTER MODE: LO, BAND, STEEP HIGH and NOTCH each a quarter of 0–127, never 0.3's HI,
         // which is not on the panel (decisions.md R-POLES).
         Some("filter_mode") => {
-            use crate::params::FilterMode as M;
+            use crate::params::FilterShape as M;
             let mode = [M::Lo, M::Band, M::High, M::Notch][usize::from(value.min(127)) / 32];
-            p.filter_mode.preview_normalized(mode)
+            p.filter_shape.preview_normalized(mode)
         }
         _ => target.normalized_for(value),
     }
@@ -1381,7 +1381,15 @@ mod tests {
         let mut sound: Vec<&str> = crate::presets::sound_params(&p)
             .into_iter()
             .map(|(id, _)| id)
-            .filter(|id| !["mod_wheel", "midi_bend_range"].contains(id))
+            .filter(|id| !["mod_wheel", "midi_bend_range", "filter_mode"].contains(id))
+            // The stable panel/MIDI key operates the new shape parameter.
+            .map(|id| {
+                if id == "filter_shape" {
+                    "filter_mode"
+                } else {
+                    id
+                }
+            })
             .collect();
         sound.sort_unstable();
         assert_eq!(ids, sound);
@@ -1569,11 +1577,11 @@ mod tests {
     /// HI; FILTER POLES its four, each a quarter (decisions.md R-POLES).
     #[test]
     fn filter_mode_learned_steps_through_the_selectors_four() {
-        use crate::params::FilterMode as M;
+        use crate::params::FilterShape as M;
         let p = Ca72Params::default();
         let i = at("filter_mode");
         let t = target(&p, i).expect("a selector");
-        let mode = |v: u8| p.filter_mode.preview_plain(normalized_for(&p, i, t, v));
+        let mode = |v: u8| p.filter_shape.preview_plain(normalized_for(&p, i, t, v));
         assert_eq!(
             [
                 mode(0),
@@ -1596,7 +1604,6 @@ mod tests {
                 M::Notch
             ]
         );
-        assert!((0..=127).all(|v| mode(v) != M::Hi));
         let i = at("filter_poles");
         let t = target(&p, i).expect("a selector");
         let poles = |v: u8| p.filter_poles.preview_plain(normalized_for(&p, i, t, v));

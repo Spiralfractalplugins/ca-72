@@ -157,6 +157,7 @@ pub fn sound_params(p: &Ca72Params) -> Vec<(&'static str, &dyn SoundParam)> {
         ("osc3_on", &p.osc3_on),
         ("osc3_volume", &p.osc3_volume),
         ("filter_mode", &p.filter_mode),
+        ("filter_shape", &p.filter_shape),
         // FILTER POLES (decisions.md R-POLES): a preset that does not name it is at 4, as drawn.
         ("filter_poles", &p.filter_poles),
         ("filter_mod", &p.filter_mod),
@@ -2548,6 +2549,27 @@ mod tests {
                 .map(|(_, v)| v),
             Some(1.0)
         );
+    }
+
+    #[test]
+    fn filter_shape_is_saved_and_old_presets_default_to_lo() {
+        let dir = tempfile::tempdir().unwrap();
+        let lib = Library::at(dir.path());
+        let p = Ca72Params::default();
+        assert!(values_now(&p).iter().any(|(id, _)| id == "filter_shape"));
+        for (name, values, shape, mode) in [
+            ("Old HI", vec![("filter_mode".to_owned(), 1.0)], 0.0, 1.0),
+            ("Notch", vec![("filter_shape".to_owned(), 3.0)], 1.0, 0.0),
+        ] {
+            let e = lib.save(name, values, None).unwrap();
+            let loaded = targets(&p, &e);
+            for (id, want) in [("filter_shape", shape), ("filter_mode", mode)] {
+                assert_eq!(
+                    loaded.iter().find(|(k, _)| *k == id).map(|(_, v)| *v),
+                    Some(want)
+                );
+            }
+        }
     }
 
     #[test]

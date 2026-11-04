@@ -341,20 +341,23 @@ fn shape_param(name: &str, n: usize) -> FloatParam {
     .with_string_to_value(std::sync::Arc::new(move |s| parse_shape_text(n, s)))
 }
 
-/// FILTER MODE, which the original does not have (decisions.md R46, R-POLES): LO, the filter's
-/// low-pass, from the stage FILTER POLES picks; BAND, STEEP HIGH and NOTCH, a band-pass, a
-/// high-pass and a notch mixed from the ladder's stages, FILTER POLES their slopes. HI, 0.3's (the hardware
-/// reference's high-pass: the mixer's output less the filter's), is no longer on the panel but
-/// is kept second, where it was, for the sessions and presets saved with it (a preset keeps a
-/// mode by its place).
+/// Released host parameter: its two variants and normalized range must never change.
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterMode {
     #[id = "lo"]
     #[name = "LO"]
     Lo,
     #[id = "hi"]
-    #[name = "HI (0.3)"]
+    #[name = "HI"]
     Hi,
+}
+
+/// The panel's four shapes, independent of the released LO/HI automation.
+#[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterShape {
+    #[id = "lo"]
+    #[name = "LO"]
+    Lo,
     #[id = "band"]
     #[name = "BAND"]
     Band,
@@ -365,16 +368,13 @@ pub enum FilterMode {
     #[name = "NOTCH"]
     Notch,
 }
-
-impl FilterMode {
-    /// The voice's.
+impl FilterShape {
     pub fn voice(self) -> ca72::vcf::FilterMode {
         match self {
-            FilterMode::Lo => ca72::vcf::FilterMode::Lo,
-            FilterMode::Hi => ca72::vcf::FilterMode::Hi,
-            FilterMode::Band => ca72::vcf::FilterMode::Band,
-            FilterMode::High => ca72::vcf::FilterMode::High,
-            FilterMode::Notch => ca72::vcf::FilterMode::Notch,
+            Self::Lo => ca72::vcf::FilterMode::Lo,
+            Self::Band => ca72::vcf::FilterMode::Band,
+            Self::High => ca72::vcf::FilterMode::High,
+            Self::Notch => ca72::vcf::FilterMode::Notch,
         }
     }
 }
@@ -1003,6 +1003,8 @@ pub struct Ca72Params {
     /// FLOOR: the least the velocity gives, the softest note's, 0 to 100 %.
     #[id = "velocity_floor"]
     pub velocity_floor: FloatParam,
+    #[id = "filter_shape"]
+    pub filter_shape: EnumParam<FilterShape>,
 }
 
 /// The velocity's CURVE, -100 (SOFT) to 100 % (HARD), 0 by default.
@@ -1172,6 +1174,16 @@ fn fresh_seed() -> u64 {
         .finish()
 }
 
+impl Ca72Params {
+    pub fn effective_filter_mode(&self) -> ca72::vcf::FilterMode {
+        if self.filter_mode.value() == FilterMode::Hi {
+            ca72::vcf::FilterMode::Hi
+        } else {
+            self.filter_shape.value().voice()
+        }
+    }
+}
+
 impl Default for Ca72Params {
     /// The panel as the instrument's default patch has it: oscillator 1 alone on a sawtooth
     /// at 8', the filter half open, MAIN OUTPUT at 10.
@@ -1236,6 +1248,7 @@ impl Default for Ca72Params {
             osc3_on: BoolParam::new("Osc 3 On", false),
             osc3_volume: ten("Osc 3 Volume", 8.0),
             filter_mode: EnumParam::new("Filter Mode", FilterMode::Lo),
+            filter_shape: EnumParam::new("FILTER SHAPE", FilterShape::Lo),
             filter_poles: IntParam::new(
                 "Filter Poles",
                 i32::from(ca72::vcf::POLES),
@@ -1690,7 +1703,7 @@ impl Ca72Params {
             mod_mix: ten(&self.mod_mix),
             osc_mod: self.osc_mod.value(),
             filter_mod: self.filter_mod.value(),
-            filter_mode: self.filter_mode.value().voice(),
+            filter_mode: self.effective_filter_mode(),
             filter_poles: self
                 .filter_poles
                 .value()
@@ -1961,5 +1974,26 @@ mod tests {
         let shown = |n: f32| q.normalized_value_to_string(n, false);
         assert_eq!((shown(0.0), shown(1.0)), ("EVEN".into(), "CENTER".into()));
         assert_eq!(p.controls().placement, Placement::Even);
+    }
+}
+
+#[cfg(test)]
+mod filter_compat_tests {
+    use super::*;
+    #[test]
+    fn released_mode_normalization_keeps_hi_and_lo_applies_shape() {
+        let mut p = Ca72Params::default();
+        for shape in [
+            FilterShape::Lo,
+            FilterShape::Band,
+            FilterShape::High,
+            FilterShape::Notch,
+        ] {
+            p.filter_shape = EnumParam::new("FILTER SHAPE", shape);
+            p.filter_mode = EnumParam::new("Filter Mode", p.filter_mode.preview_plain(1.0));
+            assert_eq!(p.effective_filter_mode(), ca72::vcf::FilterMode::Hi);
+            p.filter_mode = EnumParam::new("Filter Mode", p.filter_mode.preview_plain(0.0));
+            assert_eq!(p.effective_filter_mode(), shape.voice());
+        }
     }
 }
