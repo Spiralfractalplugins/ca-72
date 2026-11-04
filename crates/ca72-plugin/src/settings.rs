@@ -1,6 +1,7 @@
 //! What the plug-in keeps for the computer, not for the session (decisions.md R48,
 //! R51, R54): QUALITY's indicator shown or not, whether ULTRA's note has been read,
-//! the look (the skin) the editor is drawn in, its lettering's size, how the FREQUENCY
+//! the look (the skin) the editor is drawn in, its lettering's size, its ticks and titles
+//! printed quiet or not (R-QUIET-PRINT), how the FREQUENCY
 //! knobs' dials read, the MOD wheel's MIDI source (R-MODWHEEL-SOURCE), the standalone's TEMPO
 //! (R-ARP), whether agents may operate the standalone application (R-MCP), where MPE's zones
 //! come from (R-MPE), where a timbre rests (R-MPE), and the default window width. In the shared
@@ -13,7 +14,7 @@
 use std::path::{Path, PathBuf};
 
 use ca72::freq_dial::Law;
-use ca72_panel::{Lettering, Skin};
+use ca72_panel::{Lettering, Skin, TicksTitles};
 
 use crate::library::{shared_dir, write};
 use crate::mod_wheel::Source;
@@ -40,6 +41,11 @@ pub struct Settings {
     /// want it as an option, not as a general change"; decisions.md R-LETTERING). Kept as
     /// `lettering`, "standard" or "large".
     pub lettering: Lettering,
+    /// How the panel's ticks and sections' titles are printed, chosen with the same key: as
+    /// approved unless QUIET is chosen (thinner, shorter, dimmer ticks; smaller, dimmer titles:
+    /// issue #145, decisions.md R-QUIET-PRINT). Kept as `ticks_and_titles`, "standard" or
+    /// "quiet".
+    pub ticks_titles: TicksTitles,
     /// How oscillators 2 and 3's FREQUENCY knobs' dials read, chosen with the same key: a
     /// semitone a mark unless HARDWARE is chosen (the owner, 2026-10-10: "use our perfect ones
     /// by default, but allow the user to use the exact curves"). Kept as `frequency_dials`,
@@ -135,6 +141,7 @@ pub enum Change {
     /// A skin pack's look, and its base look.
     Pack(PackId, Skin),
     Lettering(Lettering),
+    TicksTitles(TicksTitles),
     Frequency(Law),
     Keyboard(bool),
     KeyboardRoot(u8),
@@ -175,6 +182,8 @@ impl Change {
             }
             Change::Lettering(Lettering::Standard) => ("lettering", "standard".into()),
             Change::Lettering(Lettering::Large) => ("lettering", "large".into()),
+            Change::TicksTitles(TicksTitles::Standard) => ("ticks_and_titles", "standard".into()),
+            Change::TicksTitles(TicksTitles::Quiet) => ("ticks_and_titles", "quiet".into()),
             Change::Frequency(Law::Semitones) => ("frequency_dials", "semitones".into()),
             Change::Frequency(Law::Hardware) => ("frequency_dials", "hardware".into()),
             Change::Keyboard(shown) => (
@@ -228,6 +237,7 @@ impl Default for Settings {
             skin: Skin::Worn,
             pack: None,
             lettering: Lettering::Standard,
+            ticks_titles: TicksTitles::Standard,
             frequency: Law::Semitones,
             keyboard: None,
             keyboard_root: 41,
@@ -342,6 +352,11 @@ impl Settings {
                 Some("large") => Lettering::Large,
                 _ => d.lettering,
             },
+            // (Anything but QUIET, as approved.)
+            ticks_titles: match t.get("ticks_and_titles").and_then(toml::Value::as_str) {
+                Some("quiet") => TicksTitles::Quiet,
+                _ => d.ticks_titles,
+            },
             // (Anything but HARDWARE, semitones.)
             frequency: match t.get("frequency_dials").and_then(toml::Value::as_str) {
                 Some("hardware") => Law::Hardware,
@@ -392,6 +407,7 @@ impl Settings {
                 self.pack = Some(id);
             }
             Change::Lettering(lettering) => self.lettering = lettering,
+            Change::TicksTitles(print) => self.ticks_titles = print,
             Change::Frequency(law) => self.frequency = law,
             Change::Keyboard(shown) => self.keyboard = Some(shown),
             Change::KeyboardRoot(root) => self.keyboard_root = root.min(84),
@@ -1309,6 +1325,7 @@ mod tests {
             Change::NoteRead,
             Change::Skin(Skin::Drawn),
             Change::Lettering(Lettering::Large),
+            Change::TicksTitles(TicksTitles::Quiet),
             Change::Frequency(Law::Hardware),
             Change::Agents(true),
             Change::HoverCables(false),
@@ -1321,6 +1338,7 @@ mod tests {
             skin: Skin::Drawn,
             pack: None,
             lettering: Lettering::Large,
+            ticks_titles: TicksTitles::Quiet,
             frequency: Law::Hardware,
             keyboard: None,
             keyboard_root: 41,
@@ -1346,6 +1364,7 @@ mod tests {
         std::fs::write(&path, &text).expect("written");
         Settings::keep(&path, Change::Skin(Skin::Worn)).expect("kept");
         Settings::keep(&path, Change::Lettering(Lettering::Standard)).expect("kept");
+        Settings::keep(&path, Change::TicksTitles(TicksTitles::Standard)).expect("kept");
         Settings::keep(&path, Change::Frequency(Law::Semitones)).expect("kept");
         let after = std::fs::read_to_string(&path).expect("read");
         assert!(after.contains("theirs = 3"), "{after}");
@@ -1365,6 +1384,12 @@ mod tests {
         assert_eq!(Settings::read(&path).lettering, Lettering::Large);
         std::fs::write(&path, "lettering = \"huge\"\n").expect("written");
         assert_eq!(Settings::read(&path).lettering, Lettering::Standard);
+        // The ticks and titles: as approved unless the file says quiet.
+        assert!(after.contains("ticks_and_titles = \"standard\""), "{after}");
+        std::fs::write(&path, "ticks_and_titles = \"quiet\"\n").expect("written");
+        assert_eq!(Settings::read(&path).ticks_titles, TicksTitles::Quiet);
+        std::fs::write(&path, "ticks_and_titles = \"faint\"\n").expect("written");
+        assert_eq!(Settings::read(&path).ticks_titles, TicksTitles::Standard);
         // The FREQUENCY dials: semitones unless the file says hardware.
         assert!(after.contains("frequency_dials = \"semitones\""), "{after}");
         std::fs::write(&path, "frequency_dials = \"hardware\"\n").expect("written");
@@ -1421,6 +1446,7 @@ mod tests {
                 skin: Skin::Drawn,
                 pack: None,
                 lettering: Lettering::Large,
+                ticks_titles: TicksTitles::Standard,
                 frequency: Law::Hardware,
                 keyboard: None,
                 keyboard_root: 41,

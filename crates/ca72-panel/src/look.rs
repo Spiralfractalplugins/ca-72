@@ -22,7 +22,7 @@ use skin_pack::signature::{Signed, TrustedKey};
 use skin_pack::{Context, Limits, Pack, Report};
 
 use crate::arrangement::Arrangement;
-use crate::art::{self, Lettering};
+use crate::art::{self, Lettering, TicksTitles};
 use crate::fonts::{Fonts, Weight};
 use crate::skin::{self, Overrides, Skin};
 
@@ -83,6 +83,9 @@ pub struct Look {
     /// The drawer's sections' titles centred over them, larger (`drawer_titles = "centre"`),
     /// rather than at their left.
     pub drawer_centred: bool,
+    /// Its panel's ticks and sections' titles printed quiet (`ticks_and_titles = "quiet"`),
+    /// rather than as approved (decisions.md R-QUIET-PRINT).
+    pub ticks_titles: TicksTitles,
     /// Its colours for what the strip lights and prints (none: the built-in ones).
     pub colours: Colours,
     /// Its typeface (regular, bold), if it brings one that prints and fits every legend.
@@ -126,6 +129,7 @@ impl Look {
             drawer_type: false,
             drawer_caps: false,
             drawer_centred: false,
+            ticks_titles: TicksTitles::Standard,
             colours: Colours::default(),
             fonts: None,
             licence: OFFICIAL_LICENCE.into(),
@@ -495,6 +499,19 @@ impl Look {
             }
         };
 
+        let ticks_titles = match spec.ticks_and_titles.as_deref() {
+            None | Some("standard") => TicksTitles::Standard,
+            Some("quiet") => TicksTitles::Quiet,
+            Some(_) => {
+                report.reject(
+                    "look.ticks-and-titles",
+                    at,
+                    "ticks_and_titles: \"standard\" or \"quiet\"",
+                );
+                TicksTitles::Standard
+            }
+        };
+
         // The strip's colours.
         let mut colours = Colours::default();
         if let Some(c) = &spec.colours {
@@ -623,6 +640,7 @@ impl Look {
             drawer_type,
             drawer_caps,
             drawer_centred,
+            ticks_titles,
             colours,
             fonts,
             licence: m.license.clone(),
@@ -688,6 +706,8 @@ struct LookTable {
     drawer_legends: Option<String>,
     #[serde(default)]
     drawer_titles: Option<String>,
+    #[serde(default)]
+    ticks_and_titles: Option<String>,
     #[serde(default)]
     colours: Option<ColoursTable>,
     #[serde(flatten)]

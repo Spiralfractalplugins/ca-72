@@ -24,7 +24,7 @@ pub mod value_entry;
 pub mod whats_new;
 
 pub use arrangement::Arrangement;
-pub use art::{H, Layout, Lettering, PLATE_NAME, W};
+pub use art::{H, Layout, Lettering, PLATE_NAME, TicksTitles, W};
 pub use controls::{CONTROLS, Control, Kind};
 pub use interact::Target;
 pub use look::Look;

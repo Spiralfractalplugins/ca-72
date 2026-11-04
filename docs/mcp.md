@@ -124,7 +124,7 @@ controls use:
 | A preset loaded, stepped | `Browser::choose` and `Browser::step`, as the drawer and the rail's arrows do. |
 | Saved, renamed | `Browser::save_sound` and `Browser::rename_preset`, which SAVE AS and RENAME now share with the agent. |
 | Tagged, starred, deleted, reverted, restored | The drawer's `Library` calls, followed by `Browser::reread`. The drawer's hint line says what was done, as it does for the player. |
-| A setting | `set_look`, `set_lettering`, `set_frequency_dials`, `keep_settings`, and the SIZE menu's `gripped` width, which the host is asked for at the next frame. |
+| A setting | `set_look`, `set_lettering`, `set_ticks_titles`, `set_frequency_dials`, `keep_settings`, and the SIZE menu's `gripped` width, which the host is asked for at the next frame. |
 | The view | The rail's PANEL and GLOBAL / KEYS / LFO keys (`toggle_panel`, `strip_press`), the drawer's `Browser::show`, the keyboard's octave keys, and the drawer's MIDI list. |
 | A note | `Playing::agent`: owned like the pointer's and the typed keys', through `LocalNotes`, the lock-free queue the on-screen keyboard already uses. The audio thread takes them at its next block. |
 | PANIC | The keyboard's PANIC (`Editing::panic`): `AppHandle::panic_tagged` in the standalone. |
@@ -204,7 +204,7 @@ agent to use the bridge that came with that instance.
 | `ca72_preset_revert` | REVERT | `name` |
 | `ca72_presets_restore` | RESTORE | none |
 | `ca72_settings` | Reads the settings and window sizes | none |
-| `ca72_settings_set` | Changes settings as the SETTINGS menu does | `look? lettering? frequency_dials? quality_indicator? tempo? mod_wheel_source? mpe_input? timbre_rest? size? agents?` (`agents` only false) |
+| `ca72_settings_set` | Changes settings as the SETTINGS menu does | `look? lettering? ticks_and_titles? frequency_dials? quality_indicator? tempo? mod_wheel_source? mpe_input? timbre_rest? size? agents?` (`agents` only false) |
 | `ca72_view` | Changes the view as the rail and keyboard keys do | `presets? panel? lower_page? keyboard? keyboard_octave? midi_list?` |
 | `ca72_note_on` / `ca72_note_off` | Presses or lets go of keys, `note_on` at `velocity` (1 to 127, 100 if omitted; it moves only what the patch's VELOCITY is assigned to: decisions.md R-VELOCITY); `note_off` with no notes lets go of all the agent's | `notes` (numbers 0 to 127, or names, C4 = 60), `velocity` |
 | `ca72_play` | Plays notes for a while, then lets go | `notes, seconds` (0.01 to 30) |
@@ -397,6 +397,7 @@ area shows, the wheels or the macros, is the computer's (the rail's MACRO key), 
 |---|---|
 | LOOK: REALISTIC, CLASSIC | `ca72_settings_set {look}` |
 | LETTERING: STANDARD, LARGE | `ca72_settings_set {lettering}` |
+| TICKS & TITLES: STANDARD, QUIET | `ca72_settings_set {ticks_and_titles}` |
 | FREQUENCY DIALS: SEMITONES, HARDWARE | `ca72_settings_set {frequency_dials}` (the sound stays as it is) |
 | MOD WHEEL SOURCE (R-MODWHEEL-SOURCE) | `ca72_settings_set {mod_wheel_source}`: `"CC 11"` (any CC but the reserved), `"CHANNEL AFTERTOUCH"` or `"POLYPHONIC AFTERTOUCH"`. Learning it from a controller (the wheel's MIDI LEARN) is not offered. |
 | MPE: INPUT & TIMBRE… › MPE INPUT: AUTO, LOWER ZONE, OFF (R-MPE) | `ca72_settings_set {mpe_input}` |

@@ -14,7 +14,7 @@ use ca72_panel::presets::{
     BarTarget, MidiAction, MidiList, MidiRow, ROWS_SHOWN, Tone as DrawerTone,
 };
 use ca72_panel::strip::{Rail, StripControl, span};
-use ca72_panel::{Lettering, Skin, Target};
+use ca72_panel::{Lettering, Skin, Target, TicksTitles};
 use keyboard_types::{Key, KeyState, KeyboardEvent, Modifiers};
 
 use crate::learn::{Assigned, Binding, LEARNABLE, MOD_WHEEL, MidiMap, index};
@@ -126,13 +126,15 @@ pub enum Item {
     Show,
     Hide,
     /// The settings' (decisions.md R51): the look the editor is drawn in, its lettering's
-    /// size (R-LETTERING), and how the FREQUENCY knobs' dials read (R54), each under its
-    /// group's head (which does nothing).
+    /// size (R-LETTERING), its ticks and titles printed as approved or quiet (R-QUIET-PRINT),
+    /// and how the FREQUENCY knobs' dials read (R54), each under its group's head (which does
+    /// nothing).
     Look(Skin),
     /// An installed skin pack's look, by its place in the editor's list (decisions.md
     /// R-SKIN-PACKS).
     Pack(usize),
     Lettering(Lettering),
+    TicksTitles(TicksTitles),
     Dials(Law),
     Head,
     /// A WAVEFORM switch's (decisions.md R-CONTINUOUS-WAVE): its oscillator's waveform STEPPED
@@ -167,6 +169,9 @@ pub enum Item {
     /// source given to a knob; an LFO's colour, its EDGES, its waveform STEPPED or CONTINUOUS.
     Mod(ModItem),
 }
+
+/// The most columns the settings' menu is set in, to drop below its key.
+const SETTINGS_COLUMNS: usize = 4;
 
 /// What a modulation item of a menu does (decisions.md R-LFO).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -232,6 +237,8 @@ pub enum Pressed {
     Pack(usize),
     /// The settings' menu: the editor's lettering printed at this size.
     Lettering(Lettering),
+    /// The settings' menu: the panel's ticks and titles printed so.
+    TicksTitles(TicksTitles),
     /// The settings' menu: the FREQUENCY knobs read through this law.
     Dials(Law),
     StandaloneSettings,
@@ -621,6 +628,7 @@ impl Learning {
                 .map(|(k, _)| k)
                 .collect(),
             hover: None,
+            columns: Vec::new(),
         }
         .placed(fonts, x, y, PANEL);
         self.open = Some(Open {
@@ -669,6 +677,7 @@ impl Learning {
             heads,
             marked,
             hover: None,
+            columns: Vec::new(),
         }
         .placed(fonts, x, y, PANEL);
         self.open = Some(Open {
@@ -704,6 +713,7 @@ impl Learning {
             heads: Vec::new(),
             marked: Vec::new(),
             hover: None,
+            columns: Vec::new(),
         }
         .placed(fonts, x, y, PANEL);
         self.open = Some(Open {
@@ -718,7 +728,8 @@ impl Learning {
     /// people change their skin there"), opened with its top right corner at (`x`, `y`): under
     /// LOOK, the looks the editor can be drawn in on this computer (`skin`: the one it is,
     /// marked); under LETTERING, its lettering's sizes (`lettering`, marked: R-LETTERING); under
-    /// FREQUENCY DIALS, how oscillators 2 and 3's FREQUENCY knobs read (`law`, marked:
+    /// TICKS & TITLES, its ticks and titles as approved or quiet (`print`, marked:
+    /// R-QUIET-PRINT); under FREQUENCY DIALS, how oscillators 2 and 3's FREQUENCY knobs read (`law`, marked:
     /// decisions.md R54). Under LOOK, after the built-in two, each installed skin pack (`packs`:
     /// its name, and whether it can be used; `pack` the one the editor is drawn in, if any); under
     /// MOD WHEEL SOURCE, what moves the MOD wheel (`source`: R-MODWHEEL-SOURCE); in the
@@ -732,9 +743,9 @@ impl Learning {
         fonts: &Fonts,
         (x, y): (f64, f64),
         size: f64,
-        (skin, lettering, law, source, agents, cables): (
+        (skin, (lettering, print), law, source, agents, cables): (
             Skin,
-            Lettering,
+            (Lettering, TicksTitles),
             Law,
             Source,
             Option<AgentsMenu>,
@@ -766,6 +777,9 @@ impl Learning {
             (Item::Head, "LETTERING"),
             (Item::Lettering(Lettering::Standard), "STANDARD"),
             (Item::Lettering(Lettering::Large), "LARGE"),
+            (Item::Head, "TICKS & TITLES"),
+            (Item::TicksTitles(TicksTitles::Standard), "STANDARD"),
+            (Item::TicksTitles(TicksTitles::Quiet), "QUIET"),
             (Item::Head, "FREQUENCY DIALS"),
             (Item::Dials(Law::Semitones), "SEMITONES"),
             (Item::Dials(Law::Hardware), "HARDWARE"),
@@ -833,6 +847,7 @@ impl Learning {
                 None => *it == Item::Look(skin),
             };
             look || *it == Item::Lettering(lettering)
+                || *it == Item::TicksTitles(print)
                 || *it == Item::Dials(law)
                 || agents
                     .as_ref()
@@ -852,6 +867,7 @@ impl Learning {
                         Item::Look(_)
                             | Item::Pack(_)
                             | Item::Lettering(_)
+                            | Item::TicksTitles(_)
                             | Item::Dials(_)
                             | Item::Agents(_)
                             | Item::Setup(_)
@@ -884,7 +900,13 @@ impl Learning {
                 .map(|(i, _)| i)
                 .collect(),
             hover: None,
+            columns: Vec::new(),
         };
+        // Below its key, in as many columns as that takes (taller than the room under the rail
+        // in one column at 4K's FIT TO SCREEN and SIZE's 100 %, it rose over the rail and its
+        // key: decisions.md R-READABILITY-MINIMUM), up to four and no wider than the room left of
+        // the key, its lettering and rows as they are.
+        menu = menu.in_columns(fonts, (x - PANEL[0], PANEL[3] - y), SETTINGS_COLUMNS);
         let (w, _) = menu.extent(fonts);
         menu = menu.placed(fonts, x - w, y, PANEL);
         self.open = Some(Open {
@@ -943,6 +965,7 @@ impl Learning {
                 .map(|(i, _)| i)
                 .collect(),
             hover: None,
+            columns: Vec::new(),
         };
         let (w, _) = menu.extent(fonts);
         menu = menu.placed(fonts, x - w, y, PANEL);
@@ -1024,6 +1047,7 @@ impl Learning {
                 .filter_map(|(i, (item, _, _))| (*item == Item::WheelSource(source)).then_some(i))
                 .collect(),
             hover: None,
+            columns: Vec::new(),
         };
         let (w, _) = menu.extent(fonts);
         menu = menu.placed(fonts, x - w, y, PANEL);
@@ -1064,6 +1088,7 @@ impl Learning {
                 .map(|(i, _)| i)
                 .collect(),
             hover: None,
+            columns: Vec::new(),
         };
         let (w, _) = menu.extent(fonts);
         menu = menu.placed(fonts, x - w, y, PANEL);
@@ -1096,6 +1121,7 @@ impl Learning {
             heads: Vec::new(),
             marked: Vec::new(),
             hover: None,
+            columns: Vec::new(),
         }
         .placed(fonts, x, y, PANEL);
         self.open = Some(Open {
@@ -1154,6 +1180,7 @@ impl Learning {
             (Some(Item::Look(s)), _) => return Pressed::Look(*s),
             (Some(Item::Pack(i)), _) => return Pressed::Pack(*i),
             (Some(Item::Lettering(l)), _) => return Pressed::Lettering(*l),
+            (Some(Item::TicksTitles(p)), _) => return Pressed::TicksTitles(*p),
             (Some(Item::SizeMenu), _) => return Pressed::SizeMenu,
             (Some(Item::Size(w)), _) => return Pressed::Size(*w),
             (Some(Item::Dials(l)), _) => return Pressed::Dials(*l),
@@ -1487,7 +1514,7 @@ mod tests {
                 12.0,
                 (
                     Skin::Worn,
-                    Lettering::Standard,
+                    (Lettering::Standard, TicksTitles::Standard),
                     Law::Semitones,
                     Source::DEFAULT,
                     Some(agents),

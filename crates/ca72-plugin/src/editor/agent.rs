@@ -15,7 +15,7 @@ use nih_plug::prelude::Param;
 
 use serde_json::{Value, json};
 
-use super::{Change, Editing, Law, Lettering, ParamSetter, Skin};
+use super::{Change, Editing, Law, Lettering, ParamSetter, Skin, TicksTitles};
 use crate::agent::server::Server;
 use crate::agent::setup;
 use crate::agent::values::{self, Entry};
@@ -737,6 +737,7 @@ impl Editing {
         json!({
             "look": match s.skin { Skin::Worn => "REALISTIC", Skin::Drawn => "CLASSIC" },
             "lettering": match s.lettering { Lettering::Standard => "STANDARD", Lettering::Large => "LARGE" },
+            "ticks_and_titles": match s.ticks_titles { TicksTitles::Standard => "STANDARD", TicksTitles::Quiet => "QUIET" },
             "frequency_dials": match s.frequency { Law::Semitones => "SEMITONES", Law::Hardware => "HARDWARE" },
             "tempo": self.params.tempo(),
             "quality_indicator": s.shutter,
@@ -777,6 +778,16 @@ impl Editing {
             Some(o) => {
                 return Err(ApiError::params(format!(
                     "`lettering` is STANDARD or LARGE, not {o}"
+                )));
+            }
+        };
+        let print = match word("ticks_and_titles")?.as_deref() {
+            None => None,
+            Some("STANDARD") => Some(TicksTitles::Standard),
+            Some("QUIET") => Some(TicksTitles::Quiet),
+            Some(o) => {
+                return Err(ApiError::params(format!(
+                    "`ticks_and_titles` is STANDARD or QUIET, not {o}"
                 )));
             }
         };
@@ -880,6 +891,7 @@ impl Editing {
         let known = [
             "look",
             "lettering",
+            "ticks_and_titles",
             "frequency_dials",
             "tempo",
             "quality_indicator",
@@ -900,6 +912,9 @@ impl Editing {
         }
         if let Some(l) = lettering {
             self.set_lettering(l);
+        }
+        if let Some(p) = print {
+            self.set_ticks_titles(p);
         }
         if let Some(l) = dials {
             self.set_frequency_dials(l);

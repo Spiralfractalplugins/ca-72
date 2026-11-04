@@ -123,6 +123,15 @@ impl Lettering {
         }
     }
 
+    /// A quiet tick's width against an approved one's: about the dials' numbers' strokes (2.9
+    /// of 4 units; the large lettering's 3.2: decisions.md R-QUIET-PRINT).
+    const fn quiet_tick(self) -> f64 {
+        match self {
+            Lettering::Standard => 0.725,
+            Lettering::Large => 0.8,
+        }
+    }
+
     /// The strip's legends.
     pub const fn strip_legend(self) -> f64 {
         match self {
@@ -716,18 +725,61 @@ fn label_at(d: &DialMarks, a: f64, t: &str, at: Option<f64>, num: f64) -> (f64, 
 }
 
 pub(crate) fn draw_dial(s: &mut Svg, cx: f64, cy: f64, dial: Dial) {
-    draw_dial_in(s, cx, cy, dial, "×");
+    draw_dial_in(s, cx, cy, dial, "×", TicksTitles::Standard);
 }
 
-/// The same, `times` the multiplication sign as the typeface prints it ([`Layout::times`]).
-fn draw_dial_in(s: &mut Svg, cx: f64, cy: f64, dial: Dial, times: &str) {
+/// How the panel's ticks and its sections' titles are printed (decisions.md R-QUIET-PRINT): as
+/// approved, or quieter, for those who find they compete with the legends (issue #145): the
+/// dials' and selectors' ticks thinner, shorter and a shade dimmer than the lettering, the
+/// sections' titles smaller and a shade dimmer. Chosen in the settings' menu (TICKS & TITLES),
+/// or by a look (`ticks_and_titles = "quiet"`). Nothing else moves.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TicksTitles {
+    #[default]
+    Standard,
+    Quiet,
+}
+
+/// A quiet tick's length against an approved one's, from its inner end (a dial's 13 units, 9.4).
+const QUIET_TICK_LENGTH: f64 = 0.72;
+/// A quiet section title's size against its approved one's (52 units, 39).
+const QUIET_TITLE: f64 = 0.75;
+/// The quiet ticks' and titles' ink, a shade dimmer than the lettering's.
+const QUIET_INK: f64 = 0.8;
+
+/// A tick from `r0` to `r1` (`w` wide) at `a` degrees about the origin, printed as `print` has
+/// it; `round`: with round ends (the dials'), else square (the selectors').
+fn tick(s: &mut Svg, a: f64, r0: f64, r1: f64, w: f64, print: TicksTitles, round: bool) {
+    let (r1, w, ink) = match print {
+        TicksTitles::Standard => (r1, w, String::new()),
+        TicksTitles::Quiet => (
+            r0 + (r1 - r0) * QUIET_TICK_LENGTH,
+            w * s.1.quiet_tick(),
+            format!(" stroke-opacity='{QUIET_INK}'"),
+        ),
+    };
+    let (x0, y0) = polar(r0, a);
+    let (x1, y1) = polar(r1, a);
+    let cap = if round { " stroke-linecap='round'" } else { "" };
+    put!(
+        s,
+        "<line x1='{}' y1='{}' x2='{}' y2='{}' stroke='{LEGEND}' stroke-width='{}'{cap}{ink}/>",
+        N(x0),
+        N(y0),
+        N(x1),
+        N(y1),
+        N(w)
+    );
+}
+
+/// The same, `times` the multiplication sign as the typeface prints it ([`Layout::times`]), its
+/// ticks as `print` has them.
+fn draw_dial_in(s: &mut Svg, cx: f64, cy: f64, dial: Dial, times: &str, print: TicksTitles) {
     let d = marks(dial);
     let num = s.1.number();
     put!(s, "<g transform='translate({} {})'>", N(cx), N(cy));
     for &(a, r0, r1, w) in &d.ticks {
-        let (x0, y0) = polar(r0, a);
-        let (x1, y1) = polar(r1, a);
-        line(s, x0, y0, x1, y1, w);
+        tick(s, a, r0, r1, w, print, true);
     }
     for &(a, t, at) in &d.labels {
         let (x, y) = label_at(&d, a, t, at, num);
@@ -769,6 +821,8 @@ pub struct Layout {
     /// Whether the typeface prints the multiplication sign (the timed dials' 4× and 2×,
     /// GLIDE's ×5): a skin pack's may not, which prints an x instead.
     times: bool,
+    /// How the ticks and the sections' titles are printed.
+    print: TicksTitles,
 }
 
 /// The extent of a pictogram's path (its commands are absolute M, L, H and V).
@@ -873,7 +927,19 @@ impl Layout {
             titles,
             lettering,
             times: fonts.covers("×"),
+            print: TicksTitles::Standard,
         }
+    }
+
+    /// The same, its ticks and titles printed as `print` has them.
+    pub fn printing(mut self, print: TicksTitles) -> Self {
+        self.print = print;
+        self
+    }
+
+    /// How its ticks and sections' titles are printed.
+    pub fn print(&self) -> TicksTitles {
+        self.print
     }
 
     /// The multiplication sign, or an x where the typeface has none.
@@ -915,7 +981,7 @@ pub fn background(layout: &Layout, arrangement: &Arrangement) -> String {
     strip_face(&mut s);
     crate::strip::surfaces(&mut s);
     column(&mut s, Ink::All);
-    strip_print(&mut s, arrangement);
+    strip_print(&mut s, layout, arrangement);
     grip(&mut s);
     s.0
 }
@@ -939,7 +1005,7 @@ pub fn background_surfaces(layout: &Layout, arrangement: &Arrangement) -> String
     strip_face(&mut s);
     crate::strip::surfaces(&mut s);
     column(&mut s, Ink::All);
-    strip_print(&mut s, arrangement);
+    strip_print(&mut s, layout, arrangement);
     grip(&mut s);
     s.0
 }
@@ -969,7 +1035,7 @@ pub fn dials_print(layout: &Layout, arrangement: &Arrangement) -> String {
             ..
         } = c.kind
         {
-            draw_dial_in(&mut s, c.x, c.y, dial, layout.times());
+            draw_dial_in(&mut s, c.x, c.y, dial, layout.times(), layout.print);
         }
     }
     s.0.push_str("</g>");
@@ -1077,7 +1143,7 @@ pub fn panel_print(layout: &Layout, arrangement: &Arrangement) -> String {
 pub fn strip_printed(layout: &Layout, arrangement: &Arrangement) -> String {
     let mut s = Svg(String::new(), layout.lettering);
     column(&mut s, Ink::Print);
-    strip_print(&mut s, arrangement);
+    strip_print(&mut s, layout, arrangement);
     grip(&mut s);
     s.0
 }
@@ -1088,7 +1154,7 @@ pub fn printed(layout: &Layout, arrangement: &Arrangement) -> String {
     let mut s = Svg(String::new(), layout.lettering);
     panel(&mut s, layout, arrangement, Ink::Print);
     column(&mut s, Ink::Print);
-    strip_print(&mut s, arrangement);
+    strip_print(&mut s, layout, arrangement);
     grip(&mut s);
     s.0
 }
@@ -1133,7 +1199,7 @@ pub(crate) fn strip_trims(s: &mut Svg) {
 }
 
 /// The strip's print (`strip::print`) and its knobs' dials.
-fn strip_print(s: &mut Svg, arrangement: &Arrangement) {
+fn strip_print(s: &mut Svg, layout: &Layout, arrangement: &Arrangement) {
     crate::strip::print(s);
     for c in arrangement
         .controls
@@ -1142,7 +1208,7 @@ fn strip_print(s: &mut Svg, arrangement: &Arrangement) {
     {
         if let Kind::Knob { dial, .. } = c.kind {
             let (x, y) = c.centre();
-            draw_dial(s, x, y, dial);
+            draw_dial_in(s, x, y, dial, "×", layout.print);
         }
     }
 }
@@ -1331,7 +1397,12 @@ fn print(s: &mut Svg, layout: &Layout, arrangement: &Arrangement) {
     for l in &arrangement.lines {
         line(s, l.from.0, l.from.1, l.to.0, l.to.1, l.width);
     }
-    // Section titles along the foot, as wide as printed.
+    // Section titles along the foot, as wide as printed; quiet, smaller and dimmer on the same
+    // baseline, spaced in the same proportion.
+    let (k, ink) = match layout.print {
+        TicksTitles::Standard => (1.0, String::new()),
+        TicksTitles::Quiet => (QUIET_TITLE, format!(" fill-opacity='{QUIET_INK}'")),
+    };
     for (i, t) in arrangement.titles.iter().enumerate() {
         let spaced = layout
             .titles
@@ -1339,17 +1410,18 @@ fn print(s: &mut Svg, layout: &Layout, arrangement: &Arrangement) {
             .copied()
             .flatten()
             .map_or(String::new(), |w| {
-                format!("textLength='{}' lengthAdjust='spacing'", N(w))
+                format!("textLength='{}' lengthAdjust='spacing'", N(w * k))
             });
+        let size = t.size * k;
         text(
             s,
             (t.span.0 + t.span.1) / 2.0,
-            t.baseline - t.size * 0.36,
+            t.baseline - size * 0.36,
             &t.text,
-            t.size,
+            size,
             Style::Title,
             false,
-            &spaced,
+            &(spaced + &ink),
         );
     }
     // The dials' marks and the selectors' ticks and legends.
@@ -1359,7 +1431,9 @@ fn print(s: &mut Svg, layout: &Layout, arrangement: &Arrangement) {
         .filter(|c| c.place == Place::Panel)
     {
         match c.kind {
-            Kind::Knob { dial, .. } => draw_dial_in(s, c.x, c.y, dial, layout.times()),
+            Kind::Knob { dial, .. } => {
+                draw_dial_in(s, c.x, c.y, dial, layout.times(), layout.print);
+            }
             Kind::Selector(set) => selector_marks(s, c, set, layout),
             _ => {}
         }
@@ -1406,16 +1480,7 @@ fn selector_marks_with(
 ) {
     put!(s, "<g transform='translate({} {})'>", N(c.x), N(c.y));
     for a in SIX {
-        let (x0, y0) = polar(SIX_TICK.0, a);
-        let (x1, y1) = polar(SIX_TICK.1, a);
-        put!(
-            s,
-            "<line x1='{}' y1='{}' x2='{}' y2='{}' stroke='{LEGEND}' stroke-width='4'/>",
-            N(x0),
-            N(y0),
-            N(x1),
-            N(y1)
-        );
+        tick(s, a, SIX_TICK.0, SIX_TICK.1, 4.0, layout.print, false);
     }
     let (own, glyphs) = legends(set);
     for (i, t) in texts.unwrap_or(own).iter().enumerate() {
@@ -3245,7 +3310,7 @@ pub fn tip(fonts: &Fonts, x: f64, y: f64, t: &str, size: f64) -> Layer {
 
 /// A dial's print at (`x`, `y`), the multiplication sign `times`.
 pub(crate) fn dial_print(s: &mut Svg, x: f64, y: f64, dial: Dial, times: &str) {
-    draw_dial_in(s, x, y, dial, times);
+    draw_dial_in(s, x, y, dial, times, TicksTitles::Standard);
 }
 
 /// A WAVEFORM switch's ticks and legends (oscillators 1 and 2's) at (`x`, `y`), and CONTINUOUS's

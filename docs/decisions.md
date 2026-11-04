@@ -17582,3 +17582,93 @@ still pass. `cargo test -p ca72-panel`: 160 passed, 9 ignored; `cargo test -p ca
 --features standalone-production`: 738 passed, 76 ignored; clippy on both crates (all targets, all
 features, `-D warnings`) and `cargo fmt --all` clean. Not tried: a real 4K monitor, a host,
 Windows or macOS scaling, a human comfort trial.
+
+**Round 2 (owner, 2026-11-04: fix what round 1 flagged, with screenshots):**
+- *OSC. 3 CONTROL in LARGE* moves 5 units up (`large = [491, 475]` and `[491, 494]`, still 17,
+  still in the switch column; STANDARD untouched). Its CONTROL is now 8.1 physical pixels from
+  RANGE's 32' at 4K's FIT TO SCREEN, against 7.1 before round 1 and 3.2 after it, in both looks.
+  Its gap to the section rule is as before (as STANDARD's). The gap to its switch grows from 24
+  to 29 pixels (STANDARD's is 15). The rule is on its left and 32' below its right, so moving up
+  is the only room it has.
+- *The settings' menu* is set in columns where it would not fit below its key in one
+  (`Menu::in_columns`). It uses as few columns as fit, up to four and no wider than the room
+  left of the key. Each column begins at a group's head, with the tallest column as short as
+  the groups allow and the longer first. A rule separates the columns.
+
+  Its lettering and row pitch are as they were, so nothing goes under the minimum; a tighter row
+  or a smaller size would have been needed instead (its heads are 9.43 pixels at 4K, so only 4 %
+  of size was spare). The room under the key is 758 drawing units. Where the menu opens:
+
+  | Window | Lettering | Columns | Opens |
+  |---|---|---|---|
+  | 4K FIT TO SCREEN (100 % and 150 %) | both | two | below its key |
+  | SIZE 100 % | both | three | below its key |
+  | The laptop's 1076, SIZE 75 % | both | four | below its key |
+  | The 860 minimum | STANDARD | four | below its key |
+  | The 860 minimum | LARGE | four | over the rail and its key, as before |
+
+  In round 1 it rose over the rail and its key at every size in the matrix. A 1080p screen's
+  FIT TO SCREEN, which in LARGE opened upward before round 1, also opens below
+  its key now, in three columns (by the same arithmetic as SIZE 100 %; not rendered).
+
+  Since it is no longer shrunk to fit the window's height, its items are larger in small
+  windows: 13.49 to 13.80 pixels' em at 860 in STANDARD (17.25 in LARGE), and 16.88 and 16.24
+  to 17.25 in LARGE on the laptop and at SIZE 75 %. Every other menu is as it was: one column,
+  placed as before.
+
+**Evidence, round 2:** `/mnt/lab/artifacts/ca-72/issue-70/round2/` (`index.html`): the matrix
+again (336 frames, with a `quiet` state), 1:1 crops, and golden frames against `dd23251`.
+
+- *Golden frames:* 16 of 32 differ, the LARGE ones, each only at OSC. 3 CONTROL (face units
+  448 to 535 by 467 to 506). The STANDARD ones are identical, and none shows a menu.
+- *The editor's frames against round 1's:* the LARGE ones differ at OSC. 3 CONTROL, and the
+  settings' ones at the menu. The presets' drawer differs at the build's commit printed in
+  it. Every other frame is identical.
+
+`cargo test -p ca72-panel`: 162 passed, 9 ignored. `cargo test -p ca72-plugin --features
+standalone-production`: 740 passed, 76 ignored. Clippy (both crates, all targets and features,
+`-D warnings`) and `cargo fmt --all` are clean.
+
+## R-QUIET-PRINT. TICKS & TITLES: quieter ticks and sections' titles, a setting
+
+**Owner brief, 2026-11-04 (issue #145's "tick marks" and "big labels", measured in
+R-READABILITY-MINIMUM):** do them as an opt-in option in the settings key's menu, beside the
+lettering's choice and in its style. The official panel stays as approved by default. When on:
+- the scale ticks are thinner (about the numerals' strokes), shorter, and a shade dimmer than
+  the lettering;
+- the five sections' titles are smaller and a shade dimmer.
+
+Route it through the skin system, as a `[look]` option a pack can set, whose built-in default
+draws as today. Persist it as the lettering is. Off, nothing changes.
+
+**Built:**
+- **The menu:** the settings' menu has TICKS & TITLES, STANDARD or QUIET (marked as
+  LETTERING's are), after LETTERING. It is kept for the computer in `settings.toml` as
+  `ticks_and_titles = "standard"` or `"quiet"` (anything else reads as standard), as
+  `lettering` is.
+- **Agents:** they set it with `ca72_settings_set {ticks_and_titles}`.
+- **Packs:** a pack sets it with `[look] ticks_and_titles = "quiet"` (an unknown value refuses
+  the pack: `look.ticks-and-titles`). A look that sets it prints quiet whatever the setting.
+  Without it, the built-in looks draw as approved.
+
+**QUIET draws** (`art::TicksTitles`):
+- **Ticks:** every tick of the panel's dials and selectors and of the strip's dials is 0.725 of
+  its width (0.8 in LARGE: 2.9 and 3.2 units for the dials' 4, the numbers' strokes). Each is
+  0.72 of its length from its inner end (a dial's 13 units become 9.4, so the gap to the numbers
+  widens), and at 80 % of the lettering's ink.
+- **Titles:** the five titles are 0.75 of their size (52 units become 39), on the same
+  baselines, spaced to 0.75 of their spans, at 80 % ink.
+- Every legend, number and rule is as it was. The arpeggiator's, the expression's and the LFO
+  page's drawers keep their ticks: they are drawn by their own renderers from the look's base
+  and lettering, not from the panel's layout.
+
+**Agent decisions** (not separately approved):
+- the name, TICKS & TITLES: STANDARD | QUIET, in the menu's head-and-choices wording;
+- the factors;
+- the selectors' and the strip's ticks included, so that the panel's ticks match;
+- the drawers left out.
+
+**Evidence:** `/mnt/lab/artifacts/ca-72/issue-70/round2/` (`quiet-*`, `after/*-quiet.png`).
+Off, every frame is as round 1's (the golden frames and the matrix). A test holds the off frame
+to the approved one, to the pixel. Another holds QUIET's print to the ticks and the five titles
+alone.

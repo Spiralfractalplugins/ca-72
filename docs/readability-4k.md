@@ -289,22 +289,52 @@ within about half a pixel: the tip's cap 9.48 to 14.20 px, menu items 10.45 to 1
 | Typed value's unit (Book, 0.7 → 0.8 × field) | 5.28 / 7.14 | 6.04 / 8.16 | 6.61 / 8.92 | 7.55 / 10.20 |
 
 **Small screens and hit targets.** At the 1366 by 768 laptop's 1076, SIZE 75 % (1035) and the
-grip's 860 the tips, menu items, menus' extents and their places are the same as before; only
-the heads and the unit are larger, within the same rows and fields. Every tip, menu and typed
-value stays inside the window at every size rendered. Menus are found where they are drawn
-(`Menu::hit` uses the same layout). At 4K the settings' menu is now taller than the room below
-its key and is moved up over the rail's right end, as LARGE's was on a 1080p screen.
+grip's 860, the tips, control menus and the typed value have the extents and places they had
+before; only the heads and the unit are larger, within the same rows and fields. Every tip,
+menu and typed value stays inside the window at every size rendered. Menus are found where they
+are drawn (`Menu::hit` uses the same layout).
 
-**Issue #145's suggestions, measured and left for the owner:** ticks are 4 units wide and 13
-long (plus round caps), in the lettering's colour, against the numbers' strokes of about 2.9
-units (LARGE 3.2); the section titles are 52-unit Demi, 37.4 px cap at 4K against the legends'
-13.7, in the same colour. Making them thinner, shorter, smaller or dimmer changes the approved
-panel's drawing without enlarging the parameters' print: the numbers sit at their own radius,
-not at the ticks' ends, and the titles' room is below the controls.
+### Round 2, 2026-11-04
+
+**The settings' menu** is set in columns where one would not fit below its key (decisions.md
+R-READABILITY-MINIMUM, round 2). Its lettering and row pitch are unchanged. Where it opens:
+
+| Window | STANDARD | LARGE |
+|---|---|---|
+| 4K FIT TO SCREEN, 100 % and 150 % | two columns, below its key | two columns, below its key |
+| SIZE 100 % | three columns, below its key | three columns, below its key |
+| Laptop (1076), SIZE 75 % | four columns, below its key | four columns, below its key |
+| 860 | four columns, below its key | four columns, over the rail and its key |
+
+In round 1 (and before it) it rose over the rail and its key at every one of these sizes. It is
+no longer shrunk to fit the window's height, so in small windows its items
+grow:
+
+| Window | Lettering | Settings' items, em in px |
+|---|---|---|
+| Laptop (1076) | LARGE | 16.88 → **17.25** |
+| SIZE 75 % | LARGE | 16.24 → **17.25** |
+| 860 | STANDARD | 13.49 → **13.80** |
+| 860 | LARGE | 13.49 → **17.25** |
+
+Every other size is unchanged (`round2/after/sizes.csv`).
+
+**OSC. 3 CONTROL in LARGE** is 5 units higher. Its CONTROL is now 8.1 px from RANGE's 32' at 4K
+FIT (7.1 before round 1, 3.2 after it); its size and x-height are as in round 1 (9.17 px).
+
+**TICKS & TITLES: QUIET** (issue #145, decisions.md R-QUIET-PRINT; off by default).
+- **Ticks:** 0.725 of their width (LARGE 0.8), 0.72 of their length, at 80 % ink. At 4K FIT
+  a dial's tick goes from 3.9 px wide and 12.7 long to 2.8 by 9.1.
+- **Section titles:** 0.75 of their size, at 80 % ink: 28.05 / 37.41 px x-height / cap height
+  become 21.04 / 28.06.
+
+Nothing else changes size.
 
 **Evidence** is under `/mnt/lab/artifacts/ca-72/issue-70/`: `before/` and `after/` (308 frames
 each, with `sizes.csv`), `crops/` (1:1 before | after of each changed class, both looks),
-`golden-before/`, `golden-after/`, `golden-compare.txt` and `golden-regions.txt`. Not tested: a
+`golden-before/`, `golden-after/`, `golden-compare.txt` and `golden-regions.txt`; round 2's in
+`round2/` (`index.html`, the matrix again in `round2/after/` with a `quiet` state, its crops and
+golden frames against `dd23251`). Not tested: a
 real 4K monitor, a host, Windows or macOS scaling, a human comfort trial.
 
 See [the complete small-text inventory](readability-4k-text.md).

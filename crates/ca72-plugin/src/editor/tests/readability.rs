@@ -3,7 +3,8 @@
 //! the_readability_pngs -- --ignored`. Each window size, look, lettering and state is written
 //! as `<size>-<look>-<lettering>-<state>.png`, and `sizes.csv` beside them has the em (physical
 //! pixels) of the text that follows the window's logical size rather than the panel's: the tip,
-//! the menus' items (after any fitting to the window) and a typed value.
+//! the menus' items (after any fitting to the window) and a typed value. `quiet` is the GLOBAL
+//! page with TICKS & TITLES QUIET.
 //! `CA72_READABILITY_ONLY=4k100-fit,laptop` limits the window sizes.
 
 use super::*;
@@ -112,6 +113,13 @@ fn the_readability_pngs() {
                 std::thread::sleep(crate::presets::SLIDE + Duration::from_millis(20));
                 away(&mut e);
                 save(&mut e, "presets");
+                // The panel with TICKS & TITLES QUIET (decisions.md R-QUIET-PRINT).
+                click(&mut e, name_key);
+                std::thread::sleep(crate::presets::SLIDE + Duration::from_millis(20));
+                e.set_ticks_titles(TicksTitles::Quiet);
+                away(&mut e);
+                save(&mut e, "quiet");
+                e.set_ticks_titles(TicksTitles::Standard);
                 let item = |m: &ca72_panel::learn::Menu| m.size * s;
                 csv.push_str(&format!(
                     "{size},{look},{lt},{dpr},{physical},{s:.5},{tip:.3},{:.3},{:.3},{entry:.3}\n",

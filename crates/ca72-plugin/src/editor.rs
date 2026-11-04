@@ -44,7 +44,9 @@ use ca72_panel::strip::lower as lower_ui;
 use ca72_panel::strip::macros::{self as macro_ui, MacroRenderer, MacroScene};
 use ca72_panel::strip::mpe::{self as mpe_ui, MpeRenderer, MpeScene, MpeTarget};
 use ca72_panel::strip::{self, Bank, Field, Rail, Readout, StripRenderer, StripScene, StripTarget};
-use ca72_panel::{CONTROLS, Kind, Lettering, Look, Renderer, Scene, Skin, Target, interact};
+use ca72_panel::{
+    CONTROLS, Kind, Lettering, Look, Renderer, Scene, Skin, Target, TicksTitles, interact,
+};
 use keyboard_types::{Key, KeyState, KeyboardEvent, Modifiers};
 use nih_plug::editor::HostKey;
 use nih_plug::prelude::*;
@@ -1830,9 +1832,10 @@ impl Editing {
             dpr,
             width,
             physical_width,
-            renderer: Renderer::with_pack(
+            renderer: Renderer::printing(
                 chosen_look(&settings, &installed),
                 settings.lettering,
+                settings.ticks_titles,
                 f64::from(physical_width) / art::W,
                 dpr,
             ),
@@ -1993,7 +1996,7 @@ impl Editing {
             size,
             (
                 self.settings.skin,
-                self.settings.lettering,
+                (self.settings.lettering, self.settings.ticks_titles),
                 self.settings.frequency,
                 self.params.midi_map.wheel_source(),
                 agents,
@@ -2099,7 +2102,13 @@ impl Editing {
     fn draw_in(&mut self, look: Look) {
         let lettering = self.renderer.lettering();
         let before = self.panel();
-        let renderer = Renderer::with_pack(look, lettering, self.renderer.scale(), self.dpr);
+        let renderer = Renderer::printing(
+            look,
+            lettering,
+            self.settings.ticks_titles,
+            self.renderer.scale(),
+            self.dpr,
+        );
         let was = std::mem::replace(&mut self.renderer, renderer);
         if self.panel() != before {
             if !self.ask_resize(self.width) {
@@ -2140,7 +2149,13 @@ impl Editing {
         } else {
             let base = Look::of(self.renderer.look().base);
             let lettering = self.renderer.lettering();
-            self.renderer = Renderer::with_pack(base, lettering, self.renderer.scale(), self.dpr);
+            self.renderer = Renderer::printing(
+                base,
+                lettering,
+                self.settings.ticks_titles,
+                self.renderer.scale(),
+                self.dpr,
+            );
             choose_panel(self.panel());
             self.strip.set_look(self.renderer.look());
             self.drawer.set_look(self.renderer.look());
@@ -2180,8 +2195,33 @@ impl Editing {
         self.keep_settings(Change::Lettering(lettering));
         if self.renderer.lettering() != lettering {
             let look = self.renderer.look().clone();
-            self.renderer = Renderer::with_pack(look, lettering, self.renderer.scale(), self.dpr);
+            self.renderer = Renderer::printing(
+                look,
+                lettering,
+                self.settings.ticks_titles,
+                self.renderer.scale(),
+                self.dpr,
+            );
             self.dress_drawers();
+            self.composed = None;
+        }
+    }
+
+    /// The panel's ticks and sections' titles printed as `print` has them from now on, on this
+    /// computer (decisions.md R-QUIET-PRINT): its renderer made again, in the look and lettering
+    /// it is in. A look that prints them quiet itself stays quiet.
+    fn set_ticks_titles(&mut self, print: TicksTitles) {
+        self.keep_settings(Change::TicksTitles(print));
+        let wanted = if self.renderer.look().ticks_titles == TicksTitles::Quiet {
+            TicksTitles::Quiet
+        } else {
+            print
+        };
+        if self.renderer.print() != wanted {
+            let look = self.renderer.look().clone();
+            let lettering = self.renderer.lettering();
+            self.renderer =
+                Renderer::printing(look, lettering, print, self.renderer.scale(), self.dpr);
             self.composed = None;
         }
     }
@@ -3552,6 +3592,10 @@ impl Editing {
             }
             Pressed::Lettering(lettering) => {
                 self.set_lettering(lettering);
+                return;
+            }
+            Pressed::TicksTitles(print) => {
+                self.set_ticks_titles(print);
                 return;
             }
             Pressed::HoverCables(on) => {
@@ -9839,7 +9883,7 @@ mod tests {
         );
         assert_eq!(
             e.learning.menu().map(|m| m.marked.clone()),
-            Some(vec![1, 4, 7])
+            Some(vec![1, 4, 7, 10])
         );
         let standard = e.learning.menu().expect("a menu").size;
         menu_item(&mut e, "LARGE");
@@ -9888,6 +9932,138 @@ mod tests {
         e.draw();
     }
 
+    /// The settings key's TICKS & TITLES (decisions.md R-QUIET-PRINT): STANDARD by default and
+    /// marked, under LETTERING's choices; QUIET prints the panel's ticks and titles quiet, in the
+    /// look and lettering it is in, and is kept for the computer as the lettering is; STANDARD
+    /// brings the approved panel back, to the pixel.
+    #[test]
+    fn the_settings_key_chooses_quiet_ticks_and_titles() {
+        let (mut e, _, _) = editing();
+        let dir = tempfile::tempdir().expect("a folder");
+        let path = dir.path().join("CA-72").join("settings.toml");
+        e.settings_file = Some(path.clone());
+        e.draw();
+        let approved = e.renderer.frame().data().to_vec();
+        let key = on_strip(&e, strip_at(StripTarget::Bar(BarTarget::Settings)));
+        click(&mut e, key);
+        assert_eq!(
+            menu_items(&e)[6..9],
+            [
+                ("TICKS & TITLES".to_owned(), false),
+                ("STANDARD".to_owned(), false),
+                ("QUIET".to_owned(), true),
+            ]
+        );
+        assert!(e.learning.menu().expect("a menu").marked.contains(&7));
+        menu_item(&mut e, "QUIET");
+        assert_eq!(
+            (
+                e.settings.ticks_titles,
+                e.renderer.print(),
+                e.renderer.lettering(),
+                e.renderer.skin()
+            ),
+            (
+                TicksTitles::Quiet,
+                TicksTitles::Quiet,
+                Lettering::Standard,
+                Skin::Worn
+            )
+        );
+        assert_eq!(Settings::read(&path).ticks_titles, TicksTitles::Quiet);
+        e.draw();
+        assert!(e.renderer.frame().data() != approved.as_slice());
+        // LARGE keeps it quiet.
+        click(&mut e, key);
+        menu_item(&mut e, "LARGE");
+        assert_eq!(e.renderer.print(), TicksTitles::Quiet);
+        click(&mut e, key);
+        menu_item(&mut e, "STANDARD");
+        assert_eq!(e.renderer.print(), TicksTitles::Quiet);
+        click(&mut e, key);
+        assert_eq!(menu_items(&e)[7], ("STANDARD".to_owned(), true));
+        let m = e.learning.menu().expect("a menu").clone();
+        let p = at(&e, m.item_at(7));
+        click(&mut e, p);
+        assert_eq!(
+            (e.settings.ticks_titles, e.renderer.print()),
+            (TicksTitles::Standard, TicksTitles::Standard)
+        );
+        assert_eq!(Settings::read(&path).ticks_titles, TicksTitles::Standard);
+        e.draw();
+        e.composed = None;
+        e.draw();
+        assert!(
+            e.renderer.frame().data() == approved.as_slice(),
+            "as approved"
+        );
+    }
+
+    /// The settings' menu opens below its key, under the rail, without covering the key or
+    /// the rail, at 4K's FIT TO SCREEN (100 % and 150 %), SIZE's 100 % and 75 % and a 1366 by
+    /// 768 laptop's 1076, in both looks and letterings (decisions.md R-READABILITY-MINIMUM): in
+    /// columns where one would not fit, its lettering at its size (never under the 4K minimum)
+    /// and its rows' pitch as they were; each item found where it is drawn.
+    #[test]
+    fn the_settings_menu_drops_below_its_key_at_4k() {
+        for (dpr, width) in [
+            (1.0, 3026),
+            (1.5, 2017),
+            (1.0, 1380),
+            (1.5, 1380),
+            (1.0, 1076),
+            (1.0, 1035),
+        ] {
+            let physical = (f64::from(width) * dpr).round() as u32;
+            for skin in [Skin::Worn, Skin::Drawn] {
+                for lettering in [Lettering::Standard, Lettering::Large] {
+                    let (mut e, _, _) = editing();
+                    e.fit(dpr, width, physical);
+                    e.set_look(skin);
+                    e.set_lettering(lettering);
+                    e.draw();
+                    let key = on_strip(&e, strip_at(StripTarget::Bar(BarTarget::Settings)));
+                    click(&mut e, key);
+                    let m = e.learning.menu().expect("the settings' menu").clone();
+                    let (w, h) = m.extent(e.renderer.fonts());
+                    let (kx, ky) =
+                        strip::centre(Rail::Plugin, StripTarget::Bar(BarTarget::Settings));
+                    let at = format!("{width} at {dpr}, {skin:?} {lettering:?}");
+                    assert_eq!(
+                        (m.x + w, m.y),
+                        settings_menu_corner(),
+                        "{at}: below its key"
+                    );
+                    assert!(
+                        m.y > ky + strip::KEY_H / 2.0 && m.y + h <= art::H + 1e-9,
+                        "{at}"
+                    );
+                    assert!(
+                        m.x + w <= kx + strip::KEY_W / 2.0 + 1e-9 && m.x >= 0.0,
+                        "{at}"
+                    );
+                    assert_eq!(
+                        m.size,
+                        e.renderer.text_size() * MENU_TEXT,
+                        "{at}: not shrunk"
+                    );
+                    assert!(!m.columns.is_empty(), "{at}: in columns");
+                    assert!(m.columns.iter().all(|&(i, _)| m.heads.contains(&i)), "{at}");
+                    for i in 0..m.items.len() {
+                        let (x, y) = m.item_at(i);
+                        assert_eq!(
+                            m.hit(e.renderer.fonts(), x + 1.0, y),
+                            Some(Some(i)),
+                            "{at}: {i}"
+                        );
+                    }
+                    menu_item(&mut e, "CLASSIC");
+                    assert_eq!(e.renderer.skin(), Skin::Drawn, "{at}: its items chosen");
+                }
+            }
+        }
+    }
+
     /// The settings key's FREQUENCY DIALS (decisions.md R54): SEMITONES by default, each
     /// group's choice marked. HARDWARE turns oscillators 2 and 3's knobs to where the hardware's
     /// dial has their pots, the parameters (the sound) as they were, and the tip still reads
@@ -9900,7 +10076,7 @@ mod tests {
         let key = on_strip(&e, strip_at(StripTarget::Bar(BarTarget::Settings)));
         click(&mut e, key);
         assert_eq!(
-            menu_items(&e)[6..9],
+            menu_items(&e)[9..12],
             [
                 ("FREQUENCY DIALS".to_owned(), false),
                 ("SEMITONES".to_owned(), false),
@@ -9911,8 +10087,9 @@ mod tests {
             e.learning
                 .menu()
                 .map(|m| (m.heads.clone(), m.marked.clone())),
-            // (WINDOW's HOVER CABLES row before MOD WHEEL SOURCE: R-VELOCITY.)
-            Some((vec![0, 3, 6, 9, 13, 15], vec![1, 4, 7]))
+            // (WINDOW's HOVER CABLES row before MOD WHEEL SOURCE: R-VELOCITY; TICKS & TITLES
+            // after LETTERING: R-QUIET-PRINT.)
+            Some((vec![0, 3, 6, 9, 12, 16, 18], vec![1, 4, 7, 10]))
         );
         // Oscillator 2 at +5 semitones, oscillator 3's pot at its clockwise end (+8.22).
         let ps: Arc<dyn Params> = params.clone();
@@ -9953,7 +10130,7 @@ mod tests {
         click(&mut e, key);
         assert_eq!(
             e.learning.menu().map(|m| m.marked.clone()),
-            Some(vec![1, 4, 8])
+            Some(vec![1, 4, 7, 11])
         );
         let away = at(&e, (0.0, 0.0));
         click(&mut e, away);
@@ -14140,7 +14317,7 @@ mod tests {
         click(&mut e, key);
         let items = menu_items(&e);
         assert_eq!(
-            items[9..11],
+            items[12..14],
             [
                 ("WINDOW".to_owned(), false),
                 ("SIZE\u{2026}".to_owned(), true)

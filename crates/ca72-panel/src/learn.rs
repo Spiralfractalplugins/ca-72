@@ -42,7 +42,9 @@ impl Tone {
 /// A control's menu: its top left corner (drawing units), its lettering's size (drawing units),
 /// its title (not an item), its items (each its label and whether it can be chosen), those of
 /// them that head a group of the items after them (not to be chosen), those that are their
-/// group's current choice (marked), and the one under the pointer.
+/// group's current choice (marked), the one under the pointer, and those that begin a column
+/// beside the one before (each a group's head, with where its labels begin from the menu's left
+/// edge in the lettering's sizes; none, the menu one column).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Menu {
     pub x: f64,
@@ -53,6 +55,7 @@ pub struct Menu {
     pub heads: Vec<usize>,
     pub marked: Vec<usize>,
     pub hover: Option<usize>,
+    pub columns: Vec<(usize, f64)>,
 }
 
 impl Menu {
@@ -84,26 +87,116 @@ impl Menu {
         }
     }
 
+    /// Item `i`'s width: its label's, set in under its head where it is.
+    fn width(&self, fonts: &Fonts, i: usize) -> f64 {
+        let t = &self.items[i].0;
+        if self.heads.contains(&i) {
+            let (hs, hsp) = self.head_type();
+            fonts.advance(t, hs, Weight::Bold, hsp)
+        } else {
+            fonts.advance(t, self.size, Weight::Regular, 0.0) + self.indent(i)
+        }
+    }
+
+    /// Its columns' items, first to last.
+    fn column_items(&self) -> Vec<std::ops::Range<usize>> {
+        let mut starts = vec![0];
+        starts.extend(self.columns.iter().map(|&(i, _)| i));
+        starts.push(self.items.len());
+        starts.windows(2).map(|w| w[0]..w[1]).collect()
+    }
+
+    /// Item `i`'s column and its row in it (0 its first item's).
+    fn place(&self, i: usize) -> (usize, usize) {
+        let c = self.columns.iter().filter(|&&(s, _)| s <= i).count();
+        let start = if c == 0 { 0 } else { self.columns[c - 1].0 };
+        (c, i - start)
+    }
+
+    /// Where each column's labels begin, from the menu's left edge.
+    fn lefts(&self) -> Vec<f64> {
+        std::iter::once(self.pad())
+            .chain(self.columns.iter().map(|&(_, k)| k * self.size))
+            .collect()
+    }
+
+    /// Column `c`'s extent across the menu (its left and right edges, from the menu's), `w`
+    /// the menu's width: from the rule before it to the rule after it, the outer ones from and
+    /// to the menu's edges.
+    fn column_span(&self, c: usize, w: f64) -> (f64, f64) {
+        let lefts = self.lefts();
+        let left = if c == 0 { 0.0 } else { lefts[c] - self.pad() };
+        let right = lefts.get(c + 1).map_or(w, |&next| next - self.pad());
+        (left, right)
+    }
+
     /// Its width and height.
     pub fn extent(&self, fonts: &Fonts) -> (f64, f64) {
         let (ts, tsp) = self.title_type();
-        let (hs, hsp) = self.head_type();
-        let widest = self
-            .items
-            .iter()
-            .enumerate()
-            .map(|(i, (t, _))| {
-                if self.heads.contains(&i) {
-                    fonts.advance(t, hs, Weight::Bold, hsp)
-                } else {
-                    fonts.advance(t, self.size, Weight::Regular, 0.0) + self.indent(i)
-                }
-            })
+        let last = self.column_items().pop().unwrap_or(0..0);
+        let left = self.lefts().last().copied().unwrap_or(0.0);
+        let widest = last
+            .map(|i| left - self.pad() + self.width(fonts, i))
             .fold(fonts.advance(&self.title, ts, Weight::Bold, tsp), f64::max);
+        let rows = self
+            .column_items()
+            .iter()
+            .map(|r| r.len())
+            .max()
+            .unwrap_or(0);
         (
             widest + 2.0 * self.pad(),
-            self.row() * (self.items.len() + 1) as f64 + self.size * 0.4,
+            self.row() * (rows + 1) as f64 + self.size * 0.4,
         )
+    }
+
+    /// Its items in as few columns as make it fit `room` (width, height), at most `most`; none
+    /// doing it, as many as keep it within the width: each column begun at a group's head, the
+    /// tallest as short as its groups allow (the first the longer where two ways are as tall),
+    /// a margin's width either side of the rule between two. Its lettering and its rows stay as
+    /// they are.
+    pub fn in_columns(mut self, fonts: &Fonts, (width, height): (f64, f64), most: usize) -> Menu {
+        let heads: Vec<usize> = self.heads.iter().copied().filter(|&h| h > 0).collect();
+        let n = self.items.len();
+        let tallest = |starts: &[usize]| {
+            let mut ends: Vec<usize> = starts.to_vec();
+            ends.push(n);
+            std::iter::once(0)
+                .chain(starts.iter().copied())
+                .zip(ends)
+                .map(|(a, b)| b - a)
+                .max()
+                .unwrap_or(0)
+        };
+        self.columns.clear();
+        for more in 1..most.min(heads.len() + 1) {
+            if self.extent(fonts).1 <= height {
+                break;
+            }
+            let Some(starts) = choose(&heads, more)
+                .into_iter()
+                .min_by_key(|s| (tallest(s), std::cmp::Reverse(s.clone())))
+            else {
+                break;
+            };
+            // Each column's labels begin a margin past the rule after the one before.
+            let fewer = std::mem::take(&mut self.columns);
+            let mut x = self.pad();
+            let mut from = 0;
+            for &start in &starts {
+                x += (from..start)
+                    .map(|i| self.width(fonts, i))
+                    .fold(0.0, f64::max)
+                    + 2.0 * self.pad();
+                self.columns.push((start, x / self.size));
+                from = start;
+            }
+            if self.extent(fonts).0 > width {
+                self.columns = fewer;
+                break;
+            }
+        }
+        self
     }
 
     /// The menu moved to fit within `area` (left, top, right, bottom), its top left corner at
@@ -124,9 +217,10 @@ impl Menu {
 
     /// Where item `i`'s label begins, mid-height (drawing units).
     pub fn item_at(&self, i: usize) -> (f64, f64) {
+        let (c, r) = self.place(i);
         (
-            self.x + self.pad() + self.size,
-            self.y + self.row() * (i as f64 + 1.5),
+            self.x + self.lefts()[c] + self.size,
+            self.y + self.row() * (r as f64 + 1.5),
         )
     }
 
@@ -137,9 +231,34 @@ impl Menu {
         if !(self.x..self.x + w).contains(&x) || !(self.y..self.y + h).contains(&y) {
             return None;
         }
+        let c = (1..=self.columns.len())
+            .filter(|&c| self.column_span(c, w).0 <= x - self.x)
+            .count();
+        let r = self.column_items()[c].clone();
         let k = ((y - self.y) / self.row()).floor() as usize;
-        Some(k.checked_sub(1).filter(|&i| i < self.items.len()))
+        Some(
+            k.checked_sub(1)
+                .map(|k| r.start + k)
+                .filter(|i| r.contains(i)),
+        )
     }
+}
+
+/// Every way of choosing `k` of `from`, in order.
+fn choose(from: &[usize], k: usize) -> Vec<Vec<usize>> {
+    if k == 0 {
+        return vec![vec![]];
+    }
+    (0..from.len())
+        .flat_map(|j| {
+            choose(&from[j + 1..], k - 1)
+                .into_iter()
+                .map(move |mut rest| {
+                    rest.insert(0, from[j]);
+                    rest
+                })
+        })
+        .collect()
 }
 
 /// A menu's layer: a box in the tips' colours, its title on a darker band ruled off from the
@@ -189,16 +308,32 @@ pub fn menu(fonts: &Fonts, m: &Menu) -> Layer {
         N(tsp),
         escape(&m.title)
     );
+    // The rules between columns, from under the title's band.
+    for c in 1..=m.columns.len() {
+        let x = m.column_span(c, w).0;
+        put!(
+            s,
+            "<line x1='{}' y1='{}' x2='{}' y2='{}' stroke='{BORDER}' stroke-width='{}'/>",
+            N(x),
+            N(row + m.size * 0.4),
+            N(x),
+            N(h - m.size * 0.4),
+            N(m.size / 12.0)
+        );
+    }
+    let lefts = m.lefts();
     for (i, (label, enabled)) in m.items.iter().enumerate() {
-        let top = row * (i + 1) as f64;
+        let (c, k) = m.place(i);
+        let (left, right) = m.column_span(c, w);
+        let top = row * (k + 1) as f64;
         if m.heads.contains(&i) {
-            if i > 0 {
+            if k > 0 {
                 put!(
                     s,
                     "<line x1='{}' y1='{}' x2='{}' y2='{}' stroke='{BORDER}' stroke-width='{}'/>",
-                    N(m.size * 0.4),
+                    N(left + m.size * 0.4),
                     N(top),
-                    N(w - m.size * 0.4),
+                    N(right - m.size * 0.4),
                     N(top),
                     N(m.size / 12.0)
                 );
@@ -207,7 +342,7 @@ pub fn menu(fonts: &Fonts, m: &Menu) -> Layer {
             put!(
                 s,
                 "<text x='{}' y='{}' font-size='{}' font-weight='700' letter-spacing='{}' fill='{DIM}'>{}</text>",
-                N(m.pad()),
+                N(lefts[c]),
                 N(top + row * 0.5 + hs * 0.36),
                 N(hs),
                 N(hsp),
@@ -215,7 +350,7 @@ pub fn menu(fonts: &Fonts, m: &Menu) -> Layer {
             );
             continue;
         }
-        let x = m.pad() + m.indent(i);
+        let x = lefts[c] + m.indent(i);
         let marked = m.marked.contains(&i);
         if marked {
             put!(
@@ -230,9 +365,9 @@ pub fn menu(fonts: &Fonts, m: &Menu) -> Layer {
             put!(
                 s,
                 "<rect x='{}' y='{}' width='{}' height='{}' rx='{}' fill='{HOVER}'/>",
-                N(m.size * 0.2),
+                N(left + m.size * 0.2),
                 N(top),
-                N(w - m.size * 0.4),
+                N(right - left - m.size * 0.4),
                 N(row),
                 N(m.size * 0.2)
             );
@@ -241,7 +376,7 @@ pub fn menu(fonts: &Fonts, m: &Menu) -> Layer {
             s,
             "<text x='{}' y='{}' font-size='{}' fill='{}'>{}</text>",
             N(x),
-            N(base(i + 1)),
+            N(base(k + 1)),
             N(m.size),
             if *enabled || marked {
                 colour::LEGEND
@@ -460,6 +595,7 @@ mod tests {
             heads: Vec::new(),
             marked: Vec::new(),
             hover: None,
+            columns: Vec::new(),
         }
     }
 
@@ -480,6 +616,75 @@ mod tests {
         assert_eq!(m.hit(&fonts, 99.0, 210.0), None);
         assert_eq!(m.hit(&fonts, 100.0 + w + 1.0, 210.0), None);
         assert_eq!(m.hit(&fonts, 110.0, 200.0 + h + 1.0), None);
+    }
+
+    /// A menu of groups set in columns, as few as make it fit (the settings', decisions.md
+    /// R-READABILITY-MINIMUM): each column begun at a head, the tallest as short as the groups
+    /// allow, its lettering and rows as they were, each item found where it is drawn, its
+    /// columns side by side; one that fits stays one column.
+    #[test]
+    fn a_menu_in_columns_begins_each_at_a_head_and_finds_its_items() {
+        let fonts = Fonts::new();
+        let group = |head: &str, n: usize| {
+            std::iter::once((head.to_owned(), false))
+                .chain((0..n).map(|k| (format!("{head} {k}"), true)))
+                .collect::<Vec<_>>()
+        };
+        let mut items = Vec::new();
+        let mut heads = Vec::new();
+        for (head, n) in [
+            ("LOOK", 2),
+            ("LETTERING", 2),
+            ("TICKS", 2),
+            ("WINDOW", 3),
+            ("MPE", 1),
+        ] {
+            heads.push(items.len());
+            items.extend(group(head, n));
+        }
+        let m = Menu {
+            items,
+            heads,
+            ..menu_at(100.0, 200.0)
+        };
+        let (w1, h1) = m.extent(&fonts);
+        assert_eq!(
+            m.clone().in_columns(&fonts, (W, h1), 3),
+            m,
+            "it fits: one column"
+        );
+        let two = m.clone().in_columns(&fonts, (W, h1 * 0.7), 3);
+        // (LOOK, LETTERING, TICKS: nine rows; WINDOW, MPE: six.)
+        assert_eq!(two.columns.iter().map(|c| c.0).collect::<Vec<_>>(), [9]);
+        let (w2, h2) = two.extent(&fonts);
+        assert_eq!(two.size, m.size);
+        assert!((h2 - (two.row() * 10.0 + two.size * 0.4)).abs() < 1e-9 && h2 <= h1 * 0.7);
+        assert!(w2 >= w1);
+        let three = m.clone().in_columns(&fonts, (W, two.row() * 5.0), 3);
+        // (LOOK, LETTERING; TICKS; WINDOW, MPE: six, three, six rows.)
+        assert_eq!(
+            three.columns.iter().map(|c| c.0).collect::<Vec<_>>(),
+            [6, 9]
+        );
+        let three_tall = three.extent(&fonts).1;
+        assert!(
+            three_tall > two.row() * 5.0,
+            "none fits: the most columns, {three_tall}"
+        );
+        // No wider than the room: as many columns as it allows.
+        let narrow = m.clone().in_columns(&fonts, (w2 + 1.0, two.row() * 5.0), 3);
+        assert_eq!(narrow, two);
+        for menu in [&m, &two, &three] {
+            for i in 0..menu.items.len() {
+                let (x, y) = menu.item_at(i);
+                assert_eq!(menu.hit(&fonts, x + 1.0, y), Some(Some(i)), "{i}");
+            }
+        }
+        // The second column begins right of the first's widest label.
+        let (x0, _) = two.item_at(1);
+        let (x1, _) = two.item_at(10);
+        let widest = (0..9).map(|i| two.width(&fonts, i)).fold(0.0, f64::max);
+        assert!(x1 - x0 >= widest, "{x0} {x1} {widest}");
     }
 
     /// A menu opened at the panel's bottom right corner is moved to fit inside it.

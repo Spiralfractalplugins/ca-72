@@ -954,6 +954,12 @@ fn a_packs_drawer_is_its_own() {
     assert!(pack.drawer_art.is_some() && pack.drawer_type);
     assert!(pack.drawer_caps && pack.drawer_centred);
     assert!(draw(Some(&pack)) != built_in);
+    // Its panel's ticks and titles quiet (decisions.md R-QUIET-PRINT); as approved unless it
+    // says so.
+    assert_eq!(pack.ticks_titles, ca72_panel::TicksTitles::Standard);
+    let quiet = Look::open(pack_with("ticks_and_titles = \"quiet\"\n").path())
+        .unwrap_or_else(|r| panic!("{r}"));
+    assert_eq!(quiet.ticks_titles, ca72_panel::TicksTitles::Quiet);
 
     // Along the search field, the first place a press puts the caret after its fifth
     // character: set in the typeface, nearer than five of the dots' characters.
@@ -983,6 +989,7 @@ fn a_packs_drawer_is_its_own() {
         ("drawer_lettering = \"neon\"\n", "look.drawer-lettering"),
         ("drawer_legends = \"under\"\n", "look.drawer-legends"),
         ("drawer_titles = \"right\"\n", "look.drawer-titles"),
+        ("ticks_and_titles = \"faint\"\n", "look.ticks-and-titles"),
         ("drawer_art = \"art/drawer.png\"\n", "look.drawer-art"),
     ] {
         let dir = pack_with(field);

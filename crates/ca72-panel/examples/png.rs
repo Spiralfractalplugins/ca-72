@@ -1,7 +1,8 @@
 //! Renders the panel to a PNG: `cargo run -p ca72-panel --example png -- out.png [scale]`
 //! (pixels a panel unit, 0.5 by default); `CA72_SKIN=worn` in the worn skin; `CA72_MONO=1` the
 //! strip in MONO without DOUBLE (the one voice lit at one of VOICES's places); `CA72_LETTERING=
-//! large` in the large lettering.
+//! large` in the large lettering; `CA72_QUIET=1` its ticks and titles quiet (decisions.md
+//! R-QUIET-PRINT).
 //! `CA72_STANDALONE=1` shows the standalone's TEMPO screen with its TYPING, PANIC and MIDI keys
 //! after it (`CA72_TEMPO=96` another tempo; `CA72_TYPING=1` TYPING on, `CA72_PANIC=1` PANIC held,
 //! `CA72_MIDI=1` the MIDI map mode's key lit, `CA72_TEMPO_HOVER=typing`, `panic` or `midi` a key
@@ -51,18 +52,23 @@ fn main() {
         Ok("large") => ca72_panel::Lettering::Large,
         _ => ca72_panel::Lettering::Standard,
     };
+    let print = if std::env::var("CA72_QUIET").is_ok_and(|v| v == "1") {
+        ca72_panel::TicksTitles::Quiet
+    } else {
+        ca72_panel::TicksTitles::Standard
+    };
     let mut r = match std::env::var("CA72_PACK") {
         Ok(dir) => match ca72_panel::Look::open(std::path::Path::new(&dir)) {
             Ok(look) => {
                 print!("{}", look.report);
-                Renderer::with_pack(look, lettering, scale, 1.0)
+                Renderer::printing(look, lettering, print, scale, 1.0)
             }
             Err(report) => {
                 eprint!("{report}");
                 std::process::exit(1);
             }
         },
-        Err(_) => Renderer::with_look(skin, lettering, scale, 1.0),
+        Err(_) => Renderer::printing(ca72_panel::Look::of(skin), lettering, print, scale, 1.0),
     };
     let arp = std::env::var("CA72_ARP").is_ok_and(|v| v == "1");
     let fx = std::env::var("CA72_FX").ok();
@@ -409,6 +415,7 @@ fn settings_menu(frame: &mut ca72_panel::Pixmap, r: &Renderer) {
             17,
         ],
         hover: None,
+        columns: Vec::new(),
     };
     let (w, _) = menu.extent(r.fonts());
     menu = menu.placed(r.fonts(), 3055.0 - w, 1017.0, [0.0, 0.0, W, H]);
