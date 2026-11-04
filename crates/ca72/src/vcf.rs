@@ -1364,9 +1364,10 @@ pub struct Vcf {
     /// The direct branch's coupling (FILTER MODE's HI): its capacitor's voltage and its last
     /// input, V.
     mode: (f64, f64),
-    /// The mixes' fourth stage ([`Vcf::shaped`]): the third stage's output and an unloaded
-    /// fourth stage's following it, in their pairs' tanh, at the last step's end.
-    free: (f64, f64),
+    /// The mixes' fourth stage ([`Vcf::follow_free`]): the third stage's output and an unloaded
+    /// fourth stage's following it, in their pairs' tanh, at the last step's end; none while
+    /// no mix is heard.
+    free: Option<(f64, f64)>,
 }
 
 /// The loop Jacobian's entries that are not always zero ([`VcfCircuit::eval_full`]), row by
@@ -1427,7 +1428,7 @@ impl Vcf {
             shape: Shape::DRAWN,
             fade: None,
             mode: (0.0, 0.0),
-            free: (0.0, 0.0),
+            free: None,
         }
     }
 
@@ -1529,7 +1530,7 @@ impl Vcf {
         self.g_held = (f64::NAN, 0, [0.0; 8]);
         self.mode = (0.0, 0.0);
         self.fade = None;
-        self.free = (0.0, 0.0);
+        self.free = None;
     }
 
     /// Delay through the resamplers, in output samples.
@@ -1670,7 +1671,12 @@ impl Vcf {
         let (q, x0) = self.mode;
         let q = (q * (1.0 - a) + a * (x + x0)) / (1.0 + a);
         self.mode = (q, x);
-        self.follow_free();
+        let mix = |s: Shape| matches!(s.mode, FilterMode::Band | FilterMode::High);
+        if mix(self.shape) || self.fade.is_some_and(|(s, _)| mix(s)) {
+            self.follow_free();
+        } else {
+            self.free = None;
+        }
         let now = self.shaped(self.shape, v, x - q);
         match self.fade {
             None => now,
@@ -1689,18 +1695,32 @@ impl Vcf {
     /// the stages below leaves their bass behind (STEEP HIGH at 4 poles 30 dB down only two
     /// octaves under a low corner). The mixes take this one instead: the fourth stage as the
     /// others are, its own pair's slope at rest, following the third (trapezoidal, as the
-    /// loop, with its prewarping). It runs in every mode, so that a change into a mix starts
-    /// from where it is.
+    /// loop, with its prewarping). It runs only while a mix is heard (the drawn filter costs
+    /// what it did); a change into one starts it from the loaded stage's output over its share
+    /// of the passband ([`Vcf::fourth_share`]).
     fn follow_free(&mut self) {
         let bias = &self.bias.2;
-        let p = self.warp.map_or(1.0, |(_, p)| p);
+        let volts = 2.0 * bias.vt_stage[3] + bias.v_stage[3];
         let third = crate::fast::tanh(self.y[2] / (2.0 * bias.vt_stage[2] + bias.v_stage[2]));
-        let tau =
-            2.0 * bias.c_stage[3] * (2.0 * bias.vt_stage[3] + bias.v_stage[3]) / (p * bias.e[3]);
+        let Some((before, out)) = self.free else {
+            let fourth = crate::fast::tanh(self.y[3] / volts) / self.fourth_share();
+            self.free = Some((third, fourth));
+            return;
+        };
+        let p = self.warp.map_or(1.0, |(_, p)| p);
+        let tau = 2.0 * bias.c_stage[3] * volts / (p * bias.e[3]);
         let a = self.h / (2.0 * tau);
-        let (before, out) = self.free;
         let out = (out * (1.0 - a) + a * (third + before)) / (1.0 + a);
-        self.free = (third, out);
+        self.free = Some((third, out));
+    }
+
+    /// The share of the fourth stage's passband the output's followers leave it (R31/R38 and
+    /// their base currents against its emitter current, through its pair's slope at rest).
+    fn fourth_share(&self) -> f64 {
+        let bias = &self.bias.2;
+        let volts = 2.0 * bias.vt_stage[3] + bias.v_stage[3];
+        let (_, dib) = table_hermite(&OUT_DIB, OUT_DIB_MIN, OUT_DIB_STEP, 0.0);
+        bias.e[3] / (bias.e[3] + volts * (1.0 / self.circuit.r31 + dib))
     }
 
     /// The output in `shape` (decisions.md R-POLES) from the loop's `v` and HI's direct branch
@@ -1727,8 +1747,7 @@ impl Vcf {
             // The fourth stage's pair's slope at rest, 1 / (2Vt + its drop), and the share
             // of its passband the followers leave it.
             let volts = 2.0 * bias.vt_stage[3] + bias.v_stage[3];
-            let (_, dib) = table_hermite(&OUT_DIB, OUT_DIB_MIN, OUT_DIB_STEP, 0.0);
-            let loaded = bias.e[3] / (bias.e[3] + volts * (1.0 / c.r31 + dib));
+            let loaded = self.fourth_share();
             let r_tot = c.r7 + c.r14 + c.r73 * (1.0 - c.r73_pos) + c.r73 * c.r73_pos + c.r76;
             let gain = -(c.r7 + c.r3) + c.r7 * c.r7 / r_tot;
             let amp = |w: f64| table_hermite(&OUT_DI, OUT_DI_MIN, OUT_DI_STEP, w).0;
@@ -1745,7 +1764,7 @@ impl Vcf {
                     let p = self.warp.map_or(1.0, |(_, p)| p);
                     let d = core::array::from_fn(|j| {
                         if j == 3 {
-                            self.free.0 - self.free.1
+                            self.free.map_or(0.0, |(third, fourth)| third - fourth)
                         } else {
                             2.0 * bias.c_stage[j] * f[j] / (p * bias.e[j])
                         }

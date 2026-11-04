@@ -1718,6 +1718,13 @@ impl Light {
         }
         self.set_for_panel = true;
         self.panel = *p;
+        // FILTER MODE and FILTER POLES: a change crossfades, once the filter has run
+        // (decisions.md R-POLES).
+        let shape = (p.filter_mode, p.filter_poles.clamp(1, 4));
+        if shape != self.shape {
+            self.fade = self.ran.then_some((self.shape, 1.0, self.coupling));
+            self.shape = shape;
+        }
         // (MOD moves a CONTINUOUS shape only with the wheel forward: R-CONTINUOUS-WAVE.)
         let depth = light_depth(p.mod_wheel);
         for o in 0..3 {
@@ -2143,13 +2150,35 @@ impl Light {
             laws::BIAS,
             self.limit,
         );
-        // FILTER MODE and FILTER POLES: a change crossfades (decisions.md R-POLES).
-        let want = (self.panel.filter_mode, self.panel.filter_poles.clamp(1, 4));
-        if want != self.shape {
-            self.fade = self.ran.then_some((self.shape, 1.0, self.coupling));
-            self.shape = want;
+        // The filter as drawn, nothing fading: its output as it always was.
+        if self.fade.is_none()
+            && matches!(
+                self.shape,
+                (FilterMode::Lo | FilterMode::Hi, crate::vcf::POLES)
+            )
+        {
+            // The filter's output coupling; FILTER MODE HI, the bus (through its own coupling)
+            // less it.
+            let y = y * self.pass;
+            let (a, x0, y0) = self.coupling;
+            let lo = a * (y0 + y - x0);
+            self.coupling = (a, y, lo);
+            let y = if self.shape.0 == FilterMode::Hi {
+                let (a, x0, y0) = self.mode;
+                let d = self.direct * bus;
+                let direct = a * (y0 + d - x0);
+                self.mode = (a, d, direct);
+                direct - lo
+            } else {
+                // (The direct branch's coupling at rest: in HI it starts from the bus's
+                // sample.)
+                self.mode.1 = 0.0;
+                self.mode.2 = 0.0;
+                lo
+            };
+            return self.filter_down.push(f64::from(y));
         }
-        self.ran = true;
+        // Another setting, or a change crossfading (decisions.md R-POLES).
         let taps = &self.ladder.taps;
         // The filter's output coupling; FILTER MODE HI, the bus (through its own coupling)
         // less it.
@@ -2197,6 +2226,7 @@ impl Light {
             self.control();
         }
         self.count -= 1;
+        self.ran = true;
         // RETRIGGER's keys come down once the keys' gate has been low long enough for the
         // contours to start again; until then it is low, the keys held as they were.
         if self.waiting.0 != 0 && !self.gate && self.open >= self.gap {
