@@ -3,9 +3,9 @@ use crossbeam::atomic::AtomicCell;
 use crossbeam::channel::{self, SendTimeoutError};
 use parking_lot::{Mutex, RwLock};
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use vst3_sys::base::{kInvalidArgument, kResultOk, tresult};
 use vst3_sys::vst::{IComponentHandler, RestartFlags};
 
@@ -27,6 +27,11 @@ use crate::wrapper::util::{hash_param_id, process_wrapper, OwnParamChange, OWN_P
 /// A parameter with no edit held in [`WrapperInner::held_edits`]. The bits of a NaN, which no
 /// normalized value is.
 pub(crate) const NO_HELD_EDIT: u32 = u32::MAX;
+
+/// How long a host that says it is processing may go without a `process()` call before the
+/// editor's edits are set at once rather than held for the next call (PATCHES.md, change 17): at
+/// least this, or four of the host's largest blocks if that is longer.
+pub(crate) const PROCESS_QUIET: Duration = Duration::from_millis(250);
 
 /// The actual wrapper bits. We need this as an `Arc<T>` so we can safely use our event loop API.
 /// Since we can't combine that with VST3's interior reference counting this just has to be moved to
@@ -135,11 +140,19 @@ pub(crate) struct WrapperInner<P: Vst3Plugin> {
     pub param_by_hash: HashMap<u32, ParamPtr>,
     /// The editor's latest edit of each parameter, made while the host was processing audio and
     /// not yet set, as the bits of its normalized value, or [`NO_HELD_EDIT`] (PATCHES.md, change
-    /// 12). It is set at the start of the next `process()` call, or as processing stops, and
-    /// until then it is the value `IEditController::getParamNormalized()` reports.
+    /// 12). It is set at the start of the next `process()` call, or as processing stops, or by the
+    /// editor's thread once the host has stopped calling `process()` without saying so (change
+    /// 17), and until then it is the value `IEditController::getParamNormalized()` reports.
     pub held_edits: HashMap<u32, AtomicU32>,
     /// Whether any of [`held_edits`][Self::held_edits] may hold an edit.
     pub any_held_edit: AtomicBool,
+    /// Whether a `process()` call is running (PATCHES.md, change 17).
+    pub in_process: AtomicBool,
+    /// When the last `process()` call returned, or processing began, as nanoseconds since
+    /// [`clock`][Self::clock] (PATCHES.md, change 17).
+    pub last_process: AtomicU64,
+    /// The instant [`last_process`][Self::last_process] counts from.
+    pub clock: Instant,
     /// Mappings from parameter hashes to string parameter IDs. Used for notifying the plugin's
     /// editor about parameter changes.
     pub param_id_by_hash: HashMap<u32, String>,
@@ -336,6 +349,9 @@ impl<P: Vst3Plugin> WrapperInner<P> {
             param_by_hash,
             held_edits,
             any_held_edit: AtomicBool::new(false),
+            in_process: AtomicBool::new(false),
+            last_process: AtomicU64::new(0),
+            clock: Instant::now(),
             param_id_by_hash,
             param_units,
             param_id_to_hash,
@@ -466,8 +482,16 @@ impl<P: Vst3Plugin> WrapperInner<P> {
     pub fn hold_edit(&self, hash: u32, normalized_value: f32) {
         if let Some(held) = self.held_edits.get(&hash) {
             held.store(normalized_value.to_bits(), Ordering::Release);
-            // After the value, so that the audio thread, seeing the flag, sees the value too
-            self.any_held_edit.store(true, Ordering::Release);
+            // After the value, so that the audio thread, seeing the flag, sees the value too.
+            // `SeqCst`, as are `in_process`'s store and load and the flag's swap in
+            // `set_held_edits()` (PATCHES.md, change 17): this thread stores the flag and then
+            // loads `in_process` (`host_stopped_calling()`), a process call starting stores
+            // `in_process` and then swaps the flag. With `SeqCst` at least one sees the other's
+            // store: this thread sees the call and leaves the edit held for it, or the call sees
+            // the flag and sets the edit at its start. With weaker orderings both could miss (a
+            // store buffer pattern, which x86 allows too), and this thread set the edit during
+            // the call that should have.
+            self.any_held_edit.store(true, Ordering::SeqCst);
         }
     }
 
@@ -478,12 +502,60 @@ impl<P: Vst3Plugin> WrapperInner<P> {
         (bits != NO_HELD_EDIT).then(|| f32::from_bits(bits))
     }
 
+    /// Mark a `process()` call starting or returning, for
+    /// [`host_stopped_calling()`][Self::host_stopped_calling()]: two atomic stores and a read of
+    /// the monotonic clock, nothing allocated or waited for. Also as processing begins, which
+    /// starts the wait for the first call.
+    pub fn mark_process(&self, running: bool) {
+        if !running {
+            self.last_process
+                .store(self.clock.elapsed().as_nanos() as u64, Ordering::Release);
+        }
+        // `SeqCst`, with the flag's store in `hold_edit()` (which says why)
+        self.in_process.store(running, Ordering::SeqCst);
+    }
+
+    /// Whether the host, while it says it is processing, has stopped calling `process()` without
+    /// saying so (PATCHES.md, change 17): no call running, and none for [`PROCESS_QUIET`] or four
+    /// of its largest blocks, whichever is longer. REAPER does this for a silent track while its
+    /// transport is stopped, and for a plug-in it bypasses. An edit held then would wait for a call
+    /// that may not come.
+    pub fn host_stopped_calling(&self) -> bool {
+        // `SeqCst`, with the flag's store in `hold_edit()` (which says why)
+        if !self.is_processing.load(Ordering::SeqCst) || self.in_process.load(Ordering::SeqCst) {
+            return false;
+        }
+        let blocks = self
+            .current_buffer_config
+            .load()
+            .filter(|c| c.sample_rate > 0.0)
+            .map_or(Duration::ZERO, |c| {
+                Duration::from_secs_f64(
+                    4.0 * f64::from(c.max_buffer_size) / f64::from(c.sample_rate),
+                )
+            });
+        let quiet = PROCESS_QUIET.max(blocks).as_nanos() as u64;
+        let last = self.last_process.load(Ordering::Acquire);
+        (self.clock.elapsed().as_nanos() as u64).saturating_sub(last) >= quiet
+    }
+
+    /// Set every held edit if the host has stopped calling `process()` without saying so
+    /// (PATCHES.md, change 17): on the editor's thread as it edits, as a gesture ends and as the
+    /// editor idles (`GuiContext::idle()`), never on the audio thread.
+    pub fn set_held_edits_if_host_stopped(&self) {
+        if self.host_stopped_calling() {
+            self.set_held_edits(self.current_buffer_config.load().map(|c| c.sample_rate));
+        }
+    }
+
     /// Set every held edit: at the start of a process call, before the host's parameter changes
     /// (so that the host's changes in the same call, its automation or the edit sent back, come
-    /// after it), and as processing stops. An edit held while this runs is kept for the next call.
+    /// after it), as processing stops, and off the audio thread once the host has stopped calling
+    /// (change 17). An edit held while this runs is kept for the next call.
     /// Nothing here allocates or waits.
     pub fn set_held_edits(&self, sample_rate: Option<f32>) {
-        if !self.any_held_edit.swap(false, Ordering::AcqRel) {
+        // `SeqCst`, with the flag's store in `hold_edit()` (which says why)
+        if !self.any_held_edit.swap(false, Ordering::SeqCst) {
             return;
         }
 

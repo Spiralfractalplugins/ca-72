@@ -17505,3 +17505,304 @@ width is constrained by the existing editor limits. Project recall and lower-pan
 do not change the computer preference. Only widths accepted by the host are kept, including
 asynchronous VST3 replies; rejected requests leave the preference alone. Grip changes are
 kept after release (or editor close), avoiding file writes on every frame of a drag.
+
+## R-VST3-QUIET-HOST. An edit is set at once when the host has stopped calling the VST3
+
+**The report, 2026-11-03** (issue #146, REAPER 7.83, the 0.3 VST3i, the system not given): a
+knob changes while it is dragged and goes back to where it was as the mouse button is let go,
+in a new, empty project with no automation. The CLAPi in the same REAPER and the standalone
+keep the value.
+
+**The cause, from the code (not seen in REAPER).** While the host processes audio, the VST3
+wrapper holds an edit the editor makes for the next process call (R36; nih-plug's
+`PATCHES.md`, change 12): the controller reports it to the host, but the parameter is set only
+at that call's start, so that a value never changes in the middle of one. While a knob is
+dragged the editor draws it where the drag has it (`Drag::value`); once it is let go it draws
+the parameter's value (`Editing::update_scene`, `value_of`). REAPER stops calling a plug-in
+while saying nothing (no `setProcessing(false)`): for a silent track while its transport is
+stopped (REAPER's changes since 4.61, "reduced CPU overhead of silent tracks when stopped"),
+and for a plug-in it bypasses (upstream's `FIXME` in the wrapper names REAPER for this). An
+instrument in a new project with no notes played is such a track. Then the held edit waited
+for a call that did not come; the parameter kept the value from before the drag, and the
+editor drew that as the button came up. REAPER's own display and API, which read the
+controller's value, had the new one. The CLAP wrapper asks the host for a flush with each edit
+(`request_flush`), which a host not processing answers on its main thread, so the CLAP set it;
+the standalone has no host to wait for. This explains every part of the report, but the agent
+could not run REAPER here and has not seen REAPER skip the track. That edits were not seen to
+go back in REAPER 7.82 before (R53 and the Windows checks recorded above) fits too:
+notes were played in the runs recorded, so the track would not have been silent.
+
+**What changed** (nih-plug's `PATCHES.md`, change 17; agent decisions, not separately
+approved):
+- **The wrapper notes each process call** as it starts and returns, and as processing begins
+  (two atomic stores and a read of the monotonic clock on the audio thread; nothing allocated,
+  locked or waited for). When no call is running and none has returned for 0.25 s, or for four
+  of the host's largest blocks if that is longer, the host is taken to have stopped calling.
+  A host calling as it should does not go that long, so its edits are held as before: 0.25 s is
+  some twenty of the usual 512-frame blocks at 44.1 kHz and more than an 8192-frame one
+  (0.19 s), and the wait grows with a host's larger blocks.
+- **Then the editor's edit is set at once, on the editor's thread,** with every edit held before
+  it (so that an older held one is not set over it when the host calls again), and at the
+  gesture's end any held while the host still called. The host's `setParamNormalized()` was
+  dropped there before (the processor was to be sent the change); it is now set the same way,
+  after any edit held (REAPER's generic controls and scripts on a skipped track).
+- **An edit still held as the host goes quiet is set as the editor draws** (added 2026-11-04,
+  from a review): a knob let go within 0.25 s of the host's last call, in a note's tail just
+  before the track falls silent, was held for a call that did not come, and drawn back, as in
+  the report. nih-plug's `GuiContext` gains `idle()`, nothing by default (the CLAP and the
+  standalone); the editor calls it at the start of each frame (`PanelWindow::on_frame()`, seen
+  or not), and the VST3 wrapper sets the held edits there once the host has been quiet as long
+  as it waits. Nothing more is done on the audio thread. Such a knob is drawn back for at most
+  the rest of that wait (under 0.25 s at the usual blocks) and then where it was let go. Nothing
+  sets it while the editor is closed; then it waits for the host's next call, as before.
+- **The editor's thread and a call starting see each other:** the flag of held edits and the
+  mark of a call running are stored and read in one order for both threads (`SeqCst`). The
+  editor's thread stores the flag and then reads the mark, a call starting stores the mark and
+  then takes the flag; with weaker orderings each could miss the other's store, even on x86.
+- **Left as it is, a race,** of the kind nih-plug already has between the editor's check of
+  whether the host is processing and the host's `setProcessing(true)`. The editor's thread (or
+  the host's, setting its value) can be held up after finding the host quiet and before it has
+  set the held edits; a process call can start meanwhile, and the value then changes during
+  that call, not only at a call's start, and an older held edit that call sets can land after
+  the host's value set at once. The audio thread and the editor's can then also set one
+  parameter together: nih-plug stores a parameter's value and then, separately, its normalized
+  and unmodulated values, so those can disagree until it is next set to another value. All of
+  it is atomic, so nothing undefined happens, and the CA-72 is not harmed: it uses none of
+  nih-plug's smoothers or value callbacks and reads its parameters' values as it uses them in
+  each block. Only the VST3 wrapper and the editor's call each frame change: the CLAP, the
+  Audio Unit (clap-wrapper's, over the CLAP) and the standalone set nothing new, and nothing in
+  the sound changes.
+
+**Evidence (the Linux laptop, 2026-11-03).** `crates/ca72-plugin/tests/vst3_host.rs` drives
+the wrapper through its own VST3 factory, with a REAPER host that sends each `performEdit()` to
+the processor at its next call and then stops calling for 0.4 s, `setProcessing` left on. Five
+new tests: a drag stays where it was let go; a click sets a switch; an edit held before the
+host stopped does not undo a later one; edits are held again once the host calls again; the
+host's own `setParamNormalized()` is set. Before the change four failed (the parameter at 0.5
+where the drag left 0.25 or 0.75; the switch still on), and the fifth, which checks that edits
+are still held while the host calls, passed. After it all 14 of the file's tests pass. The logs
+are under `nightly-2026-11-03/vst3-reaper/` on the lab share.
+
+**After the review (2026-11-04).** The tests that check an edit is held right after a process
+call (an edit held before the host stopped, held again once it calls again, and the host's
+own value left while it calls) failed on a test thread stalled past 0.25 s; they now make the edit again after another call until one is held
+(`Instance::hold()`, ten tries, the values alternating so that a held edit shows), and fail only
+if none is. The test named for an edit held before the host stopped not undoing a later one
+could not fail for that reason (one edit is held a parameter); renamed, it checks a drag begun
+while the host called and let go after it stopped. Two new: an edit held before the host
+stopped is set before the host's own value after it, not over it at the next call; and a drag
+let go just before the host stopped calling is set as the editor idles, with no further call.
+Not yet built or run: the laptop's disk had 2.2 GB free, under the 4 GB a build here needs.
+
+Not tried: REAPER itself, on any system (it is not installed here, and driving its window
+without a desktop of its own was not attempted), and whether the reporter's REAPER was
+skipping the track (its "run FX when stopped" and silent-track settings, or auto-bypass). A
+check in REAPER: drag a knob with no notes playing, let go, then play a note; before the change
+the knob jumps to the dragged value at the note, after it it stays where it was let go.
+
+
+## R-SHORT-BLOCKS. POLY's silence reckoned over 32 samples; a CLAP block's first automation at its sample
+
+**Found on 2026-11-03** testing issue #53 (artifacts bouncing in Bitwig at 96 kHz, clean once
+the project's other plug-ins were removed) again: offline bounces at 96 kHz through the
+plug-in's own CLAP entry point (`tests/clap_host.rs`), each against the same bounce in blocks
+of 512, in blocks of 509, of one frame, of sizes that vary from call to call (calls of no
+frames and of one among them), and with another instance played on the same thread between
+its blocks. Two faults made the samples follow the host's blocks. Agent decisions, not
+separately approved.
+
+**A released POLY voice cut off in short blocks.** A voice let go was freed (no longer played)
+once its output's peak over one host block was under `SILENT` (1e-6). In a block of one frame
+that peak is one sample, and a voice's sample is under 1e-6 at a zero crossing: the voice was
+cut off in its release, a click. The panel a new instance has, POLY's four voices at LO and
+96 kHz, a chord let go at 0.9 s: in blocks of one frame a whole voice stopped at 0.9641 s, the
+difference from the bounce in blocks of 512 reaching -15.3 dBFS within 2 ms
+(`release-cut-before-after.png`, below). Felt Bass did the same at HI (48 and 96 kHz) and at
+LO (48 kHz). Blocks of 2 to 64 frames did not in these renders. A host's call can be that
+short at any time (a loop's end, a call the host splits), and nih-plug splits a block at
+each automated parameter's change (sample-accurate automation), so automation two samples
+apart makes a block of one or two. This fault is in every version with POLY (R11).
+- **Fixed** (`engine.rs`, `SILENT_SPAN`): a voice is found silent over at least 32 samples,
+  shorter blocks reckoned together (their peaks and lengths summed in the slot until they span
+  it); a block of 32 frames or more is reckoned alone, as before, so every render in such blocks
+  is the same to the bit. A new note on the voice, and All Sound Off putting it to rest, start
+  the reckoning again. Thirty-two samples of a voice under 1e-6 is a voice under about -90 dBFS
+  even at 30 Hz and 96 kHz.
+
+**A parameter change that was a CLAP block's first event was set at the block's start.**
+nih-plug's `handle_in_events_until` splits a block before each parameter change after the
+run's start, but handled the run's first event without looking at its time (upstream has the
+same code). Automation arriving as the first event of a host's block was thus set up to a
+block early: where the host's blocks fall moved it. **Fixed** in the copy of nih-plug
+(`third_party/nih-plug/PATCHES.md`, change 18): the block is split at that change's sample as
+at any other's. VST3's wrapper was right. This moves such a change to its own sample in a CLAP
+host's automated renders; nothing else changes.
+
+**Left as it is:** with knobs automated the samples still follow the blocks. A knob's glide
+sets the voices' controls every `smooth::STEP` (32) samples from the start of each of the
+host's blocks (R-KNOB-GLIDE), so in other blocks the steps fall elsewhere: an edge comes a
+fraction of a sample earlier or later, and in blocks of one frame the glide is set at every
+sample and is smoother (the high band in a 5 ms window where a glide steps up to 16 dB lower
+than in blocks of 512). No click: across those bounces the largest step from one sample to the
+next was 0.92 to 1.07 of the bounce in blocks of 512, and the loudness within 0.02 dB. Anchoring
+the steps to the samples' count would change every automated render; not done.
+
+**Not found:** another instance in the same process disturbs nothing (the bounces beside one
+are the same to the bit); FTZ and DAZ as another plug-in might leave them on the host's thread
+change no sample (nih-plug sets FTZ for each call and restores it; the workers take the host
+thread's flush bits); a rounding mode left changed is in R-ISSUES-53-56-58.
+
+**Evidence (the Omarchy laptop, Linux x86-64, Rust 1.97.1, 2026-11-03):**
+- `released_voices_ring_out_in_blocks_of_any_length` (`tests/engine_robustness.rs`): the panel
+  at LO (96 kHz) and Felt Bass at HI (48 and 96 kHz), POLY's four voices, two chords, in blocks
+  of 1, 2, 3, 7 and 31 frames against 512: the same to the bit. On the code before
+  (88575ba): "init, LO, 96000 Hz, blocks of 1: differs from 0.9641 s, by -15.3 dBFS over the
+  next 2 ms". A probe of the same in blocks of 1, 2, 4, 8, 16, 32 and 64 frames, at 48 and
+  96 kHz, LO and HI, Brass Choir, Felt Bass and the panel: before, four of 84 renders differed,
+  all in blocks of one frame; after, none.
+- `an_offline_bounce_is_the_same_in_any_blocks_and_beside_another_instance`: LO, HI and ULTRA,
+  POLY on and off, with GLIDE, notes and the bend: every bounce the same to the bit as in blocks
+  of 512. Before: "QUALITY 0, POLY 1, blocks of 1: differs from frame Some(76413), by at most
+  4.528389e-2".
+- `a_parameter_change_first_in_a_block_is_set_at_its_sample`: a block with CUTOFF's change at
+  frame 150 as its only event the same to the bit as the host's two blocks either side of it,
+  and not as the change at frame 0. Fails before.
+- `an_automated_offline_bounce_makes_no_click_in_any_blocks`: the bounces with CUTOFF, EMPHASIS
+  and GLIDE automated, the bounds above. Before, it failed in blocks of one frame at LO with
+  POLY: the loudness -0.137 dB (the voices cut).
+- `preset_render` against 88575ba: all 42 factory presets the same to the bit at LO and HI
+  (ten voices, 4 s) and at ULTRA (four voices, 1 s). The renders, logs and the plot's data are
+  under `nightly-2026-11-03/engine-robust/` on the lab share, with
+  `release-cut-before-after.png`.
+
+Not tried: Bitwig, or any other host, on any computer; macOS and Windows. Whether either fault
+is what the reporter heard is not known.
+
+## R-ULTRA-STACK. Workers started on a thread of a main thread's stack
+
+**Found on 2026-11-03** running `glide_stress` (R-HOST-STACK) in a release build on a thread of
+256 KB (`CA72_STACK=262144`), with the cases added for issue #58 (below). The process ended:
+"stack overflow", on the test's thread in `Instance::load` → nih-plug's `set_state_inner` →
+`initialize` → `Engine::start_workers` → `Crew::start` → `Helpers::new` → `Parts::spawn`. A
+state saved at ULTRA, loaded (or an instance activated with it), starts ULTRA's split crews
+(R-THREADS), made from a voice's parts on the caller's thread: `Parts::spawn` took 180,968
+bytes of stack in one frame and `Helpers::new` 65,448 (their prologues, release). On this
+machine's release build that path needed between 384 and 448 KB; it overflowed 256 and 384 KB
+every time. R-HOST-STACK's test loads only a state saved at LO, which starts no crews.
+R-HOST-STACK holds that an instance's whole life fits a host's thread of 256 KB; a macOS
+secondary thread has 512 KB (R-PREPARE-STACK), and a Windows host may give its threads less
+than a main thread's 1 MB. Nothing ties issue #58 to it (a crash adjusting GLIDE, not loading a
+state).
+
+**Fixed** as R-PREPARE-STACK fixed preparation: `Engine::start_workers` does its work
+(`start_workers_here`) on a thread of its own, `ca72-start`, with `PREPARE_STACK` (8 MB),
+joined before it returns; a panic there is the caller's; with no thread to be had it runs in
+place, as before. It already started threads, and never runs on the audio thread (the helper
+thread starts a pool there, on a stack of 2 MB). No sample changes (R-SHORT-BLOCKS'
+`preset_render`). Agent decision.
+
+**Evidence (the Omarchy laptop, 2026-11-03):** `a_state_saved_at_ultra_loads_on_a_host_thread_of_256_kb`
+(`tests/clap_host.rs`): states saved at ULTRA with UNISON and with POLY, at 22.05 kHz in blocks
+of 32, loaded three times each and an instance activated with each, on a thread of 256 KB. In
+a release build, without the fix five runs of five ended in a stack overflow; with it five of
+five passed. `glide_stress` (release, `CA72_HOSTILE`, 256 KB) had overflowed in 2 runs of 12 of
+its 22.05 kHz, 32-frame cases (whether the crews start depends on the process's worker budget at
+that moment); with the fix, 12 of 12, and the whole run passes (R-ISSUES-53-56-58). Not
+tried: Windows and macOS builds, a debug build's need.
+
+## R-ISSUES-53-56-58. Issues #53, #56 and #58 tested again on 0.3.1's code
+
+**2026-11-03**, on `main` at 88575ba, by an agent; each issue is a user's report through the
+forum or a video's comments, without the version, the project or a crash report. Two faults
+found and fixed, R-SHORT-BLOCKS and R-ULTRA-STACK; neither is shown to be what a reporter
+met. The measurements' outputs are under `nightly-2026-11-03/engine-robust/` on the lab share.
+
+**#56 (a loud burst on choosing ULTRA in the macOS standalone, then lasting distortion; an M3
+Pro):** not reproduced.
+- `quality_switch` (offline), its bounds unchanged: Felt Bass, Feedback Funk, Driven Kick and
+  part of Brass Choir (stopped at 15 minutes), at 48 and 96 kHz in blocks of 100 and 256, no
+  workers, the eight ways of moving QUALITY (LO, HI and ULTRA, mid-note, at rest, every 50 ms):
+  126 renders, none outside them. The loudest peak after a switch 0.1 dB under the reference's
+  (no burst), no sample not finite, no voice put back clean; loudness within 1.89 dB and the
+  high band within 2.17 dB of the reference at the quality each ends in (moves through LO, whose
+  voices rest meanwhile; within 0.07 and 0.09 dB otherwise).
+- `quality_switch` (paced, this laptop, 48 kHz, 256 frames, the plug-in's workers): where this
+  computer cannot play ULTRA live (Brass Choir, Swarm Riser, Warp Field) voices' runs were not
+  heard (992 to 1,425) and blocks were late (88 to 198), while ULTRA played only; back at HI
+  none, the loudness within 0.53 dB and the high band within 0.69 dB of the offline render, no
+  sample not finite, no voice mended, the peak while ULTRA played at most +0.2 dB of the offline
+  render's. A computer short of time at ULTRA breaks the sound up while ULTRA plays (R18's
+  silent runs, R48's warning) and recovers when QUALITY leaves it; no state was left broken.
+- R-VCA-QUALITY-HANDOFF (0fde93b) fixed the one fault known in HI/ULTRA switches since the
+  report; whether the reporter's build had it is not known.
+- Remains: the reporter's version, patch, buffer and sequence; the standalone on an Apple
+  silicon Mac with an audio device, at ULTRA, cold and with QUALITY switched while keys are
+  held, captured at a low volume.
+
+**#58 (FL Studio on Windows 11 crashed while GLIDE was adjusted):** not reproduced.
+- GLIDE's code read for what could panic (`voice.rs`'s `glide_pot` and the keyboard's
+  `beyond`, `keyboard.rs`'s `set_glide` and `set_glide_long`, `light.rs`'s slide, `smooth.rs`'s
+  knob glide): the pot's law clamps its position (a NaN gives 5 MΩ, finite); the light voice's
+  slide is clamped by bounds always finite and ordered (its rate over at least 330 Ω), where
+  `f64::clamp` would panic otherwise; LONG's capacitor and the beyond-the-keys RC take finite
+  products; the knob glide's `as u32` of a gap is bounded by the host's largest block first,
+  and its counts saturate. The knob's display is nih-plug's rounded formatter. Nothing found.
+- `glide_stress` widened: GLIDE RANGE flipped, 22.05, 88.2 and 176.4 kHz added (seven rates),
+  QUALITY changed into ULTRA too, the host's calls of the block's size, of none, of one frame
+  and of any size between, every other instance rendering offline. In a debug build (overflow
+  checks, debug assertions), `CA72_HOSTILE` (GLIDE's values out of range, infinite and not a
+  number among them), half a second each: 189 instances (7 rates, blocks of 32, 256 and 1024,
+  each QUALITY, MONO, POLY and UNISON), no panic, no assertion, every sample finite, the
+  loudest 2.00. `glide_moved_as_hard_as_a_host_can_plays_on_at_every_rate` runs a fifth of a
+  second of it at 22.05 and 192 kHz in every test run. In a release build on a thread of
+  256 KB it found R-ULTRA-STACK. With the fix, the same release run (two seconds each,
+  `CA72_HOSTILE`, 256 KB): 189 instances, no panic, every sample finite, the loudest 2.02.
+- Remains: FL Studio itself (its threads, its automation and its preview of a parameter's
+  text), the format and version, a crash dump.
+
+**#53:** R-SHORT-BLOCKS. Also measured, `floating_point_controls` (`tests/engine_robustness.rs`,
+by hand): Felt Bass, Brass Choir and Feedback Funk at 96 kHz at each QUALITY with the host's
+thread's controls as another plug-in might leave them. With FTZ off, and with DAZ on: the same
+to the bit. With rounding down, up or toward zero (a plug-in that left its rounding mode
+changed): no sample not finite; HI and ULTRA within 2.5e-7 of the render; LO's oscillators'
+phases drift (up to 0.13 apart after a second), the whole render's loudness within 0.011 dB and
+its high band within 0.259 dB (Feedback Funk at LO, rounding up; its feedback is chaotic). Not set by the plug-in: no host is known to leave the rounding changed.
+Remains: the reporter's project, Bitwig's version and plug-in format, its plug-in hosting mode
+(whether the other plug-ins shared the CA-72's process) and whether its bounce was offline (in
+real time a voice late for its block's deadline is silent for the run, R18, and other plug-ins'
+load makes that likelier; removing them would cure it, disabling them might too).
+
+
+## R-LINUX-RESIZE-ANIMATION. The stretch that remains is Hyprland animating the host's window (issue #65)
+
+**2026-11-04, on the laptop (Hyprland 0.56.2 with Omarchy's defaults, NVIDIA), on main at
+88575ba.** Diagnosis only; nothing in the plug-in changes. PR #40's change has been on main
+since R-LINUX-PANEL-REPAINT (ce9c613). The editor draws with softbuffer: no GL framebuffer
+keeps an old size, and nothing in the editor scales an image, so every stretched frame is the
+compositor's.
+
+Read in Hyprland 0.56.2's source: an X11 client's `ConfigureRequest` for its own floating window
+(Bitwig growing its plug-in window when the CA-72 asks; the standalone resizing itself) is
+applied through the layout (`CWindow::onX11ConfigureRequest` → `setPositionGlobal` →
+`CGeometricMovableAnimated::setBox`), which animates the window's size like a layout move. Each
+frame draws the window's buffer, already the editor's correct frame at the new size, scaled into
+the animated box (`CSurfacePassElement::getTexBox`). With Omarchy's `windows` animation (379 ms,
+`easeOutQuint`) a fifth of the size change remains after 100 ms and a twelfth after 150 ms:
+for a PANEL change, a visible stretch of 100 to 200 ms. This is the "long stretch" that the
+owner's `no_anim` rule removed on 2026-10-14. This laptop has no such rule. Without the
+animation, the box still takes its new size before XWayland's buffer does: the one compositor
+frame R-LINUX-RESIZE measured. Hyprland's XWM doesn't implement `_NET_WM_SYNC_REQUEST`, so
+neither a host nor the standalone can make it wait for the frame.
+
+The fix belongs upstream: Hyprland should apply a size an X11 client asks for without
+animation, as it does for a Wayland client resizing itself, and ideally on the client's first
+buffer at that size. Until then, a `no_anim` window rule for the host's plug-in window (and
+the standalone's) on the owner's machines removes the long stretch. A draft report, the
+source excerpts and the timing model are on the lab share under
+`nightly-2026-11-03/linux-stretch/`.
+
+Not done: no frames were captured. With the laptop's panel off (DPMS), a headless output added
+to the session gave only black frames, a nested Hyprland received no frames from its parent and
+couldn't allocate a headless output's buffers on the NVIDIA render node, and nothing for pointer
+input is installed apart from `wtype`. The next step is to capture, on a visible screen, Bitwig
+with and without the `no_anim` rule for PANEL, SIZE, the grip and the host's own resize.

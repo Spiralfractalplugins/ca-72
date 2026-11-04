@@ -671,17 +671,22 @@ impl<P: Vst3Plugin> IEditController for Wrapper<P> {
     }
 
     unsafe fn set_param_normalized(&self, id: u32, value: f64) -> tresult {
-        // If the plugin is currently processing audio, then this parameter change will also be sent
-        // to the process function
-        if self.inner.is_processing.load(Ordering::SeqCst) {
-            return kResultOk;
-        }
-
         let sample_rate = self
             .inner
             .current_buffer_config
             .load()
             .map(|c| c.sample_rate);
+
+        // If the plugin is currently processing audio, then this parameter change will also be sent
+        // to the process function. Unless the host has stopped calling it without saying so: then
+        // the value is set now, after any edit the editor made and is held (PATCHES.md, change 17)
+        if self.inner.is_processing.load(Ordering::SeqCst) {
+            if !self.inner.host_stopped_calling() {
+                return kResultOk;
+            }
+            self.inner.set_held_edits(sample_rate);
+        }
+
         self.inner
             .set_normalized_value_by_hash(id, value as f32, sample_rate)
     }
@@ -906,6 +911,10 @@ impl<P: Vst3Plugin> IAudioProcessor for Wrapper<P> {
 
         // Always reset the processing status when the plugin gets activated or deactivated
         self.inner.last_process_status.store(ProcessStatus::Normal);
+        // The wait for the first process call starts now (PATCHES.md, change 17)
+        if state {
+            self.inner.mark_process(false);
+        }
         self.inner.is_processing.store(state, Ordering::SeqCst);
 
         // Edits the editor made while processing, which no process call will now set
@@ -950,9 +959,12 @@ impl<P: Vst3Plugin> IAudioProcessor for Wrapper<P> {
     unsafe fn process(&self, data: *mut vst3_sys::vst::ProcessData) -> tresult {
         check_null_ptr!(data);
 
+        // For the editor's thread to know when the host has stopped calling (PATCHES.md, change 17)
+        self.inner.mark_process(true);
+
         // Panic on allocations if the `assert_process_allocs` feature has been enabled, and make
         // sure that FTZ is set up correctly
-        process_wrapper(|| {
+        let result = process_wrapper(|| {
             // We need to handle incoming automation first
             let data = &*data;
             let sample_rate = self
@@ -1724,7 +1736,10 @@ impl<P: Vst3Plugin> IAudioProcessor for Wrapper<P> {
             }
 
             result
-        })
+        });
+
+        self.inner.mark_process(false);
+        result
     }
 
     unsafe fn get_tail_samples(&self) -> u32 {

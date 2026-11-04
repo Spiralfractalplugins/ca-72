@@ -1328,6 +1328,9 @@ impl GuiContext for Watched {
     fn set_state(&self, state: PluginState) {
         self.context.set_state(state);
     }
+    fn idle(&self) {
+        self.context.idle();
+    }
 }
 
 /// The panel being operated: what the pointer does to the parameters, and the scene drawn.
@@ -6045,6 +6048,10 @@ fn repaint_due(shown: Option<Instant>, settle: Option<Instant>, now: Instant) ->
 
 impl WindowHandler for PanelWindow {
     fn on_frame(&mut self, window: &mut Window<'_>) {
+        // The wrapper's own work each frame, seen or not: the VST3's sets the edits it holds for
+        // a process call once the host has stopped calling (nih-plug's PATCHES.md, change 17;
+        // decisions.md R-VST3-QUIET-HOST).
+        self.editing.context.idle();
         // The keys the host gave the view since the last frame (Cubase), as the window's own,
         // but those the window had too (decisions.md R53).
         if self.host_keys.overflow.swap(false, Ordering::AcqRel) {
