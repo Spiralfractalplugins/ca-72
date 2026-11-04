@@ -190,8 +190,34 @@ One more from the CA-72's own testing in Cubase 15 on Windows 11 (2026-10-10; it
     `cargo test --manifest-path third_party/nih-plug/Cargo.toml --features vst3 --lib
     note_expressions`; not yet in CI).
 
+One more came from a report: in REAPER 7.83 the CA-72's VST3 knobs went back where they had
+been as the mouse was let go, the CLAP's and the standalone's did not (CA-72 issue #146,
+2026-11-03; its `docs/decisions.md` R-VST3-QUIET-HOST):
+
+17. **An edit made while the host has stopped calling `process()` is set at once.** Change 12
+    holds an edit made while the host processes audio for the next process call. REAPER stops
+    calling a plugin without `setProcessing(false)` (a silent track while its transport is
+    stopped; a plugin it bypasses: upstream's `FIXME`), so the edit waited for a call that did
+    not come, the controller reporting it but the parameter not having it, and an editor
+    drawing the parameter's value drew it back as the gesture ended. (The CLAP wrapper asks the
+    host for a flush with every edit, which REAPER answers on its main thread while not
+    processing.) The wrapper now marks each `process()` call's start and return (`in_process`,
+    `last_process`, `mark_process()`: two atomic stores and a read of the monotonic clock on
+    the audio thread, nothing allocated or waited for), and from `setProcessing(true)`. When no
+    call is running and none has returned for 0.25 s or four of the host's largest blocks,
+    whichever is longer (`PROCESS_QUIET`, `host_stopped_calling()`, `src/wrapper/vst3/inner.rs`),
+    the editor's edit is set on its thread, with every edit held before it, so that none is set
+    over it when the host calls again (`raw_set_parameter_normalized()`, and
+    `raw_end_set_parameter()` for edits held before the host stopped;
+    `src/wrapper/vst3/context.rs`), and the host's `setParamNormalized()`, dropped before for the
+    processor to be sent the change, is set likewise (`src/wrapper/vst3/wrapper.rs`). A host
+    calling as it should is never quiet that long, and its edits are held as before. If the host
+    calls again just as a value is set this way, that value may change at the call's start, the
+    only case in which it can. The CA-72's `crates/ca72-plugin/tests/vst3_host.rs` drives the
+    wrapper as REAPER does; four of its five new tests fail without this.
+
 To move to a newer upstream commit, copy its `Cargo.toml`, `LICENSE`, `README.md`, `src`
-and `nih_plug_derive` here and apply the sixteen changes again, unless upstream has fixed them.
+and `nih_plug_derive` here and apply the seventeen changes again, unless upstream has fixed them.
 Then update the commit above and `nih_plug_xtask`'s `rev` in the workspace's `Cargo.toml`.
 
 The standalone app adds a separate `standalone-production` feature. Its adapter
