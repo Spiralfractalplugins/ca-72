@@ -1024,6 +1024,11 @@ impl<P: ClapPlugin> Wrapper<P> {
 
         let start_idx = resume_from_event_idx as u32;
         let mut event: *const clap_event_header = clap_call! { in_=>get(in_, start_idx) };
+        // The first event too: a parameter change at a later sample than the run's start ends
+        // the run there, as every later one does, rather than being set at the run's start.
+        if (*event).time > current_sample_idx as u32 && stop_predicate(event) {
+            return Some(((*event).time as usize, start_idx as usize));
+        }
         for next_event_idx in (start_idx + 1)..num_events {
             if split_before(next_event_idx - 1, event) {
                 return Some(((*event).time as usize, (next_event_idx - 1) as usize));

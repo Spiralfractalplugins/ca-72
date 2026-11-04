@@ -384,8 +384,17 @@ pub const HUSH_FADE: f64 = 0.005;
 const HUSH_WAIT: f64 = 0.1;
 
 /// A POLY voice falls silent, and is free for another note, once its key is up and its
-/// output has stayed under this for a whole block.
+/// output has stayed under this for a whole block (blocks shorter than [`SILENT_SPAN`] reckoned
+/// together).
 const SILENT: f64 = 1e-6;
+
+/// The fewest samples over which a POLY voice is found silent: a host's blocks shorter than
+/// this (a call of one frame, a block split at its automation) are reckoned together until
+/// they span it. A voice's output under [`SILENT`] for one sample is a zero crossing, not
+/// silence: reckoned a block of one frame at a time, a voice at -15 dBFS was cut off in its
+/// release (decisions.md R-SHORT-BLOCKS). Blocks this long or longer are reckoned one at a
+/// time, as before.
+const SILENT_SPAN: usize = 32;
 
 /// A twin let go (DOUBLE turned off) falls silent once its output has stayed under [`SILENT`]
 /// for this many samples running, counted across runs (the CA-74's).
@@ -398,8 +407,9 @@ const QUIET: usize = 256;
 /// R68, the development line's R30).
 const SLEEP_WINDOW: f64 = 0.05;
 
-/// The stack [`Engine::prepare`] builds the voices on, bytes: a main thread's on macOS
-/// (decisions.md R-PREPARE-STACK; it needed more than 512 KB in October 2026).
+/// The stack [`Engine::prepare`] builds the voices on, and [`Engine::start_workers`] starts
+/// the workers and ULTRA's crews on, bytes: a main thread's on macOS (decisions.md
+/// R-PREPARE-STACK; it needed more than 512 KB in October 2026).
 const PREPARE_STACK: usize = 8 << 20;
 
 /// How little the slow state may move over [`SLEEP_WINDOW`] for the instrument to sleep, V: a
@@ -581,6 +591,10 @@ struct Slot {
     /// over the block so far.
     active: bool,
     peak: f64,
+    /// Its output's peak over the blocks since it was last found sounding or silent, and how
+    /// many samples they span ([`SILENT_SPAN`]).
+    heard: f64,
+    span: usize,
     /// What waits for the voice while a worker late from an earlier run holds it: its key
     /// lifted, and the one instrument's keys pressed or released (POLY off), in order.
     lift: bool,
@@ -2089,6 +2103,8 @@ impl Engine {
                 age: 0,
                 active: false,
                 peak: 0.0,
+                heard: 0.0,
+                span: 0,
                 lift: false,
                 notes: [(0, false); 32],
                 pending: 0,
@@ -2137,6 +2153,34 @@ impl Engine {
         if self.pool.is_some() && self.workers == (workers, period) && self.need().is_some() {
             return self.workers();
         }
+        // On a thread of its own with a main thread's stack, as `prepare` (decisions.md
+        // R-PREPARE-STACK, R-ULTRA-STACK): ULTRA's split crews are made from a voice's parts,
+        // and that took some 250 KB of the stack (`Parts::spawn` 177 KB, `Helpers::new` 64 KB)
+        // of the host's thread loading a state saved at ULTRA, more than a thread of 256 KB
+        // has. Not the audio thread: it starts threads anyway.
+        let mut once = Some(&mut *self);
+        let ran = std::thread::scope(|s| {
+            std::thread::Builder::new()
+                .name("ca72-start".to_owned())
+                .stack_size(PREPARE_STACK)
+                .spawn_scoped(s, || {
+                    once.take().map(|e| e.start_workers_here(workers, period))
+                })
+                .map(|h| h.join())
+        });
+        match ran {
+            Ok(Ok(started)) => started.unwrap_or(0),
+            // A panic in it is the caller's, as it would have been here.
+            Ok(Err(panic)) => std::panic::resume_unwind(panic),
+            // No thread to be had: here, as before.
+            Err(_) => once
+                .take()
+                .map_or(0, |e| e.start_workers_here(workers, period)),
+        }
+    }
+
+    /// [`Engine::start_workers`]'s work, on whichever thread runs it.
+    fn start_workers_here(&mut self, workers: usize, period: Option<Duration>) -> usize {
         self.stop_workers();
         self.workers = (workers, period);
         if (workers == 0 && split_voices() == 0) || self.slots.is_empty() {
@@ -2894,7 +2938,7 @@ impl Engine {
             if rested {
                 s.rest = false;
                 if poly {
-                    (s.active, s.peak) = (false, 0.0);
+                    (s.active, s.peak, s.heard, s.span) = (false, 0.0, 0.0, 0);
                 }
             } else {
                 waiting = true;
@@ -3000,6 +3044,7 @@ impl Engine {
         let s = &mut self.slots[pick];
         s.drop = s.active && s.shown;
         (s.note, s.gate, s.age, s.active, s.peak) = (key, true, self.counter, true, 0.0);
+        (s.heard, s.span) = (0.0, 0);
         (s.expression, s.fresh) = (e, true);
         s.velocity.take(v, true);
         // (Its own LFOs start with each note it takes: decisions.md R-LFO.)
@@ -3631,8 +3676,12 @@ impl Engine {
             if let Some(p) = with_voice(s, overload) {
                 peak = peak.max(p);
             }
-            if s.active && !s.gate && s.peak < SILENT && k >= held {
-                s.active = false;
+            (s.heard, s.span) = (s.heard.max(s.peak), s.span + len);
+            if s.span >= SILENT_SPAN {
+                if s.active && !s.gate && s.heard < SILENT && k >= held {
+                    s.active = false;
+                }
+                (s.heard, s.span) = (0.0, 0);
             }
             if let Some(l) = self.levels.get_mut(k) {
                 *l = if s.peak.is_finite() {

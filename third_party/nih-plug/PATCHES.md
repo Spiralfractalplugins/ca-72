@@ -190,8 +190,17 @@ One more from the CA-72's own testing in Cubase 15 on Windows 11 (2026-10-10; it
     `cargo test --manifest-path third_party/nih-plug/Cargo.toml --features vst3 --lib
     note_expressions`; not yet in CI).
 
+17. **A CLAP block's first event, a parameter change at a later sample, is set at its sample.**
+    `handle_in_events_until` (`src/wrapper/clap/wrapper.rs`) splits the block before each
+    parameter change after the run's start, but it handled the run's first event before looking
+    at it: a parameter change that was the host's first event of a process call was set at the
+    block's first sample, up to a block early (upstream has the same code). It now ends the run
+    at that event's sample, as it does for every later one (the CA-72's `docs/decisions.md`
+    R-SHORT-BLOCKS; its test `a_parameter_change_first_in_a_block_is_set_at_its_sample`). VST3's
+    wrapper looks at every change's time, the first's too, and was right.
+
 To move to a newer upstream commit, copy its `Cargo.toml`, `LICENSE`, `README.md`, `src`
-and `nih_plug_derive` here and apply the sixteen changes again, unless upstream has fixed them.
+and `nih_plug_derive` here and apply the seventeen changes again, unless upstream has fixed them.
 Then update the commit above and `nih_plug_xtask`'s `rev` in the workspace's `Cargo.toml`.
 
 The standalone app adds a separate `standalone-production` feature. Its adapter

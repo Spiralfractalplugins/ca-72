@@ -247,6 +247,12 @@ impl Instance {
     }
 
     fn audio(&self, frames: u32, events: &[In]) -> (Vec<Out>, Vec<f32>) {
+        let (told, l, _) = self.stereo(frames, events);
+        (told, l)
+    }
+
+    /// [`Instance::audio`], both channels.
+    fn stereo(&self, frames: u32, events: &[In]) -> (Vec<Out>, Vec<f32>, Vec<f32>) {
         assert!(frames <= self.block);
         let mut ev = Events {
             headers: Vec::new(),
@@ -405,7 +411,7 @@ impl Instance {
             ((*self.plugin).process.unwrap())(self.plugin, &process);
         }
         assert!(out_l.iter().chain(&out_r).all(|x| x.is_finite()));
-        (told, out_l)
+        (told, out_l, out_r)
     }
 
     /// A parameter's value as the host reads it (CLAP's: normalized for a knob, the position
@@ -1335,12 +1341,60 @@ fn an_instance_lives_on_a_host_thread_of_256_kb() {
         .unwrap();
 }
 
+/// A state saved at ULTRA, with UNISON and with POLY, loaded on a host's thread of 256 KB, and an
+/// instance activated with it there: ULTRA's split crews, made as the workers start, took some
+/// 250 KB of the thread's stack and overflowed it (decisions.md R-ULTRA-STACK; found trying to
+/// reproduce issue #58). Each load starts the workers again.
+#[test]
+fn a_state_saved_at_ultra_loads_on_a_host_thread_of_256_kb() {
+    let states: Vec<Vec<u8>> = [("unison", 1.0, 0.0), ("poly", 0.0, 1.0)]
+        .iter()
+        .map(|&(_, unison, poly)| {
+            session(&[
+                ("quality", 2.0),
+                ("unison", unison),
+                ("poly", poly),
+                ("voices", 4.0),
+            ])
+        })
+        .collect();
+    std::thread::Builder::new()
+        .stack_size(256 << 10)
+        .spawn(move || {
+            for state in &states {
+                let p = Instance::with_rate_block(22_050.0, 32);
+                for _ in 0..3 {
+                    assert!(p.load(state));
+                    p.audio(32, &[In::Note(0, CLAP_EVENT_NOTE_ON, -1, 0, 48, 1.0)]);
+                }
+                drop(p);
+                // (Made, its state loaded, and activated again with it, as a host opens a
+                // project.)
+                let p = Instance::with_rate_block(22_050.0, 32);
+                assert!(p.load(state));
+                // SAFETY: as CLAP has it: stopped and deactivated before it is activated again.
+                unsafe {
+                    ((*p.plugin).stop_processing.unwrap())(p.plugin);
+                    ((*p.plugin).deactivate.unwrap())(p.plugin);
+                    assert!(((*p.plugin).activate.unwrap())(p.plugin, 22_050.0, 1, 32));
+                    assert!(((*p.plugin).start_processing.unwrap())(p.plugin));
+                }
+                p.audio(32, &[In::Note(0, CLAP_EVENT_NOTE_ON, -1, 0, 48, 1.0)]);
+            }
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
 /// GLIDE moved as hard as a host can move it (issue #58: a crash in FL Studio on Windows 11
 /// "when messing with glide"): its knob set at many points of every block, at its ends, by a
 /// denormal's breadth and, with `CA72_HOSTILE` set, out of its range and not a number; its switch
-/// flipped; keys played legato and detached, the bend moving; NOTE PRIORITY, RETRIGGER, POLY,
-/// UNISON, VOICES and QUALITY changed; and a saved state (a host's preset) loaded while it
-/// glides. `CA72_RATES` (44100,48000,96000,192000), `CA72_BLOCKS` (32,256,1024),
+/// and its RANGE (NORMAL, LONG) flipped; keys played legato and detached, the bend moving; NOTE
+/// PRIORITY, RETRIGGER, POLY, UNISON, VOICES and QUALITY (ULTRA too) changed; a saved state (a
+/// host's preset) loaded while it glides; the host's calls of the block's size, of none and of
+/// one frame, and every other size between; every other instance rendering offline.
+/// `CA72_RATES` (22050,44100,48000,88200,96000,176400,192000), `CA72_BLOCKS` (32,256,1024),
 /// `CA72_SECONDS` (2; ULTRA a tenth of it), `CA72_STACK` (the thread's stack, bytes; 8 MB).
 /// Every sample must be finite and within ±16.
 ///
@@ -1354,27 +1408,43 @@ fn glide_stress() {
     let stack: usize = std::env::var("CA72_STACK").map_or(8 << 20, |s| s.parse().unwrap());
     std::thread::Builder::new()
         .stack_size(stack)
-        .spawn(glide_stress_here)
+        .spawn(|| {
+            fn list<T: std::str::FromStr + Clone>(name: &str, default: &[T]) -> Vec<T> {
+                std::env::var(name).map_or_else(
+                    |_| default.to_vec(),
+                    |s| {
+                        s.split(',')
+                            .map(|v| v.trim().parse().ok().unwrap())
+                            .collect()
+                    },
+                )
+            }
+            glide_stress_here(
+                &list(
+                    "CA72_RATES",
+                    &[
+                        22_050.0, 44_100.0, 48_000.0, 88_200.0, 96_000.0, 176_400.0, 192_000.0,
+                    ],
+                ),
+                &list("CA72_BLOCKS", &[32, 256, 1024]),
+                list("CA72_SECONDS", &[2.0])[0],
+                std::env::var_os("CA72_HOSTILE").is_some(),
+            );
+        })
         .unwrap()
         .join()
         .unwrap();
 }
 
-fn glide_stress_here() {
-    fn list<T: std::str::FromStr + Clone>(name: &str, default: &[T]) -> Vec<T> {
-        std::env::var(name).map_or_else(
-            |_| default.to_vec(),
-            |s| {
-                s.split(',')
-                    .map(|v| v.trim().parse().ok().unwrap())
-                    .collect()
-            },
-        )
-    }
-    let rates: Vec<f64> = list("CA72_RATES", &[44_100.0, 48_000.0, 96_000.0, 192_000.0]);
-    let blocks: Vec<u32> = list("CA72_BLOCKS", &[32, 256, 1024]);
-    let seconds: f64 = list("CA72_SECONDS", &[2.0])[0];
-    let hostile = std::env::var_os("CA72_HOSTILE").is_some();
+/// [`glide_stress`] in brief, as every test run has it: a fifth of a second of each, at the
+/// lowest and highest rates the plug-in is played at, in blocks of up to 64 frames, GLIDE's
+/// values out of its range and not a number among the rest (issue #58).
+#[test]
+fn glide_moved_as_hard_as_a_host_can_plays_on_at_every_rate() {
+    glide_stress_here(&[22_050.0, 192_000.0], &[64], 0.2, true);
+}
+
+fn glide_stress_here(rates: &[f64], blocks: &[u32], seconds: f64, hostile: bool) {
     let mut seed = 0x5EED_u64;
     let mut rand = move || {
         seed = seed
@@ -1382,8 +1452,9 @@ fn glide_stress_here() {
             .wrapping_add(1_442_695_040_888_963_407);
         (seed >> 33) as f64 / f64::from(1u32 << 31)
     };
-    for &rate in &rates {
-        for &block in &blocks {
+    let mut made = 0u32;
+    for &rate in rates {
+        for &block in blocks {
             for quality in [0.0, 1.0, 2.0] {
                 for mode in 0..3 {
                     // (Made on a thread of a main thread's stack where `CA72_MADE_BIG` is set,
@@ -1402,6 +1473,18 @@ fn glide_stress_here() {
                     } else {
                         Instance::with_rate_block(rate, block)
                     };
+                    // (Every other instance as a host's bounce renders it.)
+                    made += 1;
+                    if made.is_multiple_of(2) {
+                        // SAFETY: the instance is stopped while the host changes its rendering
+                        // mode.
+                        unsafe {
+                            ((*p.plugin).stop_processing.unwrap())(p.plugin);
+                            let render: &clap_plugin_render = p.extension(CLAP_EXT_RENDER);
+                            assert!((render.set.unwrap())(p.plugin, CLAP_RENDER_OFFLINE));
+                            assert!(((*p.plugin).start_processing.unwrap())(p.plugin));
+                        }
+                    }
                     p.audio(
                         1,
                         &[
@@ -1422,8 +1505,20 @@ fn glide_stress_here() {
                     };
                     let total = (length * rate) as u32;
                     let (mut start, mut held, mut peak) = (0u32, Vec::<i16>::new(), 0.0f32);
+                    let mut quality = quality;
                     while start < total {
-                        let frames = block.min(total - start);
+                        // (The host's call: its block, or none, one frame or any other size.)
+                        let r = rand();
+                        let frames = if r < 0.6 {
+                            block
+                        } else if r < 0.7 {
+                            0
+                        } else if r < 0.8 {
+                            1
+                        } else {
+                            (rand() * f64::from(block)) as u32
+                        }
+                        .min(total - start);
                         let mut ev: Vec<In> = Vec::new();
                         let mut times: Vec<u32> = (0..(rand() * 9.0) as u32)
                             .map(|_| (rand() * f64::from(frames)) as u32)
@@ -1445,8 +1540,10 @@ fn glide_stress_here() {
                             };
                             ev.push(In::Param(t, "glide", v));
                             let r = rand();
-                            if r < 0.05 {
+                            if r < 0.04 {
                                 ev.push(In::Param(t, "glide_on", f64::from(rand() < 0.7)));
+                            } else if r < 0.07 {
+                                ev.push(In::Param(t, "glide_range", f64::from(rand() < 0.5)));
                             } else if r < 0.25 {
                                 // A key, legato over those held or alone.
                                 let key = 24 + (rand() * 84.0) as i16;
@@ -1477,7 +1574,10 @@ fn glide_stress_here() {
                         } else if r < 0.08 {
                             ev.push(In::Param(0, "unison", f64::from(rand() < 0.5)));
                         } else if r < 0.083 && quality < 2.0 {
-                            ev.push(In::Param(0, "quality", (rand() * 2.0).floor()));
+                            // (Into ULTRA too, for the render's last tenth: it costs the most.)
+                            let most = if start * 10 > total * 9 { 3.0 } else { 2.0 };
+                            quality = (rand() * most).floor();
+                            ev.push(In::Param(0, "quality", quality));
                         }
                         // (Sorted by time, as a host gives them.)
                         let time = |e: &In| match *e {
@@ -1489,8 +1589,12 @@ fn glide_stress_here() {
                             // A host's preset loaded while the keys are held and GLIDE glides.
                             assert!(p.load(&preset));
                         }
-                        let (_, out) = p.audio(frames, &ev);
-                        for x in &out {
+                        // (A call of no frames brings no events: a host gives them with the next.)
+                        if frames == 0 {
+                            ev.clear();
+                        }
+                        let (_, l, r) = p.stereo(frames, &ev);
+                        for x in l.iter().chain(&r) {
                             assert!(x.is_finite());
                             peak = peak.max(x.abs());
                         }
@@ -1543,4 +1647,277 @@ fn glide_range_is_automated_learned_and_saved_with_the_session() {
         assert_eq!(b.value("glide_range"), range);
         assert_eq!(b.value("glide"), knob);
     }
+}
+
+/// An instance rendering offline at `rate` in blocks of at most `block` frames, as a host's
+/// bounce has it (CLAP's render extension set offline before processing starts).
+fn bouncing(rate: f64, block: u32) -> Instance {
+    let p = Instance::with_rate_block(rate, block);
+    // SAFETY: the instance is stopped while the host changes its rendering mode.
+    unsafe {
+        ((*p.plugin).stop_processing.unwrap())(p.plugin);
+        let render: &clap_plugin_render = p.extension(CLAP_EXT_RENDER);
+        assert!((render.set.unwrap())(p.plugin, CLAP_RENDER_OFFLINE));
+        assert!(((*p.plugin).start_processing.unwrap())(p.plugin));
+    }
+    p
+}
+
+/// A session's state with the panel's `params` set and its noise seed fixed.
+fn session(params: &[(&'static str, f64)]) -> Vec<u8> {
+    let p = Instance::with_block(64);
+    let mut state = json_of(&p.save());
+    state["fields"]["noise_seed"] = "51826".into();
+    assert!(p.load(&bytes_of(&state)));
+    let ev: Vec<In> = params.iter().map(|&(k, v)| In::Param(0, k, v)).collect();
+    p.audio(1, &ev);
+    p.save()
+}
+
+/// A phrase at `rate` (sample, event; in order): a four-note chord and a two-note one after it
+/// (with POLY off the keys held alone and legato), and the bend moving every 2003 samples; with
+/// `knobs`, CUTOFF, EMPHASIS and GLIDE automated every 1013 samples between.
+fn bounce_phrase(rate: f64, knobs: bool) -> Vec<(u32, In)> {
+    let t = |s: f64| (s * rate) as u32;
+    let mut e: Vec<(u32, In)> = Vec::new();
+    for (on, off, keys) in [
+        (0.02, 0.45, &[48i16, 55, 60, 64][..]),
+        (0.5, 0.9, &[50, 57][..]),
+    ] {
+        for &key in keys {
+            e.push((t(on), In::Note(0, CLAP_EVENT_NOTE_ON, -1, 0, key, 0.8)));
+            e.push((t(off), In::Note(0, CLAP_EVENT_NOTE_OFF, -1, 0, key, 0.0)));
+        }
+    }
+    let mut k = 0u32;
+    while knobs && t(0.1) + 1013 * k < t(0.8) {
+        let x = f64::from(k);
+        let at = t(0.1) + 1013 * k;
+        e.push((
+            at,
+            In::Param(0, "cutoff", 0.35 + 0.3 * (0.37 * x).sin().abs()),
+        ));
+        e.push((at, In::Param(0, "emphasis", 0.5 + 0.3 * (0.21 * x).cos())));
+        e.push((
+            at,
+            In::Param(0, "glide", 0.2 + 0.6 * (0.13 * x).sin().abs()),
+        ));
+        k += 1;
+    }
+    k = 0;
+    while 2003 * k < t(0.95) {
+        let bend = (8192.0 + 4000.0 * (0.3 * f64::from(k)).sin()) as u16;
+        e.push((
+            2003 * k,
+            In::Midi(0, [0xe0, (bend & 0x7f) as u8, (bend >> 7) as u8]),
+        ));
+        k += 1;
+    }
+    e.sort_by_key(|x| x.0);
+    e
+}
+
+/// `events` (sample, event; in order) played over `length` frames in blocks of the sizes
+/// `sizes` gives (0 among them), both channels interleaved. Between blocks `beside` plays: the
+/// project's other instruments on the host's thread.
+fn bounce(
+    p: &Instance,
+    events: &[(u32, In)],
+    length: u32,
+    sizes: &mut dyn FnMut() -> u32,
+    beside: &mut dyn FnMut(),
+) -> Vec<f32> {
+    let mut audio = Vec::with_capacity(2 * length as usize);
+    let (mut event, mut start) = (0, 0);
+    while start < length {
+        let frames = sizes().min(p.block).min(length - start);
+        let mut block = Vec::new();
+        // (A block of no frames takes no events: a host gives them with the next.)
+        while frames > 0 && event < events.len() && events[event].0 < start + frames {
+            let (time, e) = events[event];
+            block.push(at(e, time - start));
+            event += 1;
+        }
+        let (_, l, r) = p.stereo(frames, &block);
+        audio.extend(l.iter().zip(&r).flat_map(|(a, b)| [*a, *b]));
+        start += frames;
+        beside();
+    }
+    audio
+}
+
+/// The largest step from one sample to the next of interleaved stereo.
+fn largest_step(x: &[f32]) -> f32 {
+    x.chunks(2)
+        .zip(x.chunks(2).skip(1))
+        .fold(0.0f32, |m, (a, b)| {
+            m.max((a[0] - b[0]).abs()).max((a[1] - b[1]).abs())
+        })
+}
+
+/// The bounces of [`an_offline_bounce_is_the_same_in_any_blocks_and_beside_another_instance`]:
+/// for each QUALITY and POLY on and off, the bounce in blocks of 512 and the same in blocks of
+/// 509, of one frame, of varying sizes (calls of none and one frame among them) and of varying
+/// sizes with another instance played between its blocks.
+fn bounces(knobs: bool, mut check: impl FnMut(&str, &[f32], &[f32])) {
+    const RATE: f64 = 96_000.0;
+    const MOST: u32 = 512;
+    let phrase = bounce_phrase(RATE, knobs);
+    let mut seed = 0x0053_u64;
+    let mut rand = move || {
+        seed = seed
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        (seed >> 33) as f64 / f64::from(1u32 << 31)
+    };
+    let mut varying = move || {
+        let r = rand();
+        if r < 0.15 {
+            0
+        } else if r < 0.3 {
+            1
+        } else {
+            (rand() * f64::from(MOST + 1)) as u32
+        }
+    };
+    let other_state = session(&[
+        ("quality", 1.0),
+        ("poly", 1.0),
+        ("voices", 6.0),
+        ("emphasis", 0.9),
+        ("feedback", 0.6),
+        ("spread", 1.0),
+    ]);
+    for quality in [0.0, 1.0, 2.0] {
+        for poly in [1.0, 0.0] {
+            let state = session(&[
+                ("quality", quality),
+                ("poly", poly),
+                ("voices", 4.0),
+                ("glide_on", 1.0),
+                ("glide", 0.3),
+                ("emphasis", 0.6),
+            ]);
+            // (ULTRA's bounces shorter: they cost the most.)
+            let length = (if quality == 2.0 { 0.3 } else { 1.0 } * RATE) as u32;
+            let play = |sizes: &mut dyn FnMut() -> u32, beside: &mut dyn FnMut()| {
+                let p = bouncing(RATE, MOST);
+                assert!(p.load(&state));
+                bounce(&p, &phrase, length, sizes, beside)
+            };
+            let reference = play(&mut || MOST, &mut || {});
+            let other = bouncing(RATE, MOST);
+            assert!(other.load(&other_state));
+            let mut n = 0u32;
+            let mut beside = || {
+                let mut ev = Vec::new();
+                if n.is_multiple_of(40) {
+                    for key in [36, 43, 52, 59, 62, 67] {
+                        let kind = if n.is_multiple_of(80) {
+                            CLAP_EVENT_NOTE_ON
+                        } else {
+                            CLAP_EVENT_NOTE_OFF
+                        };
+                        ev.push(In::Note(0, kind, -1, 0, key, 0.7));
+                    }
+                }
+                if n == 300 {
+                    assert!(other.load(&other_state));
+                }
+                other.audio(1 + (n * 37) % MOST, &ev);
+                n += 1;
+            };
+            for (name, x) in [
+                ("blocks of 509", play(&mut || 509, &mut || {})),
+                ("blocks of 1", play(&mut || 1, &mut || {})),
+                ("varying blocks", play(&mut varying, &mut || {})),
+                (
+                    "varying blocks beside another",
+                    play(&mut varying, &mut beside),
+                ),
+            ] {
+                assert_eq!(x.len(), reference.len());
+                check(
+                    &format!("QUALITY {quality}, POLY {poly}, {name}"),
+                    &x,
+                    &reference,
+                );
+            }
+        }
+    }
+}
+
+/// Issue #53 (artifacts bouncing in Bitwig at 96 kHz, clean once the project's other
+/// plug-ins were removed): an offline bounce at 96 kHz, POLY and MONO with GLIDE, at each
+/// QUALITY, is the same to the bit in blocks of 512, of 509, of one frame, of sizes that vary
+/// from call to call with calls of no frames and of one among them, and with another instance
+/// (another sound, a state loaded while it plays) played on the same thread between its
+/// blocks. Every sample finite. In blocks of one frame POLY's voices let go were cut off at
+/// a zero crossing of their release (decisions.md R-SHORT-BLOCKS).
+#[test]
+fn an_offline_bounce_is_the_same_in_any_blocks_and_beside_another_instance() {
+    bounces(false, |name, x, reference| {
+        let peak = reference.iter().fold(0.0f32, |m, v| m.max(v.abs()));
+        assert!(peak > 0.01 && peak < 4.0, "{name}: peak {peak}");
+        let first = x
+            .iter()
+            .zip(reference)
+            .position(|(a, b)| a.to_bits() != b.to_bits());
+        let most = x
+            .iter()
+            .zip(reference)
+            .fold(0.0f32, |m, (a, b)| m.max((a - b).abs()));
+        assert!(
+            first.is_none(),
+            "{name}: differs from frame {:?}, by at most {most:e}",
+            first.map(|i| i / 2)
+        );
+    });
+}
+
+/// The same bounces with CUTOFF, EMPHASIS and GLIDE automated: the knobs' glides are set again
+/// every `smooth::STEP` samples from the start of each of the host's blocks (decisions.md
+/// R-KNOB-GLIDE), so the samples follow the blocks (an edge a fraction of a sample earlier or
+/// later), but no block makes a click: no step from a sample to the next more than 15 % larger
+/// than the largest in blocks of 512 (they were 0.92 to 1.07 of it), and the whole as loud
+/// within a tenth of a decibel (0.02).
+#[test]
+fn an_automated_offline_bounce_makes_no_click_in_any_blocks() {
+    bounces(true, |name, x, reference| {
+        let (step, most) = (largest_step(x), largest_step(reference));
+        assert!(
+            step <= most * 1.15,
+            "{name}: a step of {step} ({most} in 512)"
+        );
+        let db = 20.0 * (rms(x) / rms(reference)).log10();
+        assert!(db.abs() < 0.1, "{name}: the loudness {db:+.3} dB");
+    });
+}
+
+/// A parameter's change that is the first event of the host's block, at a later sample, is set
+/// at its sample (`third_party/nih-plug/PATCHES.md`, change 17): the block is the same to the
+/// bit as the host's two blocks either side of the change, and not as the change at the
+/// block's start. Before, it was set at the block's first sample.
+#[test]
+fn a_parameter_change_first_in_a_block_is_set_at_its_sample() {
+    let state = session(&[("quality", 1.0), ("emphasis", 0.6)]);
+    let play = |blocks: &[(u32, Option<u32>)]| {
+        let p = bouncing(RATE, BLOCK);
+        assert!(p.load(&state));
+        p.audio(64, &[In::Note(0, CLAP_EVENT_NOTE_ON, -1, 0, 48, 0.8)]);
+        let mut out = Vec::new();
+        for &(frames, change) in blocks {
+            let ev: Vec<In> = change
+                .map(|t| In::Param(t, "cutoff", 0.9))
+                .into_iter()
+                .collect();
+            out.extend(p.audio(frames, &ev).1);
+        }
+        out
+    };
+    let whole = play(&[(BLOCK, Some(150)), (BLOCK, None)]);
+    let split = play(&[(150, None), (BLOCK - 150, Some(0)), (BLOCK, None)]);
+    let early = play(&[(BLOCK, Some(0)), (BLOCK, None)]);
+    assert_eq!(whole, split);
+    assert_ne!(whole, early);
 }
