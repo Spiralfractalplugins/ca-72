@@ -4862,7 +4862,7 @@ impl Editing {
             let text = match key {
                 BarTarget::Global => Some("GLOBAL: VOICES, STEREO AND OUTPUT"),
                 BarTarget::Keyboard => Some("KEYS: PLAYABLE PIANO"),
-                BarTarget::Lfo => Some("LFO: MODULATION SOURCES"),
+                BarTarget::Lfo => Some("LFO: FOUR LFOS \u{b7} DRAG OUT TO A KNOB"),
                 _ => None,
             };
             if let Some(text) = text {
@@ -4924,6 +4924,9 @@ impl Editing {
                     x,
                     y + top,
                 );
+                // (What a modulation control does, while it is pointed at rather than turned:
+                // R-MOD-WORDING.)
+                let note = mod_note(&self.params, c.param).filter(|_| operated.is_none());
                 Some(if c.param == "retrigger" {
                     let text = format!(
                         "RETRIGGER: {} · On: each key strikes.\nNOTE PRIORITY LAST: new pitch with attack.\nLOW/HIGH: a held key may keep the old pitch until lifted.",
@@ -4932,6 +4935,18 @@ impl Editing {
                     let b =
                         art::tip_bounds(self.renderer.fonts(), &text, self.renderer.text_size());
                     (text, x.clamp(-b[0], art::W - b[2]), tip.2)
+                } else if let Some(note) = note {
+                    let text = format!("{}\n{note}", tip.0);
+                    let b =
+                        art::tip_bounds(self.renderer.fonts(), &text, self.renderer.text_size());
+                    // (Under the control where the window has no room above it: OSCILLATOR
+                    // MODULATION's, at the panel's head.)
+                    let y = if tip.2 + b[1] < self.renderer.top() {
+                        y + art::bounds(&c.kind)[3] - b[1]
+                    } else {
+                        tip.2
+                    };
+                    (text, x.clamp(-b[0], art::W - b[2]), y)
                 } else if c.place == DrawerPlace::Lfo {
                     self.clear_of_scopes(tip)
                 } else {
@@ -5644,7 +5659,8 @@ fn timed_label(p: &Ca72Params, param: &str) -> Option<&'static str> {
     })
 }
 
-/// A tip's name for a MOD key (R-CONTINUOUS-WAVE): its way with it.
+/// A tip's name for a MOD key (R-CONTINUOUS-WAVE): its way with it, and SHAPE, so that it is
+/// not taken for OSCILLATOR MODULATION's pitch (decisions.md R-MOD-WORDING).
 fn mod_label(p: &Ca72Params, param: &str) -> Option<&'static str> {
     use crate::params::ShapeModDirection as D;
     let n = ca72_panel::render::MOD_KEYS
@@ -5652,19 +5668,19 @@ fn mod_label(p: &Ca72Params, param: &str) -> Option<&'static str> {
         .position(|k| *k == param)?;
     let names = [
         [
-            "OSCILLATOR-1 MOD, CLOCKWISE",
-            "OSCILLATOR-1 MOD, ANTICLOCKWISE",
-            "OSCILLATOR-1 MOD, BOTH WAYS",
+            "OSCILLATOR-1 SHAPE MOD, CLOCKWISE",
+            "OSCILLATOR-1 SHAPE MOD, ANTICLOCKWISE",
+            "OSCILLATOR-1 SHAPE MOD, BOTH WAYS",
         ],
         [
-            "OSCILLATOR-2 MOD, CLOCKWISE",
-            "OSCILLATOR-2 MOD, ANTICLOCKWISE",
-            "OSCILLATOR-2 MOD, BOTH WAYS",
+            "OSCILLATOR-2 SHAPE MOD, CLOCKWISE",
+            "OSCILLATOR-2 SHAPE MOD, ANTICLOCKWISE",
+            "OSCILLATOR-2 SHAPE MOD, BOTH WAYS",
         ],
         [
-            "OSCILLATOR-3 MOD, CLOCKWISE",
-            "OSCILLATOR-3 MOD, ANTICLOCKWISE",
-            "OSCILLATOR-3 MOD, BOTH WAYS",
+            "OSCILLATOR-3 SHAPE MOD, CLOCKWISE",
+            "OSCILLATOR-3 SHAPE MOD, ANTICLOCKWISE",
+            "OSCILLATOR-3 SHAPE MOD, BOTH WAYS",
         ],
     ];
     Some(
@@ -5674,6 +5690,39 @@ fn mod_label(p: &Ca72Params, param: &str) -> Option<&'static str> {
             D::Both => 2,
         }],
     )
+}
+
+/// What a control of the panel's modulation does, under its tip's name and value (issue #73;
+/// decisions.md R-MOD-WORDING): MODULATION MIX the source, the MODULATION wheel how much, the
+/// two switches where it goes, OSC. 3 CONTROL whether oscillator 3 follows the keys. The
+/// printed legends are the instrument's; the tips say what they leave unsaid.
+fn mod_note(p: &Ca72Params, param: &str) -> Option<&'static str> {
+    Some(match param {
+        "mod_mix" => {
+            "Source: OSC. 3 at 0, NOISE at 10. The MODULATION wheel\n\
+             sets how much reaches OSCILLATOR and FILTER MODULATION."
+        }
+        "mod_wheel" => {
+            "How much of MODULATION MIX reaches OSCILLATOR\n\
+             and FILTER MODULATION (and shape MOD keys)."
+        }
+        "osc_mod" => {
+            "On: MODULATION MIX moves the oscillators' pitch\n\
+             (vibrato), as far as the MODULATION wheel is raised."
+        }
+        "filter_mod" => {
+            "On: MODULATION MIX moves the filter's cutoff,\n\
+             as far as the MODULATION wheel is raised."
+        }
+        "osc3_control" if osc3_control_inert(p) => {
+            "Oscillator 3 is TIMED: this switch does nothing."
+        }
+        "osc3_control" => {
+            "On: oscillator 3 follows the keyboard, as 1 and 2 do.\n\
+             Off: it ignores keys and wheels: a steady pitch or rate."
+        }
+        _ => return None,
+    })
 }
 
 /// Whether OSC. 3 CONTROL does nothing: oscillator 3 timed (its key on, its RANGE at LO;
@@ -8457,6 +8506,199 @@ mod tests {
         away(&mut p);
         save(&mut p, "5-plugin.png");
         keys(&mut p, "0-keys-plugin.png");
+    }
+
+    /// The quick start's pictures (docs/quick-start.md, issue #73), written to
+    /// `$CA72_QUICK_START_PNG`, the folder: the editor's whole window, 1720 logical pixels wide at
+    /// 1.25 physical ones each, in the default look, in each state the guide shows. The guide's
+    /// PNGs are cropped from these (docs/images/quick-start/README.md).
+    #[test]
+    #[ignore = "writes images for a look"]
+    fn the_quick_start_pngs() {
+        use crate::params::{Footage, Wave3};
+        let Some(out) = std::env::var_os("CA72_QUICK_START_PNG").map(std::path::PathBuf::from)
+        else {
+            return;
+        };
+        std::fs::create_dir_all(&out).unwrap();
+        let no_library = || Library::at(std::env::temp_dir().join("ca72-editor-tests-no-library"));
+        let sized = |e: &mut Editing| {
+            e.fit(1.25, 1720, 2150);
+            e.draw();
+        };
+        let away = |e: &mut Editing| go(e, Point { x: 2.0, y: 2.0 });
+        let save = |e: &mut Editing, name: &str| {
+            e.composed = None;
+            window_frame(e).save_png(out.join(name)).unwrap();
+        };
+        let hover = |e: &mut Editing, param: &str, name: &str| {
+            let p = at(e, centre(param));
+            go(e, p);
+            e.update_scene();
+            e.composed = None;
+            window_frame(e).save_png(out.join(name)).unwrap();
+        };
+        let dial = |name: &str, lo: f32, hi: f32, v: f32| {
+            FloatParam::new(name, v, FloatRange::Linear { min: lo, max: hi })
+                .with_value_to_string(formatters::v2s_f32_rounded(2))
+        };
+        let rail = |e: &mut Editing, t: BarTarget| {
+            let p = at(e, strip::centre(e.rail, StripTarget::Bar(t)));
+            click(e, p);
+        };
+        // The standalone as it first opens: the keyboard below, TYPING, MIDI and PANIC.
+        let (mut e, _, _) = editing_standalone();
+        sized(&mut e);
+        away(&mut e);
+        save(&mut e, "standalone.png");
+        // A plug-in's window: Init with the extra controls (GLOBAL's page).
+        let (mut e, _, _) = editing();
+        sized(&mut e);
+        away(&mut e);
+        save(&mut e, "plugin.png");
+        // Vibrato: oscillator 3 at LO, triangle, OSC. 3 CONTROL off, out of the mixer,
+        // MODULATION MIX at OSC. 3, OSCILLATOR MODULATION on, the MODULATION wheel at 0.3.
+        let vibrato = || Ca72Params {
+            osc3_range: EnumParam::new("Osc 3 Range", Footage::Lo),
+            osc3_waveform: EnumParam::new("Osc 3 Waveform", Wave3::Triangle),
+            osc3_control: BoolParam::new("Osc 3 Control", false),
+            osc_mod: BoolParam::new("Oscillator Modulation", true),
+            mod_wheel: dial("Modulation Wheel", 0.0, 1.0, 0.3),
+            ..Ca72Params::default()
+        };
+        let (mut e, _, _) = editing_for_api(vibrato(), no_library(), PluginApi::Standalone);
+        sized(&mut e);
+        away(&mut e);
+        save(&mut e, "vibrato.png");
+        for param in [
+            "osc3_control",
+            "mod_mix",
+            "osc_mod",
+            "filter_mod",
+            "mod_wheel",
+        ] {
+            hover(&mut e, param, &format!("tip-{param}.png"));
+        }
+        // The LFO page's vibrato: LFO 1's OUT on TUNE, a small depth.
+        let (mut e, _, params) = editing_standalone();
+        params
+            .lfo_patch
+            .assign(crate::lfo::Source::Lfo(0), crate::lfo::Target::Tune, 0.04)
+            .unwrap();
+        sized(&mut e);
+        rail(&mut e, BarTarget::Lfo);
+        hover(&mut e, "tune", "lfo-tune.png");
+        // MONO, POLY and UNISON: four POLY voices across the field.
+        let (mut e, _, _) = editing_of(
+            Ca72Params {
+                poly: BoolParam::new("Poly", true),
+                spread: FloatParam::new(
+                    "Width",
+                    70.0,
+                    FloatRange::Linear {
+                        min: 0.0,
+                        max: 100.0,
+                    },
+                )
+                .with_unit(" %"),
+                ..Ca72Params::default()
+            },
+            no_library(),
+        );
+        sized(&mut e);
+        away(&mut e);
+        save(&mut e, "poly.png");
+        // QUALITY at each of its settings.
+        for (q, name) in [
+            (QualityMode::Lo, "quality-lo.png"),
+            (QualityMode::Hi, "quality-hi.png"),
+            (QualityMode::Ultra, "quality-ultra.png"),
+        ] {
+            let (mut e, _, _) = editing_of(
+                Ca72Params {
+                    quality: EnumParam::new("Quality", q),
+                    ..Ca72Params::default()
+                },
+                no_library(),
+            );
+            sized(&mut e);
+            away(&mut e);
+            save(&mut e, name);
+        }
+        // DRIVE up, AUTO GAIN on, LEVEL down.
+        let (mut e, _, _) = editing_of(
+            Ca72Params {
+                drive: FloatParam::new(
+                    "Drive",
+                    6.0,
+                    FloatRange::Linear {
+                        min: 0.0,
+                        max: crate::engine::DRIVE_TOP as f32,
+                    },
+                )
+                .with_unit(" dB")
+                .with_value_to_string(formatters::v2s_f32_rounded(1)),
+                ..Ca72Params::default()
+            },
+            no_library(),
+        );
+        sized(&mut e);
+        hover(&mut e, "drive", "levels.png");
+        // The presets' drawer, the factory library.
+        let (mut e, _, _) = editing();
+        sized(&mut e);
+        let p = on_strip(&e, strip_at(StripTarget::Bar(BarTarget::Name)));
+        click(&mut e, p);
+        e.browser
+            .slide_began(Instant::now() - crate::presets::SLIDE * 2);
+        e.draw();
+        away(&mut e);
+        save(&mut e, "presets.png");
+        // MIDI Learn: CUTOFF's menu, then CUTOFF waiting.
+        let (mut e, _, _) = editing();
+        sized(&mut e);
+        let p = control_at(&e, "cutoff");
+        right_click(&mut e, p);
+        e.update_scene();
+        save(&mut e, "learn-menu.png");
+        menu_item(&mut e, "MIDI LEARN");
+        away(&mut e);
+        save(&mut e, "learn-waiting.png");
+        // The standalone's MIDI map mode: some controls learned, one waiting.
+        let (mut e, _, params) = editing_standalone();
+        let map = Arc::clone(&params.midi_map);
+        sized(&mut e);
+        rail(&mut e, BarTarget::Global);
+        let cc = |channel, cc| crate::learn::Cc { channel, cc };
+        map.assign(learnable("cutoff"), cc(0, 74));
+        map.assign(learnable("emphasis"), cc(0, 71));
+        map.assign(learnable("mod_mix"), cc(0, 20));
+        map.assign(learnable("loudness_decay"), cc(0, 75));
+        let midi = at(
+            &e,
+            art::tempo_key_at(e.renderer.arrangement(), art::TempoKey::Midi),
+        );
+        click(&mut e, midi);
+        click_on(&mut e, "contour_amount");
+        away(&mut e);
+        save(&mut e, "midi-map.png");
+        // The arpeggiator's drawer, then the standalone's effects'.
+        let (mut e, _, _) = editing_of(
+            Ca72Params {
+                arp_on: BoolParam::new("Arp On", true),
+                ..Ca72Params::default()
+            },
+            no_library(),
+        );
+        sized(&mut e);
+        lower_open(&mut e, Rail::Plugin, BarTarget::Arp);
+        away(&mut e);
+        save(&mut e, "arp.png");
+        let (mut e, _) = editing_effects();
+        sized(&mut e);
+        lower_open(&mut e, Rail::Effects, BarTarget::Fx);
+        away(&mut e);
+        save(&mut e, "fx.png");
     }
 
     /// The audio threads' standings the tests give the editor (decisions.md R-RTKIT): none
@@ -12968,6 +13210,91 @@ mod tests {
         }
     }
 
+    /// The panel's modulation controls explain their part of the route while pointed at, and
+    /// the tips stay readable at the smallest window in either look and lettering; turned, they
+    /// show their value alone (decisions.md R-MOD-WORDING).
+    #[test]
+    fn modulation_tips_explain_the_route_and_fit() {
+        let cases = [
+            (
+                "mod_mix",
+                "MODULATION MIX: ",
+                "Source: OSC. 3 at 0, NOISE at 10.",
+            ),
+            (
+                "mod_wheel",
+                "MODULATION: ",
+                "How much of MODULATION MIX reaches",
+            ),
+            (
+                "osc_mod",
+                "OSCILLATOR MODULATION: Off",
+                "moves the oscillators' pitch",
+            ),
+            (
+                "filter_mod",
+                "FILTER MODULATION: Off",
+                "moves the filter's cutoff",
+            ),
+            (
+                "osc3_control",
+                "OSC. 3 CONTROL: On",
+                "Off: it ignores keys and wheels",
+            ),
+        ];
+        for skin in [Skin::Worn, Skin::Drawn] {
+            for lettering in [Lettering::Standard, Lettering::Large] {
+                let (mut e, _, _) = editing();
+                e.set_look(skin);
+                e.set_lettering(lettering);
+                e.resize(MIN_WIDTH);
+                e.fit(1.0, MIN_WIDTH, height_for(MIN_WIDTH));
+                for (param, head, note) in cases {
+                    let p = at(&e, centre(param));
+                    go(&mut e, p);
+                    e.update_scene();
+                    let (text, x, y) = e.tip().expect("a tip");
+                    assert!(text.starts_with(head), "{text}");
+                    assert!(text.contains(note), "{text}");
+                    let layer = art::tip(e.renderer.fonts(), x, y, &text, e.renderer.text_size());
+                    let b = layer.bounds;
+                    assert!(
+                        x + b[0] >= 0.0 && x + b[2] <= art::W,
+                        "{param}, {skin:?}, {lettering:?}: {b:?}"
+                    );
+                    assert!(
+                        y + b[1] >= e.renderer.top(),
+                        "{param}, {skin:?}, {lettering:?}: tip above the window"
+                    );
+                }
+            }
+        }
+        // Turned, MODULATION MIX's tip is its value alone.
+        let (mut e, _, _) = editing();
+        let p = at(&e, centre("mod_mix"));
+        go(&mut e, p);
+        press(&mut e);
+        go(&mut e, below(p, -40.0));
+        e.update_scene();
+        let text = e.tip().expect("a tip").0;
+        assert!(
+            text.starts_with("MODULATION MIX: ") && !text.contains('\n'),
+            "{text}"
+        );
+        release(&mut e);
+        // Oscillator 3 timed: OSC. 3 CONTROL says it does nothing.
+        let timed = Ca72Params {
+            osc3_range: EnumParam::new("Osc 3 Range", crate::params::Footage::Lo),
+            osc3_timed: BoolParam::new("Osc 3 Timed", true),
+            ..Ca72Params::default()
+        };
+        assert!(osc3_control_inert(&timed));
+        assert_eq!(
+            mod_note(&timed, "osc3_control"),
+            Some("Oscillator 3 is TIMED: this switch does nothing.")
+        );
+    }
+
     #[test]
     fn every_control_operates_a_parameter() {
         let p = Ca72Params::default();
@@ -13632,7 +13959,7 @@ mod tests {
         e.hover = Some(Target::Control(key1));
         assert_eq!(
             e.tip().expect("a tip").0,
-            "OSCILLATOR-1 MOD, CLOCKWISE: Off"
+            "OSCILLATOR-1 SHAPE MOD, CLOCKWISE: Off"
         );
         // Oscillator 2's place under its switch takes nothing.
         let p = at(&e, centre("osc2_shape_mod"));
@@ -16322,7 +16649,7 @@ mod tests {
             for (key, tip) in [
                 (BarTarget::Global, "GLOBAL: VOICES, STEREO AND OUTPUT"),
                 (BarTarget::Keyboard, "KEYS: PLAYABLE PIANO"),
-                (BarTarget::Lfo, "LFO: MODULATION SOURCES"),
+                (BarTarget::Lfo, "LFO: FOUR LFOS \u{b7} DRAG OUT TO A KNOB"),
             ] {
                 let point = on_strip(&e, strip::centre(e.rail, StripTarget::Bar(key)));
                 go(&mut e, point);
