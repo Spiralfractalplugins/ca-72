@@ -750,6 +750,32 @@ follows it there.
 Learn waiting too, unless that window's **Send all keyboard input to plug-in** is on; the
 arrows, Enter and Delete reach the MIDI list either way.
 
+## Skins
+
+The settings key's **LOOK** chooses the editor's look: **REALISTIC**, **CLASSIC**, or a skin
+pack you have installed (a folder or a `.ifskin` file in Idle Foundry's `Skins` folder; see
+[Skin packs](docs/skin-packs.md), "Installing"). A pack is artwork and data only: it changes
+how the editor looks, never the sound, presets or MIDI.
+
+**Making one with an AI agent.** The [CA-72 skin pack agent skill](docs/skin-packs/agent-skill)
+teaches a coding agent (Claude Code, Codex and others) to make a pack from your description of
+the look you want: install it as its README says, give the agent a clone of this repository,
+and describe the look ("a dark navy panel with brass knobs, the section titles smaller"). It
+starts from the CC0 [starter](docs/skin-packs/starter), checks the pack as the plug-in will
+after every change and at the editor's smallest and largest sizes, records what it generated,
+and hands you a `.ifskin` with its previews.
+
+- **It can change:** where each of the panel's controls is, a knob's size, a switch's size,
+  colour and orientation; the panel's legends, rules and section titles (their words, places
+  and sizes); the panel's height; a drawing over the panel; in the realistic look, the pictures
+  the controls and surfaces are made of (brass knobs, a navy face); the strip's dressing (its
+  drawing, face, tabs' and displays' colours); and the typeface, if its licence allows.
+- **It can't change:** the sound or anything a session saves; the colour of the panel's
+  lettering (always the plug-in's cream ink) or of the classic look's controls; the dial numbers
+  and selectors' legends; where the strip's controls are; the name plate's words. It won't copy
+  the official panel's GPL layout or pictures into a pack under another licence, use another
+  maker's names or logos, sign a pack, or claim a pack is cleared for sale.
+
 ## Agents and audio references
 
 The 0.3 MCP bridge lets an agent inspect the standalone, adjust controls and save presets,

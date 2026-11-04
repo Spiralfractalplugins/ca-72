@@ -1,7 +1,25 @@
-# The drawing, pictures and fonts
+# What a pack can change, the drawing, pictures and fonts
 
-*CC0 1.0. Checked against the CA-72's `skin-packs` prototype, October 2026; `docs/skin-packs.md`
-is the authority.*
+*CC0 1.0. Checked against the CA-72 0.3.1's format, November 2026; `docs/skin-packs.md` is the
+authority.*
+
+## What a pack can change
+
+Sort a brief by this table before you start (SKILL.md, step 1), and tell the user what can't be
+done.
+
+| The user asks for | How, or why not |
+|---|---|
+| The panel's colour, bands, frames, a texture | The drawing (`art`), over the face; with `base = "realistic"`, also a `face` picture, which the strip, the keyboard view and the drawer are dressed in too |
+| The strip's colour | A `face` picture (realistic), `strip_art`, `[look.colours]`; the strip's controls can't move |
+| Controls moved, regrouped, a knob large, a rocker sized, coloured (`blue`, `red`, `black`, `ivory`) or turned | The layout ([layout.md](layout.md)), the panel's controls only |
+| Knobs, selectors, rockers, jacks, screws in another colour or material (brass, wood) | `base = "realistic"` and pictures for their slots (below). In the classic look the plug-in draws them: their colours can't be changed, and the drawing is drawn under them |
+| The lettering's colour | Not possible: legends, titles, rules and dial numbers are printed in the plug-in's cream ink (`#ebe6d8`) in both looks. Give them a dark enough face. The strip's tabs, keys and displays have colours in `[look.colours]` |
+| Lettering smaller or larger, moved, renamed | The layout's `[[text]]` and `[[title]]` (`size`, `large_size`, `at`, `span`); the dial numbers and the selectors' legends are the plug-in's and can't be changed |
+| Another typeface | `fonts`, under its licence's conditions (below) |
+| A taller or shorter panel | The layout's `[panel]` ([layout.md](layout.md)); the width is always 3108 |
+| The name plate's words, another maker's name or logo | Not possible: the plate says "CA-72" and "IDLE FOUNDRY"; a pack may move it. No other maker's branding (SKILL.md, rule 5) |
+| Animation, moving parts, sounds, behaviour | Not possible: a pack is artwork and data only |
 
 ## The strip's drawing, `strip_art`
 
@@ -39,9 +57,9 @@ shadows) and under the print, controls, screws and jacks. So:
   translucent) to keep the wood showing; fill it to replace the wood.
 - Bands, panels and frames behind groups of controls are the usual way to give a look its
   character. Line them up with the layout's rows (add 130).
-- Keep enough contrast for the print. The plug-in prints legends, rules and dial numbers in
-  light ink on a dark face in the classic look: a light drawing makes them hard to read.
-  Check both previews.
+- Keep enough contrast for the print. The plug-in prints legends, titles, rules and dial
+  numbers in its cream ink (`#ebe6d8`) in both looks, whatever the pack: a light drawing makes
+  them hard to read. Check both previews.
 
 ### Allowed
 
@@ -67,7 +85,13 @@ fonts: write the SVG yourself, or strip those out.
 20,000 elements drawn (each reference, a `use`, `href` or `url(#name)`, counts as all it
 repeats; one that repeats itself is refused), 200,000 path segments, 32 filter primitives, a
 blur's deviation of at most 64, 4096 pattern tiles over all that patterns fill (and 20,000
-elements drawn in those tiles), and embedded pictures within the picture limits.
+elements drawn in those tiles), and embedded pictures within the picture limits. Before it is
+drawn, the buffers it needs (each group's layer for its opacity, clip, mask or filter, each
+pattern tile, each filter's region, each embedded picture) are counted at the size it is used:
+at most 16 million pixels each and 256 MB together (`svg.refused`). The plug-in counts them
+again when it draws the drawing larger (a large window on a high-resolution screen), against
+four times those limits, and past them leaves the drawing out: check the largest size
+(SKILL.md, step 5).
 
 ### What it costs to draw
 
@@ -91,7 +115,7 @@ few; put `opacity` on shapes rather than on big groups; keep filters to small re
 prefer gradients to blurs and to hatching. Run `svg_cost` (SKILL.md, step 4) on every drawing you
 make: it prints the cost part by part, with each costly kind left out in turn.
 
-A timed test drawing (250 ms, `svg.slow`) is a backstop. If it is skipped because another
+A timed test drawing (2 s, `svg.slow`) is a backstop. If it is skipped because another
 drawing's test is running, `svg.untested` notes it; the counted cost still bounds the drawing.
 
 Write the SVG by hand or with a script, and keep it readable: name gradients and groups, and
@@ -109,7 +133,10 @@ face = "pictures/face.png"
 ```
 
 Each slot takes a PNG or an SVG; an SVG is drawn at the built-in picture's size, so give it
-that `viewBox`. A picture is drawn at the built-in one's proportions (another shape gets a
+that `viewBox`. Coloured knobs need three slots: `knob`, `knob-big`
+(oscillators 2's and 3's FREQUENCY and any `big` knob) and `pointer` (the RANGE and WAVEFORM
+selectors); a slot left out keeps the built-in picture. The strip's knobs are the pack's knobs
+too. A picture is drawn at the built-in one's proportions (another shape gets a
 `look.picture` note and is stretched). Frame the part as the built-in one is framed, centred
 on a transparent ground; round parts that turn should be lit evenly all round, because the
 panel lays its own lamp over them. The slots and their sizes are in `docs/skin-packs.md`,
@@ -119,7 +146,16 @@ trace or edit the built-in pictures themselves**: they are under the GPL, and a 
 copy is flagged (`asset.official-copy`).
 
 A coding agent draws slot pictures best as SVG (a knob from above: concentric circles,
-radial gradients, a dot at twelve o'clock). A picture made with an image generator is
+radial gradients, a mark at twelve o'clock). **Put a knob's mark on its skirt, outside its
+cap**: the cap (the middle 57.8 % of `knob`, 65.3 % of `knob-big`, 43 % of `pointer`) is drawn
+still over the turning knob, so a mark inside it never turns. A mark that must cross the middle
+needs `knob_caps = "turn"` in `[look]`. Light it evenly all round (radial gradients centred on
+the knob): the plug-in lays its own lamp over it.
+
+**The face.** `face` is tiled 640 units across, on the panel and the strip alike: a flat colour,
+or a texture that runs on across its edges (lines straight across it), shows no seams.
+`face_tint` scales a `face` picture's channels, and only the pack's own: without a `face`
+picture it does nothing, and no finding says so. A picture made with an image generator is
 `origin = "generated"` with that generator named as the `tool`.
 
 Picture limits: 4096 pixels a side, **16 million pixels in all**, pictures embedded in SVGs

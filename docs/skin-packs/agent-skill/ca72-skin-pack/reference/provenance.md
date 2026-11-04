@@ -1,7 +1,7 @@
 # The manifest, licences and provenance
 
-*CC0 1.0. Checked against the CA-72's `skin-packs` prototype, October 2026; `docs/skin-packs.md`
-is the authority.*
+*CC0 1.0. Checked against the CA-72 0.3.1's format, November 2026; `docs/skin-packs.md` is the
+authority.*
 
 ## The manifest, `skin.toml`
 
@@ -91,9 +91,9 @@ finding go away.
 
 ## Signatures
 
-A marketplace that publishes a pack adds `signature.toml` (Ed25519, over the pack's id,
-version, publisher, date and every file's SHA-256). The plug-in checks it offline. As a
-creator's agent:
+A publisher adds `signature.toml` (Ed25519, over the pack's id, version, publisher, date and
+every file's SHA-256): Idle Foundry for its own packs now, a marketplace later, once there is
+one with a review. The plug-in checks it offline. As a creator's agent:
 
 - never write, edit, copy or "fix" a `signature.toml`, and never run `pack_keygen` or
   `pack_sign`: they are the marketplace's tools;
@@ -106,8 +106,9 @@ creator's agent:
 
 A signature shows who published the files and that they are the ones reviewed. It is neither
 copy protection nor a licence (the pack's licence and the marketplace's terms say what a
-buyer may do), and it makes no declaration clearance. No signing key is built into the CA-72
-yet, so every pack loads as unsigned for now (`signature.none`, a note).
+buyer may do), and it makes no declaration clearance. The CA-72 has only Idle Foundry's own key
+built in, so every pack a creator makes loads as unsigned (`signature.none`, a note), as
+manual, unsigned packs are meant to.
 
 ## Pack files
 

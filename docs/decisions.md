@@ -17505,3 +17505,78 @@ width is constrained by the existing editor limits. Project recall and lower-pan
 do not change the computer preference. Only widths accepted by the host are kept, including
 asynchronous VST3 replies; rejected requests leave the preference alone. Grip changes are
 kept after release (or editor close), avoiding file writes on every frame of a drag.
+
+## R-SKIN-SKILL. The skin-pack agent skill, finished, tried and published (#78)
+
+**Owner request, 2026-11-04 (#78).** The agent skill in `docs/skin-packs/agent-skill` was on
+main but still a draft: it named the `skin-packs` prototype branch, nothing user-facing pointed
+to it, and no agent had been taken through it from a brief to a pack that loads. Finish it
+against main's format and tools, try it end to end, and publish it.
+
+**Agent decisions, 2026-11-04** (not separately approved):
+
+- **Stale statements fixed.** The skill said the panel has 44 controls; main's starter places
+  47 (`docs/skin-packs.md` said 44 too, and its list lacked the oscillators' three MOD keys and
+  revision 3: both corrected). The skill now counts them in the starter's `layout.toml`, the
+  list a layout must place, and its table of kinds says which revision it describes, so a new
+  control (R-POLES's FILTER POLES) can't make a number in it wrong. Also corrected: the timed
+  test drawing's limit (2 s, not 250 ms); the renderer's buffer limits and `svg.panicked`, which
+  were missing; 18 finding codes the checks raise that findings.md lacked; a `[panel]` needing
+  `requires` (every CA-72 that reads packs, 0.3.0 on, reads it); "the left-hand column" (on the
+  strip since A6) and "the preview shows the whole editor" (it shows the panel and the strip's
+  sections, not the rail's keys, the drawers or the LFO page); "no signing key is built in" (the
+  first-party key is, R-SKIN-KEY-INSTALLED) and "signatures are the marketplace's" (Idle
+  Foundry's now, a marketplace's later); the starter's CC0 notice kept for a user's pack (it
+  names the starter); `large_size`, missing from the layout reference.
+- **The trial.** As a user's agent following SKILL.md literally, from the brief "a dark navy
+  panel with brass-coloured knobs and cream lettering, the section titles smaller, and the five
+  mixer switches moved one step closer to their knobs", in eight checked iterations, to
+  NAVY BRASS (`org.idlewile.navy-brass`, CC0-1.0): realistic, brass `knob`, `knob-big` and
+  `pointer` SVGs, a navy `face` SVG for the panel and the strip, bands in the drawing, the five
+  switches 56 units nearer their knobs, five titles at 32 set into breaks in the row rules. Its
+  folder and `.ifskin` check alike: no Rejected finding, the six `provenance.generated` and
+  `declaration.missing` reviews expected of a generated pack, `LOADS`. The plug-in reads
+  installed packs through `look::discover`, which opens each with the same `Look::open_with`,
+  limits and keys as `check_pack`, so its `LOADS` is the plug-in's; the pack tests that load
+  packs (`packs`, `compat`) pass.
+- **What the trial found missing, now in the skill.** That classic controls can't be
+  recoloured (brass needs the realistic look and three knob slots); that the panel's print is
+  always the plug-in's cream ink (`#ebe6d8`), so "cream lettering" is already so and other
+  colours can't be had; that the starter has no section titles and none of the official
+  grouping, which a brief written against the official panel names (now a table of the
+  panel's sections and their controls); that vague amounts ("one step") are to be made numbers
+  and said; that a knob's mark inside its still cap never turns; that `face_tint` does nothing
+  without the pack's own `face` picture, and silently (a `face` picture is what dresses the
+  strip too); the rows' measures for placing a title between rows and a switch nearer its
+  knob; that `$PACK` must be absolute, since the commands run from the repository; and a
+  "What a pack can change" table to sort a brief by before starting.
+- **Sizes.** Nothing checked a pack at the editor's sizes: `check_pack` drew its previews at
+  0.5 pixels a unit only. It now takes `--scale <pixels a unit>` (the editor's is its
+  window's physical width over 3108: 0.277 at the narrowest, 860 pixels on an ordinary screen;
+  2 at the widest, 3108 on a Retina one) and prints, with each preview, its size and the
+  smallest click area and lettering of the pack's layout there, beside the official panel's.
+  The skill's step 5 runs both sizes and keeps the pack no smaller than the official at the
+  smallest; a larger drawing's buffers are counted again by the renderer, so the largest is
+  drawn too. `check_pack` also makes its preview's folder rather than panic. NAVY BRASS at
+  0.277: smallest click area 29 by 10 pixels (a TIMED key, the plug-in's own, as on the official
+  panel), smallest lettering 4.4 pixels (the starter's MOD MIX, 16 units; the official's 4.2);
+  at 2, drawn whole.
+- **Published.** The draft status is gone; README.md gains a Skins section saying how to have
+  an agent make a pack and what it can and can't change; `docs/skin-packs.md`'s agent section
+  links the skill. The CC0 dedications are as they were.
+- **Not shipped.** `scripts/package.sh` and the installers carry only LICENSE and
+  THIRD-PARTY-NOTICES.txt, no documentation or skin-pack material (not the starter, not
+  `docs/skin-packs.md`), and the skill needs a clone of the repository for `check_pack`
+  anyway: it is published in the repository, as the format and the starter are.
+
+**Evidence (Linux x86-64, 2026-11-04).** The pack, its eight iterations' previews, the scripts
+that placed its switches and titles, and both check outputs are under
+`ca-72/issue-78/trial/` on the lab share; the final previews (standard, large, smallest and
+largest, each in both letterings) and `navy-brass.ifskin` under `ca-72/issue-78/`. `cargo fmt`,
+clippy for `ca72-panel` (all targets, `-D warnings`) and its `packs` and `compat` tests pass.
+
+**Follow-up.** R-POLES (`filter-poles`, unmerged) adds FILTER POLES and makes FILTER MODE a
+selector: when it merges, add both to layout.md's table (it edits lines this change rewrote) and
+the starter. Its "45 controls" in `docs/skin-packs.md` would be 48 on this main. The
+`docs/skin-packs.md` status paragraph (a prototype on the `skin-system` branch, nothing
+released) is also stale since 0.3.0; it belongs with #83's release decisions.
