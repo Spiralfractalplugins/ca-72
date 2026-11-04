@@ -8,7 +8,7 @@ description: Make, change or update a skin pack for Idle Foundry's CA-72 synthes
 *This skill is dedicated to the public domain under CC0 1.0. It is a draft and may change with
 the format.*
 
-A skin pack changes how the CA-72's editor looks: where each of the panel's 44 controls is,
+A skin pack changes how the CA-72's editor looks: where each of the panel's 45 controls is,
 how each looks, the legends, rules and titles printed on the panel, a drawing over it, the
 realistic look's pictures and the typeface. It holds **artwork and declarative data only,
 never code**. It cannot change the sound, presets, MIDI or anything a session saves.
@@ -30,7 +30,7 @@ skill and that document disagree, the document wins: tell the user about the dif
 Read `docs/skin-packs.md` once before the first change. The reference files beside this one
 hold what you'll look up as you go:
 
-- [reference/layout.md](reference/layout.md): coordinates, the 44 controls by kind, their click
+- [reference/layout.md](reference/layout.md): coordinates, the 45 controls by kind, their click
   areas and spacing, fixtures, legends, rules and titles.
 - [reference/drawing.md](reference/drawing.md): the SVG subset, the drawing's coordinates
   (offset 130 from the layout's, or the wooden strip's own height with a `[panel]` size),
@@ -115,7 +115,10 @@ For a new pack, in `$PACK/skin.toml`:
   later CA-72 than the one it is checked with: an earlier one will refuse it.
 
 In `$PACK/layout.toml`, keep `controls = 3` as the starter has it. It names the revision of the
-CA-72's controls the layout was made for, so that a later CA-72 can place controls added since.
+CA-72's controls the layout was made for, so that a later CA-72 can place controls added since
+(the starter is revision 3: FILTER POLES, added in 8, is placed by the plug-in and FILTER MODE
+drawn as its toggle, with notes; to place FILTER POLES yourself and size FILTER MODE's toggle,
+say `controls = 8` and place both).
 
 ### 3. Run the first check
 

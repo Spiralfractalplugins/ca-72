@@ -157,6 +157,8 @@ pub fn sound_params(p: &Ca72Params) -> Vec<(&'static str, &dyn SoundParam)> {
         ("osc3_on", &p.osc3_on),
         ("osc3_volume", &p.osc3_volume),
         ("filter_mode", &p.filter_mode),
+        // FILTER POLES (decisions.md R-POLES): a preset that does not name it is at 4, as drawn.
+        ("filter_poles", &p.filter_poles),
         ("filter_mod", &p.filter_mod),
         ("keyboard_control_1", &p.keyboard_control_1),
         ("keyboard_control_2", &p.keyboard_control_2),

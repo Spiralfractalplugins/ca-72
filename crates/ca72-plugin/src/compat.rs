@@ -267,6 +267,10 @@ pub fn translate(params: &mut BTreeMap<String, ParamValue>) {
         ParamValue::I32(d.filter_mode.default_plain_value().to_index() as i32),
     );
     put(
+        "filter_poles",
+        ParamValue::I32(d.filter_poles.default_plain_value()),
+    );
+    put(
         "placement",
         ParamValue::I32(d.placement.default_plain_value().to_index() as i32),
     );
@@ -408,6 +412,7 @@ mod tests {
         assert!(matches!(p["drive"], ParamValue::F32(x) if x == 0.0));
         assert!(matches!(p["unison"], ParamValue::Bool(false)));
         assert!(matches!(p["filter_mode"], ParamValue::I32(0)));
+        assert!(matches!(p["filter_poles"], ParamValue::I32(4)));
         assert!(matches!(p["level"], ParamValue::F32(x) if x == LEVEL_FROM_0_1 as f32));
         assert!(!p.contains_key("quality"));
         let mut v = vec![("emphasis".to_owned(), 4.0), ("level".to_owned(), 3.0)];
