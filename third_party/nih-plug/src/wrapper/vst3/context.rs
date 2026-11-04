@@ -234,14 +234,7 @@ impl<P: Vst3Plugin> GuiContext for WrapperGuiContext<P> {
                         // held for a call that does not come, and the editor would draw the value
                         // from before it (issue #146). It is set now, with any edit held before
                         // it, so that none is set over it later (PATCHES.md, change 17).
-                        if self.inner.host_stopped_calling() {
-                            self.inner.set_held_edits(
-                                self.inner
-                                    .current_buffer_config
-                                    .load()
-                                    .map(|c| c.sample_rate),
-                            );
-                        }
+                        self.inner.set_held_edits_if_host_stopped();
                     } else {
                         self.inner.set_normalized_value_by_hash(
                             *hash,
@@ -278,14 +271,7 @@ impl<P: Vst3Plugin> GuiContext for WrapperGuiContext<P> {
                 Some(hash) => {
                     // The gesture's edits held while the host still called, if it has stopped
                     // since (PATCHES.md, change 17)
-                    if self.inner.host_stopped_calling() {
-                        self.inner.set_held_edits(
-                            self.inner
-                                .current_buffer_config
-                                .load()
-                                .map(|c| c.sample_rate),
-                        );
-                    }
+                    self.inner.set_held_edits_if_host_stopped();
 
                     handler.end_edit(*hash);
                 }
@@ -312,5 +298,14 @@ impl<P: Vst3Plugin> GuiContext for WrapperGuiContext<P> {
 
     fn set_state(&self, state: PluginState) {
         self.inner.set_state_object_from_gui(state)
+    }
+
+    fn idle(&self) {
+        // Edits held while the host still called, a gesture's last among them, if it has
+        // stopped since: no process call and no further edit may come to set them (PATCHES.md,
+        // change 17). The flag first, so that a frame with nothing held reads no clock.
+        if self.inner.any_held_edit.load(Ordering::Relaxed) {
+            self.inner.set_held_edits_if_host_stopped();
+        }
     }
 }
