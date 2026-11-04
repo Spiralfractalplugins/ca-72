@@ -17505,3 +17505,65 @@ width is constrained by the existing editor limits. Project recall and lower-pan
 do not change the computer preference. Only widths accepted by the host are kept, including
 asynchronous VST3 replies; rejected requests leave the preference alone. Grip changes are
 kept after release (or editor close), avoiding file writes on every frame of a drag.
+
+## R-VST3-QUIET-HOST. An edit is set at once when the host has stopped calling the VST3
+
+**The report, 2026-11-03** (issue #146, REAPER 7.83, the 0.3 VST3i, the system not given): a
+knob changes while it is dragged and goes back to where it was as the mouse button is let go,
+in a new, empty project with no automation. The CLAPi in the same REAPER and the standalone
+keep the value.
+
+**The cause, from the code (not seen in REAPER).** While the host processes audio, the VST3
+wrapper holds an edit the editor makes for the next process call (R36; nih-plug's
+`PATCHES.md`, change 12): the controller reports it to the host, but the parameter is set only
+at that call's start, so that a value never changes in the middle of one. While a knob is
+dragged the editor draws it where the drag has it (`Drag::value`); once it is let go it draws
+the parameter's value (`Editing::update_scene`, `value_of`). REAPER stops calling a plug-in
+while saying nothing (no `setProcessing(false)`): for a silent track while its transport is
+stopped (REAPER's changes since 4.61, "reduced CPU overhead of silent tracks when stopped"),
+and for a plug-in it bypasses (upstream's `FIXME` in the wrapper names REAPER for this). An
+instrument in a new project with no notes played is such a track. Then the held edit waited
+for a call that did not come; the parameter kept the value from before the drag, and the
+editor drew that as the button came up. REAPER's own display and API, which read the
+controller's value, had the new one. The CLAP wrapper asks the host for a flush with each edit
+(`request_flush`), which a host not processing answers on its main thread, so the CLAP set it;
+the standalone has no host to wait for. This explains every part of the report, but the agent
+could not run REAPER here and has not seen REAPER skip the track. That edits were not seen to
+go back in REAPER 7.82 before (R53 and the Windows checks recorded above) fits too:
+notes were played in the runs recorded, so the track would not have been silent.
+
+**What changed** (nih-plug's `PATCHES.md`, change 17; agent decisions, not separately
+approved):
+- **The wrapper notes each process call** as it starts and returns, and as processing begins
+  (two atomic stores and a read of the monotonic clock on the audio thread; nothing allocated,
+  locked or waited for). When no call is running and none has returned for 0.25 s, or for four
+  of the host's largest blocks if that is longer, the host is taken to have stopped calling.
+  A host calling as it should does not go that long, so its edits are held as before: 0.25 s is
+  some twenty of the usual 512-frame blocks at 44.1 kHz and more than an 8192-frame one
+  (0.19 s), and the wait grows with a host's larger blocks.
+- **Then the editor's edit is set at once, on the editor's thread,** with every edit held before
+  it (so that an older held one is not set over it when the host calls again), and at the
+  gesture's end any held while the host still called. The host's `setParamNormalized()` was
+  dropped there before (the processor was to be sent the change); it is now set the same way
+  (REAPER's generic controls and scripts on a skipped track).
+- **Left as it is:** if the host calls again just as a value is being set this way, the value
+  may change at that call's start, the only case in which it can. A gesture let go within
+  0.25 s of the host's last call stays held until the host calls again, as before. Only the
+  VST3 wrapper changes: the CLAP, the Audio Unit (clap-wrapper's, over the CLAP) and the
+  standalone are untouched, and nothing in the sound or the editor changes.
+
+**Evidence (the Linux laptop, 2026-11-03).** `crates/ca72-plugin/tests/vst3_host.rs` drives
+the wrapper through its own VST3 factory, with a REAPER host that sends each `performEdit()` to
+the processor at its next call and then stops calling for 0.4 s, `setProcessing` left on. Five
+new tests: a drag stays where it was let go; a click sets a switch; an edit held before the
+host stopped does not undo a later one; edits are held again once the host calls again; the
+host's own `setParamNormalized()` is set. Before the change four failed (the parameter at 0.5
+where the drag left 0.25 or 0.75; the switch still on), and the fifth, which checks that edits
+are still held while the host calls, passed. After it all 14 of the file's tests pass. The logs
+are under `nightly-2026-11-03/vst3-reaper/` on the lab share.
+
+Not tried: REAPER itself, on any system (it is not installed here, and driving its window
+without a desktop of its own was not attempted), and whether the reporter's REAPER was
+skipping the track (its "run FX when stopped" and silent-track settings, or auto-bypass). A
+check in REAPER: drag a knob with no notes playing, let go, then play a note; before the change
+the knob jumps to the dragged value at the note, after it it stays where it was let go.
