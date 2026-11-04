@@ -1869,6 +1869,35 @@ mod tests {
         );
     }
 
+    /// MIDI BEND RANGE set as the standalone's PITCH wheel menu sets it (a gesture through the
+    /// host) stays the player's through a factory preset chosen, the previous and next, and
+    /// Init; the sound's Save names it not (decisions.md R18, R-BEND-RANGE).
+    #[test]
+    fn presets_and_init_leave_the_bend_range_set() {
+        let p = Arc::new(Ca72Params::default());
+        let host = ApplyingHost::new(p.clone());
+        let setter = ParamSetter::new(&host);
+        let dir = tempfile::tempdir().unwrap();
+        let mut b = Browser::new(Library::at(dir.path()));
+        b.show(true, &p);
+        for range in [7.0, 0.0, 4.25, 2.0] {
+            let q = &p.midi_bend_range;
+            setter.begin_set_parameter(q);
+            setter.set_parameter(q, range);
+            setter.end_set_parameter(q);
+            assert_eq!(q.value(), q.preview_plain(q.preview_normalized(range)));
+            let set = q.value();
+            for name in ["Brass Choir", "Felt Bass"] {
+                let e = b.library.find(name).unwrap();
+                b.choose(&e, &p, &setter);
+                assert_eq!(q.value(), set, "{range}: {name}");
+            }
+            b.drawer_press(DrawerTarget::Key(PresetKey::Init), 0.0, &p, &setter);
+            assert_eq!(q.value(), set, "{range}: Init");
+            assert!(values_now(&p).iter().all(|(k, _)| k != "midi_bend_range"));
+        }
+    }
+
     /// A preset 0.3.0's beta saved names its LFOs' RISE (`lfoN_rise`): each is read as FADE at
     /// as many seconds, a fade in; a preset naming FADE has its own, whatever a RISE beside it
     /// says; one naming neither, FADE off; an assignment to RISE is FADE's at half the depth
