@@ -17684,6 +17684,44 @@ golden frames against `ef41abf`.
   13.49 px and fills the room. `ca72-panel`'s `a_menus_columns_are_balanced` and
   `a_menu_no_columns_fit_is_made_smaller_as_little_as_fits` cover the same rules.
 
+**Round 4 (2026-11-04, a check of the standalone's menu; no layout change):** the standalone's
+settings' menu adds STANDALONE (AUDIO & MIDI…, and its NOT REAL-TIME row when that is so) and
+AGENTS (ALLOW, OFF, how they stand while allowed, and the two setups to copy) after MPE: 27 rows
+as it opens, 29 at its fullest. It opens below its key without covering it at every size, both
+looks and both letterings, in balanced columns that never split a group. At 4K FIT TO SCREEN
+its lettering is as it is (two columns in STANDARD, three in LARGE), so the fifth column the
+brief allowed there was not needed and was not added.
+
+  | Window | STANDARD (opens / fullest) | LARGE (opens / fullest) |
+  |---|---|---|
+  | 4K FIT, 100 % and 150 % | 12, 15 / 16, 13 | 9, 9, 9 / 9, 11, 9 |
+  | SIZE 100 % | 9, 9, 9 / 9, 7, 7, 6 | 6, 6, 8, 7 / 9, 7, 7, 6, smaller |
+  | 1080p FIT (1513) | 9, 9, 9 / 9, 11, 9 | 9, 9, 9 / 9, 7, 7, 6 |
+  | Laptop (1076) | 6, 6, 8, 7 / 9, 7, 7, 6, smaller | 6, 6, 8, 7 / 9, 7, 7, 6, both smaller |
+  | SIZE 75 % (1035), 860 | 6, 6, 8, 7 / 9, 7, 7, 6, both smaller | the same |
+
+  Four columns of its groups are eight or nine rows tall, more than the room under the key in
+  the smaller windows, so there it is made smaller: em 14.26 px as it opens in LARGE on the
+  laptop, 13.72 at SIZE 75 % and 11.40 at 860; at its fullest 16.50 (SIZE 100 % LARGE), 12.86,
+  12.37 and 10.28. That is below the 13.49 px the plug-in's keeps at 860 (round 1's em there),
+  but that floor is the plug-in's; R-READABILITY-MINIMUM's is a 4K FIT rule, and the plug-in's
+  menu is unchanged. Measured, not adopted: a fifth column would keep it full size as it opens
+  in STANDARD everywhere and give 13.89 px at 860 in LARGE (12.60 at its fullest). It would also
+  change the plug-in's 860 LARGE, so it is left to the owner.
+
+**Agent decisions, round 4** (not separately approved): the test's standalone has its host and
+its bridge through two test-only, per-thread switches (`standalone_settings::AS_STANDALONE`,
+`agent::setup::TEST_BRIDGE`), as the host's handle is the process's and would put STANDALONE in
+every other test's menu; its fullest state is the one with the most rows and the widest row.
+
+**Evidence, round 4:** `/mnt/lab/artifacts/ca-72/issue-70/round4/` (`index.html`): 1:1 crops of
+the standalone's menu and its key (as it opens left, at its fullest right) at 4K FIT, SIZE 100 %,
+1080p FIT, the laptop, SIZE 75 % and 860, both looks and letterings; the frames and their
+`sizes.csv` in `frames/`. *Tests:* `the_standalones_settings_menu_opens_below_its_key_at_every_size`
+checks both states at the eight sizes, both looks and letterings: below its key and not over
+it, each column begun at a group's head, the rows as in the table, the lettering as it is where
+it fits (4K FIT included) and elsewhere only as much smaller as fits.
+
 ## R-QUIET-PRINT. TICKS & TITLES: quieter ticks and sections' titles, a setting
 
 **Owner brief, 2026-11-04 (issue #145's "tick marks" and "big labels", measured in

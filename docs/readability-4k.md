@@ -354,13 +354,32 @@ new, and match SIZE 100 %'s):
 |---|---|---|
 | 860 | LARGE | 13.49 → 17.25 (over the rail) → **14.57** (below its key) |
 
+### Round 4, 2026-11-04
+
+**The standalone's settings' menu** (STANDALONE and AGENTS added: 27 rows as it opens, 29 at
+its fullest) opens below its key at every size, in balanced columns, its lettering full size at
+4K FIT TO SCREEN (decisions.md R-READABILITY-MINIMUM, round 4). Where four columns are taller
+than the room under the key it is made smaller, as round 3 allows:
+
+| Window | Lettering | Settings' items, em in px (as it opens / at its fullest) |
+|---|---|---|
+| SIZE 100 % | LARGE | 17.25 / **16.50** |
+| Laptop (1076) | STANDARD | 13.80 / **12.86** |
+| Laptop (1076) | LARGE | **14.26** / **12.86** |
+| SIZE 75 % | both | **13.72** / **12.37** |
+| 860 | both | **11.40** / **10.28** |
+
+Every other case keeps its lettering's size. The layout code is unchanged; a fifth column
+(measured, not adopted) would give 13.89 px at 860 in LARGE.
+
 **Evidence** is under `/mnt/lab/artifacts/ca-72/issue-70/`: `before/` and `after/` (308 frames
 each, with `sizes.csv`), `crops/` (1:1 before | after of each changed class, both looks),
 `golden-before/`, `golden-after/`, `golden-compare.txt` and `golden-regions.txt`; round 2's in
 `round2/` (`index.html`, the matrix again in `round2/after/` with a `quiet` state, its crops and
 golden frames against `dd23251`); round 3's in `round3/` (`index.html`, the matrix with 1080p
 FIT in `round3/after/`, crops of the settings' menu, golden frames against `ef41abf`: none
-differ). Not tested: a
+differ); round 4's in `round4/` (`index.html`, crops of the standalone's menu, frames and
+`sizes.csv` in `round4/frames/`). Not tested: a
 real 4K monitor, a host, Windows or macOS scaling, a human comfort trial.
 
 See [the complete small-text inventory](readability-4k-text.md).

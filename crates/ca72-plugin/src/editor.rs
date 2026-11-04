@@ -10028,72 +10028,200 @@ mod tests {
             (1.0, 1035, four, four),
             (1.0, MIN_WIDTH, four, four),
         ] {
-            let physical = (f64::from(width) * dpr).round() as u32;
             for skin in [Skin::Worn, Skin::Drawn] {
                 for (lettering, rows) in [(Lettering::Standard, std), (Lettering::Large, large)] {
                     let (mut e, _, _) = editing();
-                    e.fit(dpr, width, physical);
-                    e.set_look(skin);
-                    e.set_lettering(lettering);
-                    e.draw();
-                    let key = on_strip(&e, strip_at(StripTarget::Bar(BarTarget::Settings)));
-                    click(&mut e, key);
-                    let m = e.learning.menu().expect("the settings' menu").clone();
-                    let (w, h) = m.extent(e.renderer.fonts());
-                    let (kx, ky) =
-                        strip::centre(Rail::Plugin, StripTarget::Bar(BarTarget::Settings));
-                    let at = format!("{width} at {dpr}, {skin:?} {lettering:?}");
-                    assert_eq!(
-                        (m.x + w, m.y),
-                        settings_menu_corner(),
-                        "{at}: below its key"
-                    );
-                    assert!(
-                        m.y > ky + strip::KEY_H / 2.0 && m.y + h <= art::H + 1e-9,
-                        "{at}: under the key, not over it"
-                    );
-                    assert!(
-                        m.x + w <= kx + strip::KEY_W / 2.0 + 1e-9 && m.x >= 0.0,
-                        "{at}"
-                    );
-                    // Balanced: each column begun at a group's head, the rows as even as the
-                    // groups go.
-                    assert!(m.columns.iter().all(|&(i, _)| m.heads.contains(&i)), "{at}");
-                    let starts: Vec<usize> = std::iter::once(0)
-                        .chain(m.columns.iter().map(|c| c.0))
-                        .chain(std::iter::once(m.items.len()))
-                        .collect();
-                    let got: Vec<usize> = starts.windows(2).map(|s| s[1] - s[0]).collect();
+                    let (m, got, at) = settings_menu_at(&mut e, (dpr, width), (skin, lettering));
                     assert_eq!(got, rows, "{at}: its columns' rows");
                     // Its lettering: as it is (so never under the 4K minimum), but for LARGE at
                     // 860, made smaller only as far as fits and no smaller than round 1's.
-                    let full = e.renderer.text_size() * MENU_TEXT;
-                    let s = e.renderer.scale();
                     if width == MIN_WIDTH && lettering == Lettering::Large {
-                        assert!(m.size < full, "{at}: four columns do not fit");
+                        settings_menu_as_large_as_fits(&e, &m, &at);
                         // (Round 1's em there, physical pixels: `sizes.csv`.)
-                        assert!(m.size * s >= 13.493, "{at}: {}", m.size * s);
-                        let room = (m.x + w, art::H - m.y);
-                        assert!(
-                            w > room.0 * (1.0 - 1e-6) || h > room.1 * (1.0 - 1e-6),
-                            "{at}: as large as fits, {w} {h} {room:?}"
-                        );
+                        let em = m.size * e.renderer.scale();
+                        assert!(em >= 13.493, "{at}: {em}");
                     } else {
+                        let full = e.renderer.text_size() * MENU_TEXT;
                         assert_eq!(m.size, full, "{at}: not shrunk");
                     }
-                    for i in 0..m.items.len() {
-                        let (x, y) = m.item_at(i);
-                        assert_eq!(
-                            m.hit(e.renderer.fonts(), x + 1.0, y),
-                            Some(Some(i)),
-                            "{at}: {i}"
-                        );
-                    }
-                    menu_item(&mut e, "CLASSIC");
-                    assert_eq!(e.renderer.skin(), Skin::Drawn, "{at}: its items chosen");
                 }
             }
         }
+    }
+
+    /// The standalone's settings menu (decisions.md R-READABILITY-MINIMUM, round 4): with
+    /// STANDALONE and AGENTS after MPE, at the sizes the plug-in's is tried at, below its key and
+    /// not over it, in balanced columns that never split a group. As it opens (AGENTS off, its
+    /// setups to copy: 27 rows) and at its fullest (the audio not real-time, AGENTS allowed and
+    /// saying how they stand, a setup copied: 29). Its lettering as it is at 4K FIT TO SCREEN
+    /// and wherever its columns fit; in the smaller windows, where four columns of its groups
+    /// are taller than the room under the key, made smaller only as far as fits.
+    #[cfg(feature = "standalone-production")]
+    #[test]
+    fn the_standalones_settings_menu_opens_below_its_key_at_every_size() {
+        // Each window's columns' rows, STANDARD then LARGE, as it opens then at its fullest; a
+        // `true` where it is made smaller.
+        type Case<'a> = (&'a [usize], bool);
+        let (two, three, four): (Case, Case, Case) = (
+            ([12, 15].as_slice(), false),
+            (&[9, 9, 9], false),
+            (&[6, 6, 8, 7], false),
+        );
+        let small: Case = (&[6, 6, 8, 7], true);
+        let (two_full, three_full, four_full): (Case, Case, Case) = (
+            (&[16, 13], false),
+            (&[9, 11, 9], false),
+            (&[9, 7, 7, 6], false),
+        );
+        let small_full: Case = (&[9, 7, 7, 6], true);
+        let fhd = fitted_width_in(Some((1920.0, 1080.0)), art::Panel::OFFICIAL);
+        #[rustfmt::skip]
+        let cases: [(f64, u32, [Case; 2], [Case; 2]); 8] = [
+            (1.0, 3026, [two, three], [two_full, three_full]),
+            (1.5, 2017, [two, three], [two_full, three_full]),
+            (1.0, 1380, [three, four], [four_full, small_full]),
+            (1.5, 1380, [three, four], [four_full, small_full]),
+            (1.0, fhd, [three, three], [three_full, four_full]),
+            (1.0, 1076, [four, small], [small_full, small_full]),
+            (1.0, 1035, [small, small], [small_full, small_full]),
+            (1.0, MIN_WIDTH, [small, small], [small_full, small_full]),
+        ];
+        for (dpr, width, opens, fullest) in cases {
+            for (full, by_lettering) in [(false, opens), (true, fullest)] {
+                for skin in [Skin::Worn, Skin::Drawn] {
+                    for (lettering, (rows, shrunk)) in [Lettering::Standard, Lettering::Large]
+                        .into_iter()
+                        .zip(by_lettering)
+                    {
+                        let mut e = standalone_settings_editor(full);
+                        let (m, got, at) =
+                            settings_menu_at(&mut e, (dpr, width), (skin, lettering));
+                        let at = format!("{at}, standalone{}", if full { " (full)" } else { "" });
+                        let heads: Vec<&str> =
+                            m.heads.iter().map(|&i| m.items[i].0.as_str()).collect();
+                        assert_eq!(heads[7..], ["STANDALONE", "AGENTS"], "{at}");
+                        assert_eq!(m.items.len(), if full { 29 } else { 27 }, "{at}");
+                        let said = |text: &str| m.items.iter().any(|(t, _)| t.starts_with(text));
+                        assert_eq!(
+                            (
+                                said("NOT REAL-TIME"),
+                                said("COULD NOT LISTEN"),
+                                said("COPIED: ")
+                            ),
+                            (full, full, full),
+                            "{at}: {:?}",
+                            m.items
+                        );
+                        assert_eq!(got, rows, "{at}: its columns' rows");
+                        if shrunk {
+                            settings_menu_as_large_as_fits(&e, &m, &at);
+                        } else {
+                            let size = e.renderer.text_size() * MENU_TEXT;
+                            assert_eq!(m.size, size, "{at}: not shrunk");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// An editor made as the standalone's, its host there (the AUDIO & MIDI key) and its bridge
+    /// beside it (AGENTS' setups); `full`, its audio not real-time, agents allowed and saying
+    /// how they stand, and a setup copied.
+    #[cfg(feature = "standalone-production")]
+    fn standalone_settings_editor(full: bool) -> Editing {
+        crate::standalone_settings::AS_STANDALONE.set(true);
+        crate::agent::setup::TEST_BRIDGE.with(|b| {
+            *b.borrow_mut() = Some(std::path::PathBuf::from("/opt/ca-72/ca72-mcp"));
+        });
+        let (mut e, _, _) = editing_standalone();
+        if full {
+            #[cfg(target_os = "linux")]
+            {
+                e.realtime.read = stood::no_rtkit;
+            }
+            e.read_realtime(Instant::now());
+            e.settings.agents = true;
+            e.agents.error = Some("refused".into());
+            e.agents.copied = Some((crate::learning::Setup::Json, true));
+        }
+        e
+    }
+
+    /// The settings key pressed in `e`; a setup copied (`e.agents.copied`, set before), its
+    /// menu opened again saying so, as choosing COPY SETUP does (the key forgets it).
+    fn press_settings_key(e: &mut Editing) {
+        let copied = e.agents.copied;
+        let key = on_strip(e, strip_at(StripTarget::Bar(BarTarget::Settings)));
+        click(e, key);
+        if copied.is_some() {
+            e.agents.copied = copied;
+            e.open_settings();
+        }
+    }
+
+    /// The settings key's menu opened in `e` at (`dpr`, `width`) in (`skin`, `lettering`):
+    /// below its key and not over it, each column begun at a group's head, each item where it
+    /// is drawn, and its items chosen. The menu as it opened, its columns' rows, and the case.
+    fn settings_menu_at(
+        e: &mut Editing,
+        (dpr, width): (f64, u32),
+        (skin, lettering): (Skin, Lettering),
+    ) -> (ca72_panel::learn::Menu, Vec<usize>, String) {
+        let physical = (f64::from(width) * dpr).round() as u32;
+        e.fit(dpr, width, physical);
+        e.set_look(skin);
+        e.set_lettering(lettering);
+        e.draw();
+        press_settings_key(e);
+        let m = e.learning.menu().expect("the settings' menu").clone();
+        let (w, h) = m.extent(e.renderer.fonts());
+        let (kx, ky) = strip::centre(Rail::Plugin, StripTarget::Bar(BarTarget::Settings));
+        let at = format!("{width} at {dpr}, {skin:?} {lettering:?}");
+        assert_eq!(
+            (m.x + w, m.y),
+            settings_menu_corner(),
+            "{at}: below its key"
+        );
+        assert!(
+            m.y > ky + strip::KEY_H / 2.0 && m.y + h <= art::H + 1e-9,
+            "{at}: under the key, not over it"
+        );
+        assert!(
+            m.x + w <= kx + strip::KEY_W / 2.0 + 1e-9 && m.x >= 0.0,
+            "{at}"
+        );
+        // Balanced: each column begun at a group's head, the rows as even as the groups go.
+        assert!(m.columns.iter().all(|&(i, _)| m.heads.contains(&i)), "{at}");
+        let starts: Vec<usize> = std::iter::once(0)
+            .chain(m.columns.iter().map(|c| c.0))
+            .chain(std::iter::once(m.items.len()))
+            .collect();
+        let rows: Vec<usize> = starts.windows(2).map(|s| s[1] - s[0]).collect();
+        for i in 0..m.items.len() {
+            let (x, y) = m.item_at(i);
+            assert_eq!(
+                m.hit(e.renderer.fonts(), x + 1.0, y),
+                Some(Some(i)),
+                "{at}: {i}"
+            );
+        }
+        menu_item(e, "CLASSIC");
+        assert_eq!(e.renderer.skin(), Skin::Drawn, "{at}: its items chosen");
+        (m, rows, at)
+    }
+
+    /// The settings' menu `m` made smaller than its lettering, four columns not fitting: only
+    /// as far as fits.
+    fn settings_menu_as_large_as_fits(e: &Editing, m: &ca72_panel::learn::Menu, at: &str) {
+        let full = e.renderer.text_size() * MENU_TEXT;
+        let (w, h) = m.extent(e.renderer.fonts());
+        assert!(m.size < full, "{at}: four columns do not fit");
+        let room = (m.x + w, art::H - m.y);
+        assert!(
+            w > room.0 * (1.0 - 1e-6) || h > room.1 * (1.0 - 1e-6),
+            "{at}: as large as fits, {w} {h} {room:?}"
+        );
     }
 
     /// The settings key's FREQUENCY DIALS (decisions.md R54): SEMITONES by default, each

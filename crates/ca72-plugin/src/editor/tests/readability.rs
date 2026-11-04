@@ -132,3 +132,71 @@ fn the_readability_pngs() {
     }
     std::fs::write(out.join("sizes.csv"), csv).unwrap();
 }
+
+/// The standalone's settings menu (issue #70, round 4), as it opens (`settings`) and at its
+/// fullest (`settings-full`: the audio not real-time, AGENTS allowed and saying how they stand,
+/// a setup copied), with the window without it (`global`), at each size, look and lettering:
+/// `CA72_STANDALONE_SETTINGS_PNG=<folder> cargo test -p ca72-plugin --features
+/// standalone-production the_standalone_settings_pngs -- --ignored`. `sizes.csv` beside them
+/// has the menu's columns' rows and its items' em (physical pixels) against its lettering's.
+#[cfg(feature = "standalone-production")]
+#[test]
+#[ignore = "writes images for looking at"]
+fn the_standalone_settings_pngs() {
+    let Some(out) = std::env::var_os("CA72_STANDALONE_SETTINGS_PNG").map(std::path::PathBuf::from)
+    else {
+        return;
+    };
+    std::fs::create_dir_all(&out).unwrap();
+    let only = std::env::var("CA72_READABILITY_ONLY").ok();
+    let mut csv = String::from("size,look,lettering,state,rows,em,full_em\n");
+    for (size, dpr, width) in SIZES {
+        if only
+            .as_ref()
+            .is_some_and(|o| !o.split(',').any(|s| s == size))
+        {
+            continue;
+        }
+        let physical = (f64::from(width) * dpr).round() as u32;
+        for (skin, look) in [(Skin::Worn, "realistic"), (Skin::Drawn, "classic")] {
+            for (lettering, lt) in [(Lettering::Standard, "std"), (Lettering::Large, "large")] {
+                for (full, state) in [(false, "settings"), (true, "settings-full")] {
+                    let mut e = standalone_settings_editor(full);
+                    e.fit(dpr, width, physical);
+                    e.set_look(skin);
+                    e.set_lettering(lettering);
+                    e.draw();
+                    let name = |state: &str| out.join(format!("{size}-{look}-{lt}-{state}.png"));
+                    let save = |e: &mut Editing, state: &str| {
+                        e.composed = None;
+                        window_frame(e).save_png(name(state)).unwrap();
+                    };
+                    go(&mut e, Point { x: 2.0, y: 2.0 });
+                    if !full {
+                        save(&mut e, "global");
+                    }
+                    press_settings_key(&mut e);
+                    let m = e.learning.menu().expect("the settings' menu").clone();
+                    // (The pointer off the menu, nothing in it lit.)
+                    go(&mut e, Point { x: 2.0, y: 2.0 });
+                    save(&mut e, state);
+                    let rows: Vec<String> = std::iter::once(0)
+                        .chain(m.columns.iter().map(|c| c.0))
+                        .chain(std::iter::once(m.items.len()))
+                        .collect::<Vec<_>>()
+                        .windows(2)
+                        .map(|s| (s[1] - s[0]).to_string())
+                        .collect();
+                    let s = e.renderer.scale();
+                    csv.push_str(&format!(
+                        "{size},{look},{lt},{state},{},{:.3},{:.3}\n",
+                        rows.join(" "),
+                        m.size * s,
+                        e.renderer.text_size() * MENU_TEXT * s,
+                    ));
+                }
+            }
+        }
+    }
+    std::fs::write(out.join("sizes.csv"), csv).unwrap();
+}

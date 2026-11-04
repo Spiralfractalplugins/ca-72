@@ -12,11 +12,23 @@ pub const BRIDGE: &str = if cfg!(windows) {
     "ca72-mcp"
 };
 
-/// The bridge beside this application, if it is there.
+/// The bridge beside this application, if it is there (in the tests, the one a test has put
+/// there).
 pub fn bridge() -> Option<PathBuf> {
+    #[cfg(test)]
+    if let Some(path) = TEST_BRIDGE.with(|b| b.borrow().clone()) {
+        return Some(path);
+    }
     let exe = std::env::current_exe().ok()?;
     let path = exe.parent()?.join(BRIDGE);
     path.is_file().then_some(path)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// The bridge a test has put beside the application, on this thread.
+    pub(crate) static TEST_BRIDGE: std::cell::RefCell<Option<PathBuf>> =
+        const { std::cell::RefCell::new(None) };
 }
 
 /// Claude Code's command adding the bridge for every project of the user's.
