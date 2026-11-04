@@ -482,8 +482,16 @@ impl<P: Vst3Plugin> WrapperInner<P> {
     pub fn hold_edit(&self, hash: u32, normalized_value: f32) {
         if let Some(held) = self.held_edits.get(&hash) {
             held.store(normalized_value.to_bits(), Ordering::Release);
-            // After the value, so that the audio thread, seeing the flag, sees the value too
-            self.any_held_edit.store(true, Ordering::Release);
+            // After the value, so that the audio thread, seeing the flag, sees the value too.
+            // `SeqCst`, as are `in_process`'s store and load and the flag's swap in
+            // `set_held_edits()` (PATCHES.md, change 17): this thread stores the flag and then
+            // loads `in_process` (`host_stopped_calling()`), a process call starting stores
+            // `in_process` and then swaps the flag. With `SeqCst` at least one sees the other's
+            // store: this thread sees the call and leaves the edit held for it, or the call sees
+            // the flag and sets the edit at its start. With weaker orderings both could miss (a
+            // store buffer pattern, which x86 allows too), and this thread set the edit during
+            // the call that should have.
+            self.any_held_edit.store(true, Ordering::SeqCst);
         }
     }
 
@@ -503,7 +511,8 @@ impl<P: Vst3Plugin> WrapperInner<P> {
             self.last_process
                 .store(self.clock.elapsed().as_nanos() as u64, Ordering::Release);
         }
-        self.in_process.store(running, Ordering::Release);
+        // `SeqCst`, with the flag's store in `hold_edit()` (which says why)
+        self.in_process.store(running, Ordering::SeqCst);
     }
 
     /// Whether the host, while it says it is processing, has stopped calling `process()` without
@@ -512,7 +521,8 @@ impl<P: Vst3Plugin> WrapperInner<P> {
     /// transport is stopped, and for a plug-in it bypasses. An edit held then would wait for a call
     /// that may not come.
     pub fn host_stopped_calling(&self) -> bool {
-        if !self.is_processing.load(Ordering::SeqCst) || self.in_process.load(Ordering::Acquire) {
+        // `SeqCst`, with the flag's store in `hold_edit()` (which says why)
+        if !self.is_processing.load(Ordering::SeqCst) || self.in_process.load(Ordering::SeqCst) {
             return false;
         }
         let blocks = self
@@ -529,13 +539,23 @@ impl<P: Vst3Plugin> WrapperInner<P> {
         (self.clock.elapsed().as_nanos() as u64).saturating_sub(last) >= quiet
     }
 
+    /// Set every held edit if the host has stopped calling `process()` without saying so
+    /// (PATCHES.md, change 17): on the editor's thread as it edits, as a gesture ends and as the
+    /// editor idles (`GuiContext::idle()`), never on the audio thread.
+    pub fn set_held_edits_if_host_stopped(&self) {
+        if self.host_stopped_calling() {
+            self.set_held_edits(self.current_buffer_config.load().map(|c| c.sample_rate));
+        }
+    }
+
     /// Set every held edit: at the start of a process call, before the host's parameter changes
     /// (so that the host's changes in the same call, its automation or the edit sent back, come
     /// after it), as processing stops, and off the audio thread once the host has stopped calling
     /// (change 17). An edit held while this runs is kept for the next call.
     /// Nothing here allocates or waits.
     pub fn set_held_edits(&self, sample_rate: Option<f32>) {
-        if !self.any_held_edit.swap(false, Ordering::AcqRel) {
+        // `SeqCst`, with the flag's store in `hold_edit()` (which says why)
+        if !self.any_held_edit.swap(false, Ordering::SeqCst) {
             return;
         }
 

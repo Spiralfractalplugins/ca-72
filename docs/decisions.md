@@ -17544,13 +17544,34 @@ approved):
 - **Then the editor's edit is set at once, on the editor's thread,** with every edit held before
   it (so that an older held one is not set over it when the host calls again), and at the
   gesture's end any held while the host still called. The host's `setParamNormalized()` was
-  dropped there before (the processor was to be sent the change); it is now set the same way
-  (REAPER's generic controls and scripts on a skipped track).
-- **Left as it is:** if the host calls again just as a value is being set this way, the value
-  may change at that call's start, the only case in which it can. A gesture let go within
-  0.25 s of the host's last call stays held until the host calls again, as before. Only the
-  VST3 wrapper changes: the CLAP, the Audio Unit (clap-wrapper's, over the CLAP) and the
-  standalone are untouched, and nothing in the sound or the editor changes.
+  dropped there before (the processor was to be sent the change); it is now set the same way,
+  after any edit held (REAPER's generic controls and scripts on a skipped track).
+- **An edit still held as the host goes quiet is set as the editor draws** (added 2026-11-04,
+  from a review): a knob let go within 0.25 s of the host's last call, in a note's tail just
+  before the track falls silent, was held for a call that did not come, and drawn back, as in
+  the report. nih-plug's `GuiContext` gains `idle()`, nothing by default (the CLAP and the
+  standalone); the editor calls it at the start of each frame (`PanelWindow::on_frame()`, seen
+  or not), and the VST3 wrapper sets the held edits there once the host has been quiet as long
+  as it waits. Nothing more is done on the audio thread. Such a knob is drawn back for at most
+  the rest of that wait (under 0.25 s at the usual blocks) and then where it was let go. Nothing
+  sets it while the editor is closed; then it waits for the host's next call, as before.
+- **The editor's thread and a call starting see each other:** the flag of held edits and the
+  mark of a call running are stored and read in one order for both threads (`SeqCst`). The
+  editor's thread stores the flag and then reads the mark, a call starting stores the mark and
+  then takes the flag; with weaker orderings each could miss the other's store, even on x86.
+- **Left as it is, a race,** of the kind nih-plug already has between the editor's check of
+  whether the host is processing and the host's `setProcessing(true)`. The editor's thread (or
+  the host's, setting its value) can be held up after finding the host quiet and before it has
+  set the held edits; a process call can start meanwhile, and the value then changes during
+  that call, not only at a call's start, and an older held edit that call sets can land after
+  the host's value set at once. The audio thread and the editor's can then also set one
+  parameter together: nih-plug stores a parameter's value and then, separately, its normalized
+  and unmodulated values, so those can disagree until it is next set to another value. All of
+  it is atomic, so nothing undefined happens, and the CA-72 is not harmed: it uses none of
+  nih-plug's smoothers or value callbacks and reads its parameters' values as it uses them in
+  each block. Only the VST3 wrapper and the editor's call each frame change: the CLAP, the
+  Audio Unit (clap-wrapper's, over the CLAP) and the standalone set nothing new, and nothing in
+  the sound changes.
 
 **Evidence (the Linux laptop, 2026-11-03).** `crates/ca72-plugin/tests/vst3_host.rs` drives
 the wrapper through its own VST3 factory, with a REAPER host that sends each `performEdit()` to
@@ -17561,6 +17582,17 @@ host's own `setParamNormalized()` is set. Before the change four failed (the par
 where the drag left 0.25 or 0.75; the switch still on), and the fifth, which checks that edits
 are still held while the host calls, passed. After it all 14 of the file's tests pass. The logs
 are under `nightly-2026-11-03/vst3-reaper/` on the lab share.
+
+**After the review (2026-11-04).** The tests that check an edit is held right after a process
+call (an edit held before the host stopped, held again once it calls again, and the host's
+own value left while it calls) failed on a test thread stalled past 0.25 s; they now make the edit again after another call until one is held
+(`Instance::hold()`, ten tries, the values alternating so that a held edit shows), and fail only
+if none is. The test named for an edit held before the host stopped not undoing a later one
+could not fail for that reason (one edit is held a parameter); renamed, it checks a drag begun
+while the host called and let go after it stopped. Two new: an edit held before the host
+stopped is set before the host's own value after it, not over it at the next call; and a drag
+let go just before the host stopped calling is set as the editor idles, with no further call.
+Not yet built or run: the laptop's disk had 2.2 GB free, under the 4 GB a build here needs.
 
 Not tried: REAPER itself, on any system (it is not installed here, and driving its window
 without a desktop of its own was not attempted), and whether the reporter's REAPER was

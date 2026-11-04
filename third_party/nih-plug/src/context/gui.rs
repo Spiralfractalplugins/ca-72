@@ -77,6 +77,13 @@ pub trait GuiContext: Send + Sync + 'static {
     /// host. If the plugin is currently processing audio, then the parameter values will be
     /// restored at the end of the current processing cycle.
     fn set_state(&self, state: PluginState);
+
+    /// Called by the editor on its thread now and then, best every frame it draws, whether or not
+    /// anything changed, for work the wrapper does without the host or the editor asking. The
+    /// VST3 wrapper sets the editor's edits it holds for a process call once the host has stopped
+    /// calling `process()` without saying so (PATCHES.md, change 17). Nothing by default: the
+    /// CLAP wrapper asks the host for a flush with each edit instead.
+    fn idle(&self) {}
 }
 
 /// An way to run background tasks from the plugin's GUI, equivalent to the

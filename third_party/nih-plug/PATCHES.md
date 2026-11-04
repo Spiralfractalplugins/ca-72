@@ -210,11 +210,33 @@ been as the mouse was let go, the CLAP's and the standalone's did not (CA-72 iss
     over it when the host calls again (`raw_set_parameter_normalized()`, and
     `raw_end_set_parameter()` for edits held before the host stopped;
     `src/wrapper/vst3/context.rs`), and the host's `setParamNormalized()`, dropped before for the
-    processor to be sent the change, is set likewise (`src/wrapper/vst3/wrapper.rs`). A host
-    calling as it should is never quiet that long, and its edits are held as before. If the host
-    calls again just as a value is set this way, that value may change at the call's start, the
-    only case in which it can. The CA-72's `crates/ca72-plugin/tests/vst3_host.rs` drives the
-    wrapper as REAPER does; four of its five new tests fail without this.
+    processor to be sent the change, is set likewise, after any held edit
+    (`src/wrapper/vst3/wrapper.rs`). An edit still held when the host goes quiet (a gesture let go
+    just before the host's last call, in a note's tail) is set by the editor's thread once the
+    host has been quiet that long: `GuiContext` gains `idle()` (`src/context/gui.rs`, nothing by
+    default, for the CLAP wrapper and the standalone), which an editor calls each frame (the
+    CA-72's does), and the VST3 wrapper's sets the held edits there if the host has stopped
+    calling (`set_held_edits_if_host_stopped()`); nothing more is done on the audio thread. A host
+    calling as it should is never quiet that long, and its edits are held as before. The flag of
+    held edits (`any_held_edit`'s store in `hold_edit()`, its swap in `set_held_edits()`) and
+    `in_process` (its store in `mark_process()`, its load in `host_stopped_calling()`) are
+    `SeqCst`: the editor's thread stores the flag and then loads `in_process`, a call starting
+    stores `in_process` and then swaps the flag, and with weaker orderings each could miss the
+    other's store (a store buffer pattern, which x86 allows too).
+
+    This leaves a race, of the kind upstream has between the editor's `is_processing` check and
+    `setProcessing(true)`. The editor's thread (or the host's, in `setParamNormalized()`) can be
+    preempted after `host_stopped_calling()` has returned true and before `set_held_edits()` has
+    finished; a process call can start in between, and the value then changes during that call,
+    not only at a call's start, and an older held edit that call sets can land after the host's
+    value set at once. The audio thread and the editor's can then also set one parameter at the
+    same time: `set_plain_value()` (`src/params/float.rs` and the other kinds) swaps `value` and
+    then stores `normalized_value` and the unmodulated values separately, so those can briefly
+    disagree, until the parameter is next set to another value. Everything there is atomic, so
+    there is no undefined behaviour, and the CA-72 is not harmed: it uses none of nih-plug's
+    smoothers or value callbacks, and reads its parameters' values as it uses them in each block.
+    The CA-72's `crates/ca72-plugin/tests/vst3_host.rs` drives the wrapper as REAPER does (its
+    `docs/decisions.md` R-VST3-QUIET-HOST records which of its tests fail without this).
 
 18. **A CLAP block's first event, a parameter change at a later sample, is set at its sample.**
     `handle_in_events_until` (`src/wrapper/clap/wrapper.rs`) splits the block before each
