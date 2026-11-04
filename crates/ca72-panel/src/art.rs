@@ -248,6 +248,16 @@ const NARROW: &str = "M -12 7 V -7 H -7 V 7 H 12";
 const RANGES: [&str; 6] = ["LO", "32'", "16'", "8'", "4'", "2'"];
 const WAVES12: [&str; 6] = [TRIANGLE, SHARK, SAWTOOTH, SQUARE, WIDE, NARROW];
 const WAVES3: [&str; 6] = [TRIANGLE, REVERSE, SAWTOOTH, SQUARE, WIDE, NARROW];
+/// FILTER POLES's (decisions.md R-POLES): on the middle four places, the outer two unused.
+const POLES: [&str; 6] = ["", "1", "2", "3", "4", ""];
+/// FILTER MODE's (decisions.md R-POLES): pictures of its responses, as WAVEFORM's are of its
+/// waves, every passband along y -5 and the floor at 7; the band-pass the notch turned over
+/// (the owner, 2026-11-03), the low-pass and the high-pass each other's mirror.
+const LOWPASS: &str = "M -12 -5 H 0 L 10 7";
+const BANDPASS: &str = "M -12 7 H -4 L 0 -5 L 4 7 H 12";
+const HIGHPASS: &str = "M -10 7 L 0 -5 H 12";
+const NOTCH: &str = "M -12 -5 H -4 L 0 7 L 4 -5 H 12";
+const MODES: [&str; 6] = ["", LOWPASS, BANDPASS, HIGHPASS, NOTCH, ""];
 
 /// A six-position selector's positions (RANGE, WAVEFORM): their angles from twelve
 /// o'clock, 33.5 degrees apart, as the photograph's ticks and legends (on a circle of 89
@@ -797,6 +807,8 @@ fn legends(set: Legends) -> (&'static [&'static str; 6], bool) {
         Legends::Ranges => (&RANGES, false),
         Legends::Waves12 => (&WAVES12, true),
         Legends::Waves3 => (&WAVES3, true),
+        Legends::Poles => (&POLES, false),
+        Legends::Modes => (&MODES, true),
     }
 }
 
@@ -805,15 +817,26 @@ fn set_index(set: Legends) -> usize {
         Legends::Ranges => 0,
         Legends::Waves12 => 1,
         Legends::Waves3 => 2,
+        Legends::Poles => 3,
+        Legends::Modes => 4,
     }
 }
+
+/// Every set of selector legends.
+const LEGEND_SETS: [Legends; 5] = [
+    Legends::Ranges,
+    Legends::Waves12,
+    Legends::Waves3,
+    Legends::Poles,
+    Legends::Modes,
+];
 
 /// What the lettering's measures decide: where each selector legend sits, and which titles
 /// are spaced out to their printed widths.
 #[derive(Clone, Debug)]
 pub struct Layout {
     /// Each legend's radius about its selector's axis, by legend set and position.
-    legend_r: [[f64; 6]; 3],
+    legend_r: [[f64; 6]; LEGEND_SETS.len()],
     /// Each title's width if spaced out to its printed one, by its index in the layout's.
     titles: Vec<Option<f64>>,
     /// The lettering's size.
@@ -867,10 +890,11 @@ impl Layout {
     pub fn measure_in(fonts: &Fonts, lettering: Lettering, arrangement: &Arrangement) -> Self {
         let num = lettering.number();
         let (ascent, descent) = fonts.extent(Weight::Bold);
-        let mut legend_r = [[SIX_LEGEND; 6]; 3];
-        for set in [Legends::Ranges, Legends::Waves12, Legends::Waves3] {
+        let mut legend_r = [[SIX_LEGEND; 6]; LEGEND_SETS.len()];
+        for set in LEGEND_SETS {
             let (texts, glyphs) = legends(set);
-            for (i, &a) in SIX.iter().enumerate() {
+            for i in set.places() {
+                let a = SIX[i];
                 // The ink's box about the legend's centre (through its own scale), with its
                 // stroke: a text's from its start to its advance, ascent to descent.
                 let b = if glyphs {
@@ -954,7 +978,9 @@ impl Layout {
 
     /// Where a selector's legend `i` is, about its axis.
     pub fn legend_at(&self, set: Legends, i: usize) -> (f64, f64) {
-        let (x, y) = polar(self.legend_r[set_index(set)][i], SIX[i]);
+        // (A smaller selector's legends as far outside its ticks as a full one's are.)
+        let r = self.legend_r[set_index(set)][i] - SIX_TICK.1 * (1.0 - set.scale());
+        let (x, y) = polar(r, SIX[i]);
         ((x * 100.0).round() / 100.0, (y * 100.0).round() / 100.0)
     }
 }
@@ -1479,11 +1505,23 @@ fn selector_marks_with(
     texts: Option<&[&str; 6]>,
 ) {
     put!(s, "<g transform='translate({} {})'>", N(c.x), N(c.y));
-    for a in SIX {
-        tick(s, a, SIX_TICK.0, SIX_TICK.1, 4.0, layout.print, false);
+    let k = set.scale();
+    for a in set.places().map(|k| SIX[k]) {
+        tick(
+            s,
+            a,
+            SIX_TICK.0 * k,
+            SIX_TICK.1 * k,
+            4.0,
+            layout.print,
+            false,
+        );
     }
     let (own, glyphs) = legends(set);
     for (i, t) in texts.unwrap_or(own).iter().enumerate() {
+        if !set.places().contains(&i) {
+            continue;
+        }
         let (x, y) = layout.legend_at(set, i);
         put!(s, "<g transform='translate({} {})'>", N(x), N(y));
         if glyphs {
@@ -1699,7 +1737,13 @@ fn toggle_body(s: &mut Svg, i: usize) {
     }
 }
 
-fn selector_body(s: &mut Svg, angle: f64) {
+/// A selector's pointer knob turned to `angle`, `scale` times RANGE's size.
+fn selector_body(s: &mut Svg, angle: f64, scale: f64) {
+    // (RANGE's and WAVEFORM's drawn as they always were.)
+    let scaled = scale != 1.0;
+    if scaled {
+        put!(s, "<g transform='scale({})'>", N(scale));
+    }
     shadow(s, 3.0, 5.0, 57.0);
     put!(s, "<g transform='rotate({})'>", N(angle));
     fluted(s, 56.0);
@@ -1714,6 +1758,9 @@ fn selector_body(s: &mut Svg, angle: f64) {
     s.0.push_str("</g>");
     shine(s, 26.0, 56.0);
     aluminium(s, 26.0);
+    if scaled {
+        s.0.push_str("</g>");
+    }
 }
 
 fn colour_name(c: Colour) -> &'static str {
@@ -2037,8 +2084,9 @@ pub fn wheel_shown(detent: bool, v: f64, midi: f64) -> f64 {
 pub fn selector_turned(c: &Control, angle: f64, worn: bool) -> Layer {
     use crate::skin::{POINTER_BODY, POINTER_CAP};
     let (origin, bounds) = (c.centre(), bounds(&c.kind));
+    let scale = selector_scale(&c.kind);
     if worn {
-        let d = 2.0 * SELECTOR_R / POINTER_BODY;
+        let d = 2.0 * SELECTOR_R * scale / POINTER_BODY;
         return Layer {
             origin,
             bounds,
@@ -2046,13 +2094,13 @@ pub fn selector_turned(c: &Control, angle: f64, worn: bool) -> Layer {
                 sprite(Part::Pointer, (d, d), angle, (false, false)),
                 sprite(Part::PointerCap, (d, d), CAP_TURN, (false, false)),
             ],
-            overlays: round_lights(SELECTOR_R, d / 2.0 * POINTER_CAP),
+            overlays: round_lights(SELECTOR_R * scale, d / 2.0 * POINTER_CAP),
             round: true,
             ..Layer::default()
         };
     }
     let mut s = Svg::default();
-    selector_body(&mut s, angle);
+    selector_body(&mut s, angle, scale);
     Layer {
         origin,
         bounds,
@@ -2148,7 +2196,7 @@ pub fn control(c: &Control, v: f64, midi: f64) -> Layer {
     let v = v.clamp(0.0, 1.0);
     match c.kind {
         Kind::Knob { big, .. } => knob_body(&mut s, if big { BIG } else { STD }, knob_angle(v)),
-        Kind::Selector(_) => selector_body(&mut s, SIX[position(v)]),
+        Kind::Selector(set) => selector_body(&mut s, SIX[position(v)], set.scale()),
         Kind::Toggle { across, .. } => {
             let at = crate::interact::toggle_position(v);
             if across {
@@ -2556,6 +2604,14 @@ pub fn tempo_key(
 /// A selector's knob's body: as wide as the drawn one's fluted outline, less the pointer's
 /// reach (the picture's wedge reaches its edge, 64 units out, as the drawn fin about does).
 pub(crate) const SELECTOR_R: f64 = 50.0;
+
+/// A selector's size against RANGE's ([`Legends::scale`]); 1 for anything else.
+fn selector_scale(kind: &Kind) -> f64 {
+    match *kind {
+        Kind::Selector(set) => set.scale(),
+        _ => 1.0,
+    }
+}
 
 /// How the panel's lamp lights a round part's near side, up and to the left (a colour dodge to
 /// 1 / (1 - `LAMP_NEAR`) of its light at the edge), and darkens its far side (multiplied by
@@ -3190,7 +3246,7 @@ pub fn worn_overlay(arrangement: &Arrangement) -> String {
                 let r = match c.kind {
                     Kind::Knob { big: true, .. } => BIG.skirt,
                     Kind::Knob { .. } => STD.skirt,
-                    _ => SELECTOR_R + 2.0,
+                    _ => SELECTOR_R * selector_scale(&c.kind) + 2.0,
                 };
                 put!(
                     s,
@@ -3385,7 +3441,7 @@ pub fn skirt(kind: &Kind) -> f64 {
     match *kind {
         Kind::Knob { big: true, .. } => BIG.skirt,
         Kind::Knob { .. } => STD.skirt,
-        Kind::Selector(_) => SELECTOR_R + 2.0,
+        Kind::Selector(set) => SELECTOR_R * set.scale() + 2.0,
         // (An LFO's OUT jack's, its LEVEL's: R-LFO's addendum.)
         Kind::Jack => crate::strip::lfo::JACK_R + 8.0,
         _ => 0.0,

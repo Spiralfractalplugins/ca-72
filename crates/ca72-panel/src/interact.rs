@@ -11,7 +11,7 @@
 //! knob settles into its centre, off (decisions.md R-LFO-FADE).
 
 use crate::arrangement::Arrangement;
-use crate::art::{self, BIG, GRIP, Layout, POWER_BOUNDS, SIX, STD, WHEEL_SCALE};
+use crate::art::{self, BIG, GRIP, Layout, POWER_BOUNDS, STD, WHEEL_SCALE};
 use crate::controls::{CONTROLS, Control, Dial, Kind, Place};
 
 /// What is under the pointer.
@@ -59,7 +59,7 @@ fn hit_control(layout: &Layout, i: usize, c: &Control, x: f64, y: f64) -> Option
     let found = match c.kind {
         Kind::Knob { big, .. } => dx.hypot(dy) <= if big { BIG.skirt } else { STD.skirt } + 8.0,
         Kind::Selector(set) => {
-            for k in 0..SIX.len() {
+            for k in set.places() {
                 let (lx, ly) = layout.legend_at(set, k);
                 if in_rect(dx - lx, dy - ly, [-18.0, -14.0, 18.0, 14.0]) {
                     return Some(Target::Legend(i, k));
@@ -131,9 +131,9 @@ pub fn drag(kind: &Kind, start: f64, dx: f64, dy: f64, fine: bool) -> Option<f64
                 None => v,
             }
         }
-        Kind::Selector(_) => {
+        Kind::Selector(set) => {
             let steps = ((dx - dy) / if fine { 60.0 } else { 30.0 }).round();
-            (art::position(start) as f64 + steps).clamp(0.0, 5.0) / 5.0
+            set.at(art::position(start) as f64 + steps)
         }
         Kind::Wheel { .. } => (start - dy / 160.0 * rate).clamp(0.0, 1.0),
         Kind::Jack => (start - dy / 240.0 * rate).clamp(0.0, 1.0),
@@ -213,7 +213,7 @@ pub fn scroll(kind: &Kind, v: f64, notches: f64, fine: bool) -> f64 {
             }
             None => (v + notches * if fine { 0.002 } else { 0.02 }).clamp(0.0, 1.0),
         },
-        Kind::Selector(_) => (art::position(v) as f64 + notches).clamp(0.0, 5.0) / 5.0,
+        Kind::Selector(set) => set.at(art::position(v) as f64 + notches),
         Kind::Wheel { .. } => (v + notches * if fine { 0.005 } else { 0.05 }).clamp(0.0, 1.0),
         Kind::Jack => (v + notches * if fine { 0.002 } else { 0.02 }).clamp(0.0, 1.0),
         Kind::Rocker { .. } | Kind::Key => {
@@ -273,9 +273,9 @@ pub fn click(kind: &Kind, v: f64, dx: f64, dy: f64) -> Option<f64> {
         } else {
             0.5
         }),
-        Kind::Selector(_) => Some(
-            (art::position(v) as f64 + if dx < 0.0 { -1.0 } else { 1.0 }).clamp(0.0, 5.0) / 5.0,
-        ),
+        Kind::Selector(set) => {
+            Some(set.at(art::position(v) as f64 + if dx < 0.0 { -1.0 } else { 1.0 }))
+        }
         _ => None,
     }
 }
@@ -416,6 +416,14 @@ mod tests {
         assert_eq!(drag(sel, 0.4, 30.0, 0.0, false), Some(0.6));
         assert_eq!(click(sel, 0.4, -5.0, 0.0), Some(0.2));
         assert_eq!(step(sel, 1.0, true, false), 1.0);
+        // FILTER POLES (decisions.md R-POLES): its four places, 1 to 4 of the six, and no others.
+        let poles = &CONTROLS[index("filter_poles").expect("a control")].kind;
+        assert_eq!(drag(poles, 0.8, 90.0, 0.0, false), Some(0.8));
+        assert_eq!(drag(poles, 0.8, -300.0, 0.0, false), Some(0.2));
+        assert_eq!(click(poles, 0.2, -5.0, 0.0), Some(0.2));
+        assert_eq!(click(poles, 0.2, 5.0, 0.0), Some(0.4));
+        assert_eq!(step(poles, 0.8, true, false), 0.8);
+        assert_eq!(step(poles, 0.2, false, false), 0.2);
         let voices = &CONTROLS[index("voices").expect("a control")].kind;
         assert_eq!(step(voices, 0.25, true, false), 0.375);
         assert_eq!(step(voices, 0.25, false, true), 0.125);

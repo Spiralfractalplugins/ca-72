@@ -294,9 +294,11 @@ pub struct Panel {
     /// OSCILLATOR MODULATION and FILTER MODULATION.
     pub osc_mod: bool,
     pub filter_mod: bool,
-    /// FILTER MODE, which the original does not have (decisions.md R46): HI, the hardware
-    /// reference's high-pass (the mixer's output less the filter's); LO, the filter as drawn.
-    pub filter_hi: bool,
+    /// FILTER MODE and FILTER POLES, which the original does not have (decisions.md R46,
+    /// R-POLES): LO with 4 poles is the filter as drawn.
+    pub filter_mode: crate::vcf::FilterMode,
+    /// 1 to 4: the ladder's stage the output is taken from, or the mixes' slopes.
+    pub filter_poles: u8,
     /// The wheels: pitch -1..1 (0 in its detent), MODULATION 0..1 (fully forward).
     pub pitch_wheel: f64,
     pub mod_wheel: f64,
@@ -377,7 +379,8 @@ impl Default for Panel {
             mod_mix: 0.0,
             osc_mod: false,
             filter_mod: false,
-            filter_hi: false,
+            filter_mode: crate::vcf::FilterMode::Lo,
+            filter_poles: crate::vcf::POLES,
             pitch_wheel: 0.0,
             mod_wheel: 0.0,
             ext_volume: 0.5,
@@ -2917,7 +2920,7 @@ impl BackPart {
         self.vcf.circuit.r14 = self.emphasis.get(p.emphasis, emphasis_r14);
         self.vcf.set_oversample(oversampling(p.quality).1);
         self.vcf.set_quality(p.quality);
-        self.vcf.high_pass = p.filter_hi;
+        self.vcf.set_shape(p.filter_mode, p.filter_poles);
         self.vcf.split_output = p.quality == Quality::Potato && !self.filter_probe;
         let ultra = vca_oversampled(p.quality) && self.vcf.oversample() == ULTRA_VCA_OVERSAMPLING;
         let a440 = self.a440.tick(p.a440);
@@ -2958,7 +2961,7 @@ impl BackPart {
         self.vcf.circuit.r14 = self.emphasis.get(p.emphasis, emphasis_r14);
         self.vcf.set_oversample(oversampling(p.quality).1);
         self.vcf.set_quality(p.quality);
-        self.vcf.high_pass = p.filter_hi;
+        self.vcf.set_shape(p.filter_mode, p.filter_poles);
         self.vcf.split_output = p.quality == Quality::Potato && !self.filter_probe;
     }
 

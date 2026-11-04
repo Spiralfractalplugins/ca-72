@@ -2851,7 +2851,11 @@ pub fn more<M: Model>(b: &Bench<M>) -> More {
         p.noise_volume = 0.5;
         p.cutoff = cutoff;
         p.emphasis = emphasis;
-        p.filter_hi = hi;
+        p.filter_mode = if hi {
+            ca72::vcf::FilterMode::Hi
+        } else {
+            ca72::vcf::FilterMode::Lo
+        };
         psd(&b.held(&p, 60, SETTLE, 8.0), b.rate, 16384)
     };
     let reference = noisy(1.0, 0.0, false);
@@ -2882,7 +2886,7 @@ pub fn more<M: Model>(b: &Bench<M>) -> More {
         p.cutoff = c;
         p.emphasis = e;
         let lo = colour(&b.held(&p, 45, SETTLE, SPAN), b.rate);
-        p.filter_hi = true;
+        p.filter_mode = ca72::vcf::FilterMode::Hi;
         let hi = colour(&b.held(&p, 45, SETTLE, SPAN), b.rate);
         mode_saws.push(ModeSaw {
             cutoff: c,
@@ -2894,7 +2898,7 @@ pub fn more<M: Model>(b: &Bench<M>) -> More {
     let mut res = silent();
     res.emphasis = 1.0;
     res.cutoff = 0.5;
-    res.filter_hi = true;
+    res.filter_mode = ca72::vcf::FilterMode::Hi;
     let mode_ring = ring(b, &res, 60);
     let mut feedback = Vec::new();
     for (name, p, key, burst) in feedback_patches() {

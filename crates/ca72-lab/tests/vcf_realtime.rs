@@ -42,7 +42,7 @@ fn rt_complex_mode(
     let mut g = G_MIX;
     if voice {
         f.circuit = ca72::filter_cal::CALIBRATED.circuit();
-        f.high_pass = true;
+        f.set_shape(ca72::vcf::FilterMode::Hi, ca72::vcf::POLES);
         g = ca72::filter_cal::G_BUS_OFF;
     }
     f.circuit.r14 = r14;

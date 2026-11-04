@@ -13,7 +13,7 @@
 
 format = 1
 # The revision of the CA-72's panel controls this layout was made for.
-controls = 3
+controls = 8
 
 [fixtures]
 # POWER's switch, its lamp and OVERLOAD's lamp: centres.
@@ -180,34 +180,37 @@ size = [44, 114]
 colour = "blue"
 on = "bottom"
 
-# The switch column between MIXER and MODIFIERS.
+# The switch column between MIXER and MODIFIERS: FILTER MODE a selector of four places under
+# FILTER POLES (decisions.md R-POLES), both three quarters of RANGE's size.
 [[control]]
 param = "filter_mode"
-at = [1907, 169]
-size = [108, 48]
-colour = "red"
-on = "right"
+at = [1907, 322]
 
 [[control]]
 param = "filter_mod"
-at = [1907, 291]
+at = [1907, 463]
 size = [108, 50]
 colour = "red"
 on = "right"
 
 [[control]]
 param = "keyboard_control_1"
-at = [1907, 386]
+at = [1907, 558]
 size = [108, 48]
 colour = "red"
 on = "right"
 
 [[control]]
 param = "keyboard_control_2"
-at = [1907, 486]
+at = [1907, 658]
 size = [108, 48]
 colour = "red"
 on = "right"
+
+# FILTER POLES (decisions.md R-POLES), at the switch column's head.
+[[control]]
+param = "filter_poles"
+at = [1907, 160]
 
 # MODIFIERS.
 [[control]]
@@ -294,22 +297,22 @@ to = [1122, 788]
 width = 4
 
 [[line]]
-from = [1908, 9]
-to = [1908, 98]
+from = [1908, 389]
+to = [1908, 396]
 width = 4
 
 [[line]]
-from = [1908, 319]
-to = [1908, 356]
+from = [1908, 491]
+to = [1908, 528]
 width = 4
 
 [[line]]
-from = [1908, 414]
-to = [1908, 420]
+from = [1908, 586]
+to = [1908, 592]
 width = 4
 
 [[line]]
-from = [1908, 514]
+from = [1908, 686]
 to = [1908, 788]
 width = 4
 
@@ -497,64 +500,50 @@ at = [1764, 407]
 text = "PINK"
 at = [1764, 558]
 
-# The switch column.
-[[text]]
-text = "FILTER"
-at = [1910, 114]
+# The switch column: FILTER POLES at its head (decisions.md R-POLES), FILTER MODE's selector
+# under it (its legends the plug-in's pictures of its responses), the original's switches under
+# that, FILTER MODULATION's ON serving KEYBOARD CONTROL 1 too.
 
 [[text]]
-text = "MODE"
-at = [1910, 134]
+text = "POLES"
+at = [1910, 55]
 
 [[text]]
-text = "LO"
-at = [1860, 207]
-
-[[text]]
-text = "HI"
-at = [1954, 207]
-large = [1944, 207]
+text = "FILTER MODE"
+at = [1910, 228]
 
 [[text]]
 text = "FILTER"
-at = [1910, 236]
+at = [1910, 408]
 
 [[text]]
 text = "MODULATION"
-at = [1910, 256]
+at = [1910, 428]
 
 [[text]]
 text = "ON"
-at = [1954, 329]
-large = [1944, 329]
+at = [1954, 501]
 
-[[text]]
-text = "ON"
-at = [1954, 350]
-large = [1944, 350]
 
 [[text]]
 text = "1"
-at = [1837, 385]
+at = [1837, 557]
 
 [[text]]
 text = "KEYBOARD"
-at = [1910, 431]
-large = [1910, 426]
+at = [1910, 603]
 
 [[text]]
 text = "CONTROL"
-at = [1910, 448]
-large = [1910, 446]
+at = [1910, 620]
 
 [[text]]
 text = "2"
-at = [1837, 485]
+at = [1837, 657]
 
 [[text]]
 text = "ON"
-at = [1954, 523]
-large = [1944, 523]
+at = [1954, 695]
 
 # MODIFIERS.
 [[text]]

@@ -576,6 +576,111 @@ impl Operated for WaveformSwitch {
     }
 }
 
+/// FILTER MODE's selector (decisions.md R-POLES): its places 1 to 4 of the six LO, BAND, STEEP
+/// HIGH and NOTCH. 0.3's HI, which the panel no longer offers, shows at STEEP HIGH's place and
+/// stays in effect until the selector is moved off it.
+struct FilterModeSelector {
+    params: Arc<Ca72Params>,
+}
+
+impl FilterModeSelector {
+    /// The mode at the selector's place `normalized` (k / 5).
+    fn at(normalized: f32) -> crate::params::FilterMode {
+        use crate::params::FilterMode as M;
+        let place = (f64::from(normalized) * 5.0).round().clamp(1.0, 4.0) as usize;
+        [M::Lo, M::Band, M::High, M::Notch][place - 1]
+    }
+
+    /// Where the selector shows `mode`.
+    fn place(mode: crate::params::FilterMode) -> f32 {
+        use crate::params::FilterMode as M;
+        let place = match mode {
+            M::Lo => 1.0,
+            M::Band => 2.0,
+            M::High | M::Hi => 3.0,
+            M::Notch => 4.0,
+        };
+        place / 5.0
+    }
+}
+
+impl Operated for FilterModeSelector {
+    fn value(&self) -> f32 {
+        Self::place(self.params.filter_mode.value())
+    }
+    fn default(&self) -> f32 {
+        Self::place(self.params.filter_mode.default_plain_value())
+    }
+    fn text(&self, normalized: f32) -> String {
+        let p = &self.params.filter_mode;
+        let now = p.value();
+        let mode = if Self::at(normalized) == Self::at(Self::place(now)) {
+            now
+        } else {
+            Self::at(normalized)
+        };
+        p.normalized_value_to_string(p.preview_normalized(mode), true)
+    }
+    fn begin(&self, s: &ParamSetter<'_>) {
+        s.begin_set_parameter(&self.params.filter_mode);
+    }
+    fn set(&self, s: &ParamSetter<'_>, normalized: f32) {
+        let p = &self.params.filter_mode;
+        let now = p.value();
+        // (HI where the selector already is: kept.)
+        let mode = if Self::at(normalized) == Self::at(Self::place(now)) {
+            now
+        } else {
+            Self::at(normalized)
+        };
+        s.set_parameter(p, mode);
+    }
+    fn end(&self, s: &ParamSetter<'_>) {
+        s.end_set_parameter(&self.params.filter_mode);
+    }
+}
+
+/// FILTER POLES's selector (decisions.md R-POLES): its places 1 to 4 of the six are its poles.
+struct PolesSelector {
+    params: Arc<Ca72Params>,
+}
+
+impl PolesSelector {
+    /// The poles at the selector's place `normalized` (k / 5).
+    fn at(normalized: f32) -> i32 {
+        (f64::from(normalized) * 5.0).round().clamp(
+            f64::from(crate::params::FILTER_POLES.0),
+            f64::from(crate::params::FILTER_POLES.1),
+        ) as i32
+    }
+
+    fn place(poles: i32) -> f32 {
+        poles as f32 / 5.0
+    }
+}
+
+impl Operated for PolesSelector {
+    fn value(&self) -> f32 {
+        Self::place(self.params.filter_poles.value())
+    }
+    fn default(&self) -> f32 {
+        Self::place(self.params.filter_poles.default_plain_value())
+    }
+    fn text(&self, normalized: f32) -> String {
+        let p = &self.params.filter_poles;
+        p.normalized_value_to_string(p.preview_normalized(Self::at(normalized)), true)
+    }
+    fn begin(&self, s: &ParamSetter<'_>) {
+        s.begin_set_parameter(&self.params.filter_poles);
+    }
+    fn set(&self, s: &ParamSetter<'_>, normalized: f32) {
+        s.set_parameter(&self.params.filter_poles, Self::at(normalized));
+    }
+    fn end(&self, s: &ParamSetter<'_>) {
+        s.end_set_parameter(&self.params.filter_poles);
+    }
+}
+
 /// The parameter a control of the panel operates, by its id.
 fn param<'a>(p: &'a Ca72Params, id: &str) -> Option<&'a dyn Operated> {
     Some(match id {
@@ -604,6 +709,7 @@ fn param<'a>(p: &'a Ca72Params, id: &str) -> Option<&'a dyn Operated> {
         "osc3_on" => &p.osc3_on,
         "osc3_volume" => &p.osc3_volume,
         "filter_mode" => &p.filter_mode,
+        "filter_poles" => &p.filter_poles,
         "quality" => &p.quality,
         "filter_mod" => &p.filter_mod,
         "keyboard_control_1" => &p.keyboard_control_1,
@@ -1537,6 +1643,9 @@ struct Editing {
     /// Oscillators 2 and 3's FREQUENCY knobs, through the computer's law.
     freq_knobs: [FreqKnob; 2],
     waveforms: [WaveformSwitch; 3],
+    /// FILTER MODE's toggle and FILTER POLES's selector, through their places (R-POLES).
+    filter_mode_switch: FilterModeSelector,
+    poles: PolesSelector,
     /// The LFO page (decisions.md R-LFO): its renderer and what it shows; the knobs' rings, a
     /// dragged assignment and the hover pop-up over the panel, and what they show; the editor's
     /// modulation state; each LFO's RATE (Hz or timed) and WAVEFORM as operated.
@@ -1813,6 +1922,12 @@ impl Editing {
             params: Arc::clone(&params),
             n,
         });
+        let filter_mode_switch = FilterModeSelector {
+            params: Arc::clone(&params),
+        };
+        let poles = PolesSelector {
+            params: Arc::clone(&params),
+        };
         let lfo_rates = [0, 1, 2, 3].map(|n| lfo_page::LfoRate {
             params: Arc::clone(&params),
             n,
@@ -1915,6 +2030,8 @@ impl Editing {
             last_strip_press: None,
             freq_knobs,
             waveforms,
+            filter_mode_switch,
+            poles,
             lfo: LfoRenderer::new(
                 f64::from(physical_width) / art::W,
                 settings.skin,
@@ -2809,6 +2926,8 @@ impl Editing {
             "osc1_waveform" => Some(&self.waveforms[0]),
             "osc2_waveform" => Some(&self.waveforms[1]),
             "osc3_waveform" => Some(&self.waveforms[2]),
+            "filter_mode" => Some(&self.filter_mode_switch),
+            "filter_poles" => Some(&self.poles),
             // An LFO's (decisions.md R-LFO): its RATE in Hz or timed, its WAVEFORM STEPPED or
             // CONTINUOUS, its others its parameters.
             id => match lfo_page::lfo_part(id) {
@@ -7573,6 +7692,109 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// FILTER MODE's toggle and FILTER POLES's selector (decisions.md R-POLES) operate their
+    /// parameters through their places: the toggle's three positions LO, BAND and STEEP HIGH;
+    /// 0.3's HI shown at STEEP HIGH's place and kept while the lever stays there; FILTER POLES's
+    /// four places its poles, the selector's outer two never reached.
+    #[test]
+    fn filter_mode_and_poles_operate_their_parameters_through_their_places() {
+        use crate::params::FilterMode as M;
+        let no_library = || Library::at(std::env::temp_dir().join("ca72-editor-tests-no-library"));
+        let mode = ca72_panel::controls::index("filter_mode").expect("a control");
+        let Kind::Selector(modes) = CONTROLS[mode].kind else {
+            panic!("a selector")
+        };
+        let (cx, cy) = CONTROLS[mode].centre();
+        let (mut e, host, params) = editing();
+        let ptr = params.filter_mode.as_ptr();
+        e.update_scene();
+        assert_eq!(art::position(e.scene.values[mode]), 1);
+        // A legend clicked: its mode (NOTCH, then BAND).
+        for (place, want) in [(4, M::Notch), (2, M::Band)] {
+            let (lx, ly) = e.renderer.layout().legend_at(modes, place);
+            let p = at(&e, (cx + lx, cy + ly));
+            click(&mut e, p);
+            let v = params.filter_mode.preview_normalized(want);
+            assert_eq!(
+                host.take(),
+                vec![Call::Begin(ptr), Call::Set(ptr, v), Call::End(ptr)]
+            );
+        }
+        // 0.3's HI: at STEEP HIGH's place, kept there, BAND when the selector moves.
+        let params = Ca72Params {
+            filter_mode: EnumParam::new("Filter Mode", M::Hi),
+            ..Ca72Params::default()
+        };
+        let (mut e, host, params) = editing_of(params, no_library());
+        let ptr = params.filter_mode.as_ptr();
+        e.update_scene();
+        assert_eq!(art::position(e.scene.values[mode]), 3);
+        let (lx, ly) = e.renderer.layout().legend_at(modes, 3);
+        let p = at(&e, (cx + lx, cy + ly));
+        click(&mut e, p);
+        let hi = params.filter_mode.preview_normalized(M::Hi);
+        assert!(
+            host.take()
+                .iter()
+                .all(|c| !matches!(c, Call::Set(_, v) if *v != hi)),
+            "HI kept"
+        );
+        let (lx, ly) = e.renderer.layout().legend_at(modes, 2);
+        let p = at(&e, (cx + lx, cy + ly));
+        click(&mut e, p);
+        let band = params.filter_mode.preview_normalized(M::Band);
+        assert_eq!(
+            host.take(),
+            vec![Call::Begin(ptr), Call::Set(ptr, band), Call::End(ptr)]
+        );
+
+        // FILTER POLES: at 4, the fourth place; a legend its poles; a click steps toward it.
+        let (mut e, host, params) = editing();
+        let i = ca72_panel::controls::index("filter_poles").expect("a control");
+        let Kind::Selector(set) = CONTROLS[i].kind else {
+            panic!("a selector")
+        };
+        let ptr = params.filter_poles.as_ptr();
+        e.update_scene();
+        assert_eq!(art::position(e.scene.values[i]), 4);
+        let (cx, cy) = CONTROLS[i].centre();
+        let (lx, ly) = e.renderer.layout().legend_at(set, 1);
+        let p = at(&e, (cx + lx, cy + ly));
+        click(&mut e, p);
+        let one = params.filter_poles.preview_normalized(1);
+        assert_eq!(
+            host.take(),
+            vec![Call::Begin(ptr), Call::Set(ptr, one), Call::End(ptr)]
+        );
+        let p = at(&e, (cx - 5.0, cy));
+        click(&mut e, p);
+        let three = params.filter_poles.preview_normalized(3);
+        assert_eq!(
+            host.take(),
+            vec![Call::Begin(ptr), Call::Set(ptr, three), Call::End(ptr)]
+        );
+        // Right of the knob at 4: nowhere further.
+        let p = at(&e, (cx + 5.0, cy));
+        click(&mut e, p);
+        assert!(
+            host.take()
+                .iter()
+                .all(|c| !matches!(c, Call::Set(_, v) if *v != 1.0)),
+            "kept at 4"
+        );
+        // The selector's sixth place prints nothing and is not a legend.
+        let (lx, ly) = e.renderer.layout().legend_at(set, 5);
+        assert_ne!(
+            ca72_panel::interact::hit(
+                e.renderer.layout(),
+                e.renderer.arrangement(),
+                cx + lx,
+                cy + ly
+            ),
+            Some(Target::Legend(i, 5))
+        );
     }
 
     fn editing() -> (Editing, Arc<Host>, Arc<Ca72Params>) {

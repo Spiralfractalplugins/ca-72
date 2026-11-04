@@ -210,15 +210,19 @@ pub fn edge_layout() -> String {
         x += bw;
         tallest = tallest.max(bh);
     }
-    // QUALITY's toggle on its side at its largest, under the tallest rocker, at the left edge.
+    // The toggles (QUALITY, FILTER MODE) on their sides at their largest, under the tallest
+    // rocker, from the left edge, touching.
     let (tw, th) = (240.0, 60.0);
-    control(
-        &mut s,
-        "quality",
-        (tw + 8.0) / 2.0,
-        top + tallest + (th + 8.0) / 2.0,
-        &format!("size = [{tw}, {th}]\nacross = true"),
-    );
+    let toggles = panel_params(|k| matches!(k, Kind::Toggle { .. }));
+    for (i, p) in toggles.iter().enumerate() {
+        control(
+            &mut s,
+            p,
+            (tw + 8.0) / 2.0 + (tw + 8.0) * i as f64,
+            top + tallest + (th + 8.0) / 2.0,
+            &format!("size = [{tw}, {th}]\nacross = true"),
+        );
+    }
 
     // 300 rules: a grid over the lower face, widths from 0.5 to 20.
     let mut rng = Rng::new(7);

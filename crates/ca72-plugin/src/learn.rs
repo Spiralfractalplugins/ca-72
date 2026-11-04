@@ -95,7 +95,7 @@ const fn switch(id: &'static str, label: &'static str) -> Learnable {
 /// Every parameter MIDI Learn may assign a controller to, in the panel's order, then the strip's,
 /// then LOCK, then the arpeggiator's, then the preset actions. Its order is the drawer's list;
 /// the table is saved by id, so it may change.
-pub const LEARNABLE: [Learnable; 168] = [
+pub const LEARNABLE: [Learnable; 169] = [
     // CONTROLLERS.
     knob("tune", "TUNE"),
     switch("osc_mod", "OSCILLATOR MODULATION"),
@@ -129,7 +129,10 @@ pub const LEARNABLE: [Learnable; 168] = [
     knob("osc3_volume", "OSCILLATOR-3 VOLUME"),
     switch("osc3_on", "OSCILLATOR-3 ON"),
     switch("noise_type", "NOISE (WHITE or PINK)"),
-    switch("filter_mode", "FILTER MODE (LO or HI)"),
+    // FILTER POLES and FILTER MODE (R-POLES): MODE's sweep stops at LO, BAND, STEEP HIGH and
+    // NOTCH only, as its selector does (`normalized_for`).
+    stepped("filter_poles", "FILTER POLES"),
+    stepped("filter_mode", "FILTER MODE (LO, BAND, STEEP HIGH or NOTCH)"),
     switch("filter_mod", "FILTER MODULATION"),
     switch("keyboard_control_1", "KEYBOARD CONTROL 1"),
     switch("keyboard_control_2", "KEYBOARD CONTROL 2"),
@@ -1156,6 +1159,7 @@ pub fn target(p: &Ca72Params, i: usize) -> Option<&dyn Target> {
         "osc3_on" => &p.osc3_on,
         "noise_type" => &p.noise_type,
         "filter_mode" => &p.filter_mode,
+        "filter_poles" => &p.filter_poles,
         "filter_mod" => &p.filter_mod,
         "keyboard_control_1" => &p.keyboard_control_1,
         "keyboard_control_2" => &p.keyboard_control_2,
@@ -1230,6 +1234,13 @@ pub fn normalized_for(p: &Ca72Params, i: usize, target: &dyn Target, value: u8) 
     match LEARNABLE.get(i).map(|l| l.id) {
         Some("osc2_frequency") => Pot::Two.wiper_at(p.freq_law(), knob) as f32,
         Some("osc3_frequency") => Pot::Three.wiper_at(p.freq_law(), knob) as f32,
+        // FILTER MODE: LO, BAND, STEEP HIGH and NOTCH each a quarter of 0–127, never 0.3's HI,
+        // which is not on the panel (decisions.md R-POLES).
+        Some("filter_mode") => {
+            use crate::params::FilterMode as M;
+            let mode = [M::Lo, M::Band, M::High, M::Notch][usize::from(value.min(127)) / 32];
+            p.filter_mode.preview_normalized(mode)
+        }
         _ => target.normalized_for(value),
     }
 }
@@ -1419,8 +1430,9 @@ mod tests {
             // DIVISION and MODE selectors, STEPPED or CONTINUOUS, TIMED and MONO switches: R-LFO;
             // the six macros, knobs: R-MACROS; each LFO's POLARITY, REVERSE and ON switches:
             // R-LFO's corrections; each LFO's LEVEL, a knob: R-LFO's addendum; the velocity's
-            // CURVE and FLOOR, knobs: R-VELOCITY.)
-            (64, 28, 58)
+            // CURVE and FLOOR, knobs: R-VELOCITY; FILTER POLES and FILTER MODE, selectors:
+            // R-POLES.)
+            (64, 30, 57)
         );
     }
 
@@ -1551,6 +1563,54 @@ mod tests {
         let cutoff = at("cutoff");
         let c = target(&p, cutoff).expect("a knob");
         assert_eq!(normalized_for(&p, cutoff, c, 64), 64.0 / 127.0);
+    }
+
+    /// FILTER MODE learned: LO, BAND, STEEP HIGH and NOTCH each a quarter of 0–127, never 0.3's
+    /// HI; FILTER POLES its four, each a quarter (decisions.md R-POLES).
+    #[test]
+    fn filter_mode_learned_steps_through_the_selectors_four() {
+        use crate::params::FilterMode as M;
+        let p = Ca72Params::default();
+        let i = at("filter_mode");
+        let t = target(&p, i).expect("a selector");
+        let mode = |v: u8| p.filter_mode.preview_plain(normalized_for(&p, i, t, v));
+        assert_eq!(
+            [
+                mode(0),
+                mode(31),
+                mode(32),
+                mode(63),
+                mode(64),
+                mode(95),
+                mode(96),
+                mode(127)
+            ],
+            [
+                M::Lo,
+                M::Lo,
+                M::Band,
+                M::Band,
+                M::High,
+                M::High,
+                M::Notch,
+                M::Notch
+            ]
+        );
+        assert!((0..=127).all(|v| mode(v) != M::Hi));
+        let i = at("filter_poles");
+        let t = target(&p, i).expect("a selector");
+        let poles = |v: u8| p.filter_poles.preview_plain(normalized_for(&p, i, t, v));
+        assert_eq!(
+            [
+                poles(0),
+                poles(31),
+                poles(32),
+                poles(64),
+                poles(96),
+                poles(127)
+            ],
+            [1, 1, 2, 3, 4, 4]
+        );
     }
 
     /// A knob: value / 127 of its travel. A switch (SCATTER's placement too): off at 0–63, on at

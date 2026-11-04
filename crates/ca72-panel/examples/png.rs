@@ -451,6 +451,8 @@ fn default_of(param: &str) -> f64 {
         "pressure_mod" | "pressure_filter" | "timbre_mod" | "timbre_filter" => 0.5,
         "osc1_range" | "osc2_range" | "osc3_range" => 0.6,
         "osc1_waveform" | "osc2_waveform" | "osc3_waveform" => 0.4,
+        // FILTER POLES at 4, the fourth of its six places (decisions.md R-POLES).
+        "filter_poles" => 0.8,
         "osc1_volume" | "osc2_volume" | "osc3_volume" => 0.7,
         "osc1_on" | "osc2_on" | "osc3_on" | "main_output" | "keyboard_control_1"
         | "keyboard_control_2" | "osc_mod" => 1.0,

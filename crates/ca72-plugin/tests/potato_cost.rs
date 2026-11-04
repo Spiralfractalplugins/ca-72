@@ -86,7 +86,12 @@ fn the_light_voice_by_what_it_plays() {
         ),
         ("ext on", Box::new(|p| p.ext_on = true), 0.0, true),
         ("feedback", Box::new(|p| p.ext_on = true), 0.5, false),
-        ("filter HI", Box::new(|p| p.filter_hi = true), 0.0, false),
+        (
+            "filter HI",
+            Box::new(|p| p.filter_mode = ca72::vcf::FilterMode::Hi),
+            0.0,
+            false,
+        ),
         (
             "everything",
             Box::new(|p| {

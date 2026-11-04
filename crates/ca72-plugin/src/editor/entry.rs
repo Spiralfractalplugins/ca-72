@@ -148,6 +148,8 @@ fn unit(control: usize) -> &'static str {
             ..
         } => "s \u{b7} \u{2013} out \u{b7} + in",
         Kind::Selector(Legends::Ranges) => "ft · 0 = LO",
+        Kind::Selector(Legends::Poles) => "poles 1–4",
+        Kind::Selector(Legends::Modes) => "position 1–4",
         Kind::Selector(_) => "position 1–6",
         _ => "dial",
     }
@@ -168,6 +170,8 @@ fn plain(control: usize, knob: f64) -> f64 {
             _ => knob * 10.0,
         },
         Kind::Selector(Legends::Ranges) => FOOTAGES[(knob * 5.0).round() as usize],
+        // FILTER POLES: its place is its poles (decisions.md R-POLES).
+        Kind::Selector(Legends::Poles | Legends::Modes) => (knob * 5.0).round(),
         Kind::Selector(_) => (knob * 5.0).round() + 1.0,
         _ => unreachable!("only knobs and selectors take values"),
     }
@@ -258,6 +262,7 @@ fn normalized(control: usize, text: &str) -> Option<f64> {
                 };
                 position as f64 / 5.0
             }
+            Kind::Selector(Legends::Poles | Legends::Modes) => v.round().clamp(1.0, 4.0) / 5.0,
             Kind::Selector(_) => (v.round().clamp(1.0, 6.0) - 1.0) / 5.0,
             _ => return None,
         }

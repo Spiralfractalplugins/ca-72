@@ -268,7 +268,8 @@ the parameter's id in `ca72_set`/`ca72_get`, unless it says otherwise.
 | MIXER | OSCILLATOR-1/2/3 VOLUME, EXTERNAL INPUT VOLUME, NOISE VOLUME | knobs | 0 to 10 (8; EXTERNAL INPUT 5) | `osc1_volume`, `osc2_volume`, `osc3_volume`, `ext_volume`, `noise_volume` |
 | | each one's ON | rockers | on/off (oscillator 1 on, the rest off) | `osc1_on`, `osc2_on`, `osc3_on`, `ext_on`, `noise_on` |
 | | NOISE (WHITE or PINK) | rocker | White, Pink (White) | `noise_type` |
-| MODIFIERS | FILTER MODE (LO or HI) | rocker | LO, HI (LO) | `filter_mode` |
+| MODIFIERS | FILTER POLES (decisions.md R-POLES) | selector | 1 to 4 (4): LO's stage, BAND's and STEEP HIGH's slopes | `filter_poles` |
+| | FILTER MODE | 4-way selector | LO, BAND, STEEP HIGH, NOTCH (LO); "HI (0.3)", 0.3's high-pass, no longer on the panel, is kept for what was saved with it and can be set | `filter_mode` |
 | | FILTER MODULATION | rocker | on/off (off) | `filter_mod` |
 | | KEYBOARD CONTROL 1 and 2 | rockers | on/off (1 on, 2 off) | `keyboard_control_1`, `keyboard_control_2` |
 | | CUTOFF FREQUENCY | knob | -5 to +5 (0) | `cutoff` |

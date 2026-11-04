@@ -139,7 +139,9 @@ For a new pack, in `$PACK/skin.toml`:
   later CA-72 than the one it is checked with: an earlier one will refuse it.
 
 In `$PACK/layout.toml`, keep `controls` as the starter has it. It names the revision of the
-CA-72's controls the layout was made for, so that a later CA-72 can place controls added since.
+CA-72's controls the layout was made for, so that a later CA-72 can place controls added since
+(FILTER POLES, added in revision 8, is placed by the plug-in and FILTER MODE drawn as its
+selector, with notes; to place both yourself, say `controls = 8` and place them).
 Every control the starter places must stay placed, once (count them:
 `grep -c '^\[\[control\]\]' "$PACK/layout.toml"`).
 
