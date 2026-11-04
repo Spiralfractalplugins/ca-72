@@ -17505,3 +17505,38 @@ width is constrained by the existing editor limits. Project recall and lower-pan
 do not change the computer preference. Only widths accepted by the host are kept, including
 asynchronous VST3 replies; rejected requests leave the preference alone. Grip changes are
 kept after release (or editor close), avoiding file writes on every frame of a drag.
+
+
+## R-LINUX-RESIZE-ANIMATION. The stretch that remains is Hyprland animating the host's window (issue #65)
+
+**2026-11-04, on the laptop (Hyprland 0.56.2 with Omarchy's defaults, NVIDIA), on main at
+88575ba.** Diagnosis only; nothing in the plug-in changes. PR #40's change has been on main
+since R-LINUX-PANEL-REPAINT (ce9c613). The editor draws with softbuffer: no GL framebuffer
+keeps an old size, and nothing in the editor scales an image, so every stretched frame is the
+compositor's.
+
+Read in Hyprland 0.56.2's source: an X11 client's `ConfigureRequest` for its own floating window
+(Bitwig growing its plug-in window when the CA-72 asks; the standalone resizing itself) is
+applied through the layout (`CWindow::onX11ConfigureRequest` → `setPositionGlobal` →
+`CGeometricMovableAnimated::setBox`), which animates the window's size like a layout move. Each
+frame draws the window's buffer, already the editor's correct frame at the new size, scaled into
+the animated box (`CSurfacePassElement::getTexBox`). With Omarchy's `windows` animation (379 ms,
+`easeOutQuint`) a fifth of the size change remains after 100 ms and a twelfth after 150 ms:
+for a PANEL change, a visible stretch of 100 to 200 ms. This is the "long stretch" that the
+owner's `no_anim` rule removed on 2026-10-14. This laptop has no such rule. Without the
+animation, the box still takes its new size before XWayland's buffer does: the one compositor
+frame R-LINUX-RESIZE measured. Hyprland's XWM doesn't implement `_NET_WM_SYNC_REQUEST`, so
+neither a host nor the standalone can make it wait for the frame.
+
+The fix belongs upstream: Hyprland should apply a size an X11 client asks for without
+animation, as it does for a Wayland client resizing itself, and ideally on the client's first
+buffer at that size. Until then, a `no_anim` window rule for the host's plug-in window (and
+the standalone's) on the owner's machines removes the long stretch. A draft report, the
+source excerpts and the timing model are on the lab share under
+`nightly-2026-11-03/linux-stretch/`.
+
+Not done: no frames were captured. With the laptop's panel off (DPMS), a headless output added
+to the session gave only black frames, a nested Hyprland received no frames from its parent and
+couldn't allocate a headless output's buffers on the NVIDIA render node, and nothing for pointer
+input is installed apart from `wtype`. The next step is to capture, on a visible screen, Bitwig
+with and without the `no_anim` rule for PANEL, SIZE, the grip and the host's own resize.
