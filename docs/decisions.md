@@ -17505,3 +17505,52 @@ width is constrained by the existing editor limits. Project recall and lower-pan
 do not change the computer preference. Only widths accepted by the host are kept, including
 asynchronous VST3 replies; rejected requests leave the preference alone. Grip changes are
 kept after release (or editor close), avoiding file writes on every frame of a drag.
+
+## R-BEND-RANGE. The standalone sets MIDI BEND RANGE from the PITCH wheel's menu
+
+**Owner request and decision, 2026-11-04 (#150).** A KVR user asked how to set the
+pitch-bend range. In a plug-in the host sets `midi_bend_range`; the standalone kept it in the
+session, but nothing in the app changed it, so a keyboard's full throw stayed at ±2
+semitones. The owner chose the place: a right-click on the panel's PITCH wheel, whose menu
+already says MIDI pitch bend moves it and refuses MIDI Learn, gains a BEND RANGE entry
+offering common ranges, a typed value through R-KNOB-ENTRY's field, and the range in use,
+marked. Standalone only: a plug-in's menu is unchanged, since its host sets the parameter.
+
+**Agent decisions, 2026-11-04** (not separately approved):
+
+- **The menu.** Under its title and its two MIDI rows (NOT LEARNED BY MIDI LEARN, MIDI
+  ASSIGNMENTS…), a BEND RANGE head, as GLIDE's GLIDE RANGE follows its MIDI rows: 1
+  SEMITONE, 2, 3, 5 and 7 SEMITONES, 8.07 SEMITONES · THE WHEEL'S FULL TRAVEL, and TYPE
+  SEMITONES…. The full travel is `PITCH_WHEEL_SEMITONES`, the parameter's top, printed from
+  that constant. The range in use is marked and cannot be chosen again, as the other menus'
+  choices are; one none of the listed (4.5, or 0) is listed where it falls among them,
+  marked, as the MOD WHEEL SOURCE menu lists a CC it does not offer. Ranges match to the
+  hundredth of a semitone. The menu is drawn by the existing menu layer, so nothing new is
+  drawn and the skin system needs no new slot; the official looks' golden frames are
+  unchanged (32 compared, 0 differ).
+- **Gating.** By the editor's runtime `standalone` flag (the plug-in API it was opened
+  under), as TYPING, PANIC and the MIDI key are, rather than a build feature: a
+  standalone-production build that also loads as a plug-in still shows the plug-in's menu.
+- **Setting it.** A choice or a typed range sets `midi_bend_range` in one
+  begin/set/end gesture, as the editor's other edits do, so the session saves it and an agent
+  reads it. Agents already read and set it through R-MCP's values (`midi_bend_range`, NOT ON
+  THE PANEL); the settings tool lists this computer's settings, not parameters, so it is not
+  added there.
+- **Typing.** TYPE SEMITONES… opens the knobs' entry field at the PITCH wheel, the range
+  shown and selected, its unit `semitones, 0 to 8.07`. As R-KNOB-ENTRY treats the knobs, only
+  an edited, finite number confirmed with Enter sets it, clamped to 0 and the full travel
+  (12 sets 8.07, -3 sets 0); other text, Escape, a press elsewhere or Enter unedited sets
+  nothing. It takes a plain number, as TUNE's field does, without a unit suffix.
+- **Unchanged.** The default stays 2, and 2 sets exactly the default's value. Presets and
+  Init leave the range (R18's `PLAYERS`), the app's Save never names it, the engine's
+  scaling, MPE's per-note bend and RPN 0's handling (R-MPE) are as they were, and the
+  plug-in's host parameter is the same parameter.
+
+**Evidence (Linux x86-64, 2026-11-04).** New tests: the standalone's menu (rows, mark,
+choices and their gestures, an unlisted range and 0 listed, a plug-in's menu without BEND
+RANGE); the typed field (shown value, unit, clamping, refusal, Escape, unedited Enter); a full
+MIDI bend up and down through the plug-in's MIDI path moves the wheel by each range, 2 by
+default; the render test's pitch at 1, 7 and 8.07 semitones; presets and Init keep a set
+range; the production session saves and restores it. The two editor tests fail with the
+menu's rows disabled. Frames of the menu and the field in both looks, and the golden frames,
+are under `issue-150/` on the lab share. Not tried with a hardware MIDI keyboard.

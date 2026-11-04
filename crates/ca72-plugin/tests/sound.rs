@@ -112,7 +112,10 @@ fn below_its_lowest_rate_the_voice_runs_at_a_multiple_of_the_hosts() {
 
 #[test]
 fn midi_bend_moves_the_pitch_by_its_range() {
-    for (range, semitones) in [(2.0, 2.0), (5.0, 5.0)] {
+    // (The standalone's PITCH wheel menu's ranges among them, its full travel the wheel's:
+    // decisions.md R-BEND-RANGE.)
+    let full = ca72::modulation::PITCH_WHEEL_SEMITONES;
+    for (range, semitones) in [(2.0, 2.0), (5.0, 5.0), (1.0, 1.0), (7.0, 7.0), (full, full)] {
         let c = Controls {
             bend_range: range,
             ..Controls::default()

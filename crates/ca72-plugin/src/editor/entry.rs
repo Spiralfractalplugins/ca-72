@@ -12,15 +12,25 @@ pub(super) struct Entry {
     text: String,
     selected: bool,
     edited: bool,
-    /// A modulation source's depth on the knob, typed in percent (DEPTH…, decisions.md R-LFO),
-    /// rather than the knob's own value.
-    depth: Option<(crate::lfo::Source, crate::lfo::Target)>,
+    of: Of,
+}
+
+/// What an entry's value is.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Of {
+    /// The knob's own.
+    Value,
+    /// A modulation source's depth on the knob, typed in percent (DEPTH…, decisions.md R-LFO).
+    Depth(crate::lfo::Source, crate::lfo::Target),
+    /// MIDI BEND RANGE in semitones, typed at the PITCH wheel (the standalone's TYPE
+    /// SEMITONES…, decisions.md R-BEND-RANGE).
+    BendRange,
 }
 
 impl Entry {
     /// Whether it is control `i`'s own value being typed (not a source's depth on it).
     pub(super) fn is_value_of(&self, i: usize) -> bool {
-        self.control == i && self.depth.is_none()
+        self.control == i && self.of == Of::Value
     }
 
     /// What it holds now.
@@ -86,6 +96,10 @@ fn time_knob(ms: f64) -> f64 {
     };
     ((a + (b - a) * (ms - ta) / (tb - ta) + 150.0) / 300.0).clamp(0.0, 1.0)
 }
+
+/// What MIDI BEND RANGE's field says beside its number: its unit and its span, the PITCH
+/// wheel's full travel at the top.
+const BEND_UNIT: &str = "semitones, 0 to 8.07";
 
 const FOOTAGES: [f64; 6] = [0.0, 32.0, 16.0, 8.0, 4.0, 2.0];
 
@@ -157,6 +171,23 @@ fn plain(control: usize, knob: f64) -> f64 {
         Kind::Selector(_) => (knob * 5.0).round() + 1.0,
         _ => unreachable!("only knobs and selectors take values"),
     }
+}
+
+/// MIDI BEND RANGE typed (semitones): a number, clamped to 0 and the PITCH wheel's full travel
+/// as a knob's is to its stops; none for anything else (decisions.md R-BEND-RANGE).
+fn bend_semitones(text: &str) -> Option<f64> {
+    let v = text.trim().parse::<f64>().ok()?;
+    v.is_finite()
+        .then(|| v.clamp(0.0, ca72::modulation::PITCH_WHEEL_SEMITONES))
+}
+
+/// A number as a field first shows it: four decimals at most, none trailing.
+fn shown(value: f64) -> String {
+    let value = if value.abs() < 0.00005 { 0.0 } else { value };
+    format!("{value:.4}")
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_owned()
 }
 
 fn normalized(control: usize, text: &str) -> Option<f64> {
@@ -322,16 +353,12 @@ impl Editing {
             _ if self.timed_dial(control) => 0.0,
             _ => plain(control, self.value_of(control)),
         };
-        let value = if value.abs() < 0.00005 { 0.0 } else { value };
         let text = if self.timed_dial(control) {
             // (A timed FREQUENCY: its division, as the dial prints it.)
             let steps = ca72_panel::controls::TIMED_STEPS as f64;
             note_text((self.value_of(control) * steps).round() as usize)
         } else {
-            format!("{value:.4}")
-                .trim_end_matches('0')
-                .trim_end_matches('.')
-                .to_owned()
+            shown(value)
         };
         self.playing.release();
         self.last_press = None;
@@ -341,7 +368,7 @@ impl Editing {
             text,
             selected: true,
             edited: false,
-            depth: None,
+            of: Of::Value,
         });
         self.typing_keys = true;
         true
@@ -364,7 +391,27 @@ impl Editing {
             text: format!("{:.0}", f64::from(depth) * 100.0),
             selected: true,
             edited: false,
-            depth: Some((s, t)),
+            of: Of::Depth(s, t),
+        });
+        self.typing_keys = true;
+    }
+
+    /// MIDI BEND RANGE to be typed in semitones, in the PITCH wheel's entry field (the
+    /// standalone's TYPE SEMITONES…, decisions.md R-BEND-RANGE).
+    pub(super) fn start_bend_entry(&mut self) {
+        let Some(control) = CONTROLS.iter().position(|c| c.param == "pitch_wheel") else {
+            return;
+        };
+        let value = f64::from(self.params.midi_bend_range.unmodulated_plain_value());
+        self.playing.release();
+        self.last_press = None;
+        self.last_strip_press = None;
+        self.knob_entry = Some(Entry {
+            control,
+            text: shown(value),
+            selected: true,
+            edited: false,
+            of: Of::BendRange,
         });
         self.typing_keys = true;
     }
@@ -374,8 +421,10 @@ impl Editing {
             bounds: [0.0; 4],
             size: self.renderer.text_size() * 1.15,
             text: entry.text.clone(),
-            unit: if entry.depth.is_some() {
+            unit: if matches!(entry.of, Of::Depth(..)) {
                 "% of its travel, \u{2013}100 to 100"
+            } else if entry.of == Of::BendRange {
+                BEND_UNIT
             } else if self.timed_dial(entry.control) {
                 "note · . dotted · t triplet"
             } else if CONTROLS
@@ -422,8 +471,17 @@ impl Editing {
         match &k.key {
             Key::Enter => {
                 let entry = self.knob_entry.take().expect("an entry");
+                // MIDI BEND RANGE (decisions.md R-BEND-RANGE): edited, a number, clamped.
+                if entry.of == Of::BendRange {
+                    if entry.edited
+                        && let Some(v) = bend_semitones(&entry.text)
+                    {
+                        self.set_bend_range(v);
+                    }
+                    return true;
+                }
                 // A source's depth (decisions.md R-LFO): within -100 to 100 %, none at 0.
-                if let Some((s, t)) = entry.depth {
+                if let Of::Depth(s, t) = entry.of {
                     let v = entry
                         .text
                         .trim()
@@ -573,6 +631,26 @@ mod tests {
         }
         for text in ["", "3", "1.", "32t", "64", "8x", "1/3", "x", "..", "8.t"] {
             assert_eq!(note_index(text), None, "{text}");
+        }
+    }
+
+    /// MIDI BEND RANGE typed: a number held within 0 and the PITCH wheel's full travel, which
+    /// its field's unit prints; nothing else (decisions.md R-BEND-RANGE).
+    #[test]
+    fn the_bend_range_is_typed_in_semitones_within_the_wheels_travel() {
+        let full = ca72::modulation::PITCH_WHEEL_SEMITONES;
+        assert_eq!(BEND_UNIT, format!("semitones, 0 to {full}"));
+        for (text, v) in [
+            ("2", 2.0),
+            (" 4.25 ", 4.25),
+            ("12", full),
+            ("-1", 0.0),
+            ("1e30", full),
+        ] {
+            assert_eq!(bend_semitones(text), Some(v), "{text}");
+        }
+        for text in ["", "x", "2 st", "NaN", "inf", "1e999"] {
+            assert_eq!(bend_semitones(text), None, "{text}");
         }
     }
 
