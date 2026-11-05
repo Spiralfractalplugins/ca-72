@@ -394,7 +394,7 @@ fn not_learnable(t: Target) -> Option<String> {
             "quality" => "QUALITY: SET PER PLUGIN INSTANCE".into(),
             _ => return None,
         },
-        Target::Power => "POWER: THE HOST'S BYPASS".into(),
+        Target::Power => "POWER: SWITCHED HERE OR BY THE HOST".into(),
         Target::Grip => return None,
     })
 }

@@ -282,7 +282,7 @@ the parameter's id in `ca72_set`/`ca72_get`, unless it says otherwise.
 | | MAIN OUTPUT, A-440 | rockers | on/off (on, off) | `main_output`, `a440` |
 | | FEEDBACK (the phones' VOLUME into EXTERNAL INPUT) | knob | 0 to 10 (0) | `feedback` |
 | | QUALITY | 3-way toggle | LO, HI, ULTRA (LO) | `quality` |
-| | POWER | switch | on/off (on) | `bypass` (true = off) |
+| | POWER | switch | on/off (on) | `power`; the host's bypass is `bypass` (true = off, POWER's lamp dark) |
 | | QUALITY's menu: SHOW / HIDE ITS INDICATOR | menu | shown/hidden | `ca72_settings_set {quality_indicator}` |
 | | The OVERLOAD lamp | indicator | | not exposed (see below) |
 
@@ -612,7 +612,7 @@ Without the app, export the selected snapshot with `ca72_preset_export`, then pa
 `preset_file` and `render_conditions` to `ca72_render` with the same notes, rate and duration.
 The file is parsed directly with the browser's preset parser (at most 1 MiB), without resolving
 factory overlays or another file of the same name. Conditions include the quality, pitch wheel,
-bypass, MIDI bend range, seed, tempo and frequency law which a preset excludes.
+POWER, bypass, MIDI bend range, seed, tempo and frequency law which a preset excludes.
 For live installation, apply the selected candidate through the live controls, save with
 `ca72_preset_save`, load it again, then re-render. Presets round values to four decimal
 places and exclude the player's quality, seed, tempo and dial preference. Keep those render

@@ -185,7 +185,8 @@ pub fn table(p: &Ca72Params) -> Vec<Entry<'_>> {
     // (Each note's own pressure and timbre's reach, decisions.md R-MPE: the MPE drawer's.)
     const X: &str = "EXPRESSION";
     let mut all = vec![
-        e("bypass", "POWER", OUT, &p.bypass, Plain),
+        e("power", "POWER", OUT, &p.power, Plain),
+        e("bypass", "HOST BYPASS", OUT, &p.bypass, Plain),
         e("tune", "TUNE", C, &p.tune, Plain),
         e("osc_mod", "OSCILLATOR MODULATION", C, &p.osc_mod, Plain),
         e("glide", "GLIDE", C, &p.glide, Plain),

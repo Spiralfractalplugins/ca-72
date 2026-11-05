@@ -18403,3 +18403,24 @@ under it.
 loads nothing, the fourth stage's share of its passband, an unloaded fourth stage), only built
 from the stages' voltages and currents the loop's own validation covers (`vcf_realtime`); no
 factory preset uses the new settings (the owner's call); the dual filter.
+
+
+## R-POWER. POWER has its own switch, with host bypass reflected
+
+2026-11-05, release 0.3.2 preparation, issue #159. The owner chose an own switch
+with host sync. In REAPER 7.84 on Linux, CLAP's bypass parameter can turn the host's
+bypass on, but subsequent editor edits cannot clear it: REAPER sends its own bypass
+value back during flush. VST3's editor bypass edits do not switch REAPER's bypass.
+
+POWER now uses a new `power` parameter, appended after the existing parameters, on
+by default for old sessions. Output is powered only when this switch is on and the
+host's existing `bypass` parameter is false. It uses the engine's existing power fade.
+Switching POWER off changes only its own parameter, so it does not stop the host
+from processing future edits. Switching it on also requests that an active host
+bypass be cleared. A host may ignore that request; its own bypass control remains
+authoritative, and the lamp stays dark while it bypasses the instrument.
+
+The host's bypass ID and saved values remain intact. Presets exclude both switches;
+sessions retain them. MCP exposes `power` (true = on) and retains `bypass` (true =
+bypassed). The editor and agent's power status reflect both. No circuit equation or
+quality mode changes.

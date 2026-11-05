@@ -647,7 +647,7 @@ pub struct Ca72Params {
     /// registered, its value never read.
     pub tempo_knob: FloatParam,
 
-    /// POWER off: the host's bypass, the output faded out.
+    /// The host's bypass: the output faded out, POWER's lamp dark (decisions.md R-POWER).
     #[id = "bypass"]
     pub bypass: BoolParam,
 
@@ -1005,6 +1005,12 @@ pub struct Ca72Params {
     pub velocity_floor: FloatParam,
     #[id = "filter_shape"]
     pub filter_shape: EnumParam<FilterShape>,
+    // POWER, the instrument's own switch (decisions.md R-POWER), after everything, so that no
+    // parameter before it moves; a session saved before reads it on. Not a preset's
+    // (`library::KEPT`).
+    /// POWER: on, or off with the output faded out, as the host's bypass does.
+    #[id = "power"]
+    pub power: BoolParam,
 }
 
 /// The velocity's CURVE, -100 (SOFT) to 100 % (HARD), 0 by default.
@@ -1249,6 +1255,7 @@ impl Default for Ca72Params {
             osc3_volume: ten("Osc 3 Volume", 8.0),
             filter_mode: EnumParam::new("Filter Mode", FilterMode::Lo),
             filter_shape: EnumParam::new("Filter Shape", FilterShape::Lo),
+            power: BoolParam::new("Power", true),
             filter_poles: IntParam::new(
                 "Filter Poles",
                 i32::from(ca72::vcf::POLES),
@@ -1732,7 +1739,7 @@ impl Ca72Params {
             volume: ten(&self.volume),
             main_output: self.main_output.value(),
             bend_range: value(&self.midi_bend_range),
-            power: !self.bypass.value(),
+            power: self.power.value() && !self.bypass.value(),
             poly: self.poly.value(),
             voices: usize::try_from(self.voices.value()).unwrap_or(POLY_VOICES.1),
             entropy: value(&self.entropy) / 100.0,

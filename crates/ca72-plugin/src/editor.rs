@@ -3339,11 +3339,25 @@ impl Editing {
         self.composed = None;
     }
 
+    /// Whether POWER is on: its own switch, and the host not bypassing the instrument.
+    fn powered(&self) -> bool {
+        self.params.power.value() && !self.params.bypass.value()
+    }
+
+    /// POWER switched (decisions.md R-POWER): its own parameter, never the host's bypass, so
+    /// that a host that stops listening once it bypasses (REAPER's CLAP, issue #159) cannot
+    /// leave it stuck. Switched on, it also asks a host bypassing the instrument to stop.
     fn set_power(&self, on: bool) {
         let s = self.setter();
-        s.begin_set_parameter(&self.params.bypass);
-        s.set_parameter(&self.params.bypass, !on);
-        s.end_set_parameter(&self.params.bypass);
+        let (bypass, power) =
+            power_switched(on, self.params.power.value(), self.params.bypass.value());
+        for (param, value) in [(&self.params.bypass, bypass), (&self.params.power, power)] {
+            if let Some(value) = value {
+                s.begin_set_parameter(param);
+                s.set_parameter(param, value);
+                s.end_set_parameter(param);
+            }
+        }
     }
 
     /// An amount the strip turns off and back on (ENTROPY's, WIDTH's and INNER's readouts,
@@ -3994,7 +4008,7 @@ impl Editing {
                     moved: false,
                 });
             }
-            Target::Power => self.set_power(self.params.bypass.value()),
+            Target::Power => self.set_power(!self.powered()),
             Target::Grip => {
                 self.resizing = Some((self.pointer.0, self.width));
             }
@@ -4752,7 +4766,7 @@ impl Editing {
                 _ => self.value_of(i),
             };
         }
-        self.scene.power = !self.params.bypass.value();
+        self.scene.power = self.powered();
         self.scene.detune_off = !self.params.doubled.value();
         self.scene.voices_off = voices_inert(&self.params);
         self.scene.osc3_control_off = osc3_control_inert(&self.params);
@@ -5144,9 +5158,11 @@ impl Editing {
             }
             Target::Power => {
                 let state = if self.params.bypass.value() {
-                    "Off (bypassed)"
-                } else {
+                    "Off (bypassed by the host)"
+                } else if self.params.power.value() {
                     "On"
+                } else {
+                    "Off"
                 };
                 Some((
                     format!("POWER: {state}"),
@@ -7269,6 +7285,11 @@ fn ultra_note_lines(splits: bool) -> Vec<(&'static str, Tone)> {
     lines
 }
 
+/// What POWER switched `on` sets, given its own value and the host's bypass: the bypass (only
+/// to `false`, asking the host to stop, when switched on while the host bypasses) and its own.
+fn power_switched(on: bool, power: bool, bypass: bool) -> (Option<bool>, Option<bool>) {
+    ((on && bypass).then_some(false), (power != on).then_some(on))
+}
 #[cfg(test)]
 mod tests {
     mod fx_pins;
@@ -13239,7 +13260,7 @@ mod tests {
         right_click(&mut e, p);
         assert_eq!(
             e.learning.menu().map(|m| m.title.as_str()),
-            Some("POWER: THE HOST'S BYPASS")
+            Some("POWER: SWITCHED HERE OR BY THE HOST")
         );
         assert!(keyed(&mut e, Key::Escape));
         assert!(!e.learning.menu_open());
@@ -13433,15 +13454,33 @@ mod tests {
             let p = at(&e, (art::COL + POWER.0, art::TOP + POWER.1));
             click(&mut e, p);
         }
-        let bypass = params.bypass.as_ptr();
+        // POWER is its own parameter, never the host's bypass (R-POWER, issue #159).
+        let power = params.power.as_ptr();
         assert_eq!(
             host.take(),
-            vec![
-                Call::Begin(bypass),
-                Call::Set(bypass, 1.0),
-                Call::End(bypass)
-            ]
+            vec![Call::Begin(power), Call::Set(power, 0.0), Call::End(power)]
         );
+    }
+
+    /// POWER switched off sets its own parameter alone; switched on, it sets its own and asks
+    /// a host bypassing the instrument to stop; what is already as asked is left alone.
+    #[test]
+    fn power_sets_its_own_parameter_and_asks_the_host_to_stop_bypassing() {
+        // (on, its own, the host's bypass) -> (the bypass set, its own set)
+        for ((on, power, bypass), want) in [
+            ((false, true, false), (None, Some(false))),
+            ((false, true, true), (None, Some(false))),
+            ((true, false, false), (None, Some(true))),
+            ((true, false, true), (Some(false), Some(true))),
+            ((true, true, true), (Some(false), None)),
+            ((false, false, false), (None, None)),
+        ] {
+            assert_eq!(
+                power_switched(on, power, bypass),
+                want,
+                "{on} {power} {bypass}"
+            );
+        }
     }
 
     #[test]
