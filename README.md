@@ -523,12 +523,17 @@ are [standalone-spec.md](docs/standalone-spec.md) and
   overdrives the external input's preamplifier and the mixer (OVERLOAD lights). With it on
   HI closes this loop at four times the sample rate with the circuit's exact preamplifier
   solve; FEEDBACK costs substantially more CPU (decisions.md R-HI-FEEDBACK).
-- **FILTER MODE** (at the head of the filter's switch column, LO by default): the original
-  has no such switch; a modern recreation of the instrument has, and this is its high-pass,
-  measured on one. At HI the output is the mixer's less the filter's: about 6 dB an octave
-  below the cutoff, the deepest bass coming back, and as EMPHASIS rises, a shelf with the
-  resonance's peak on it rather than a high-pass. At LO the filter is the drawing's.
-- **POWER** is the host's bypass: the output fades out over 10 ms and back in.
+- **FILTER POLES** (POLES at the head of the filter's switch column, 4 by default):
+  choose one to four poles. LO falls by about 6 dB an octave per pole; four poles keeps
+  the original filter output. All quality modes follow the same selection.
+- **FILTER MODE** (the response pictures below POLES, LO by default): choose LO, BAND,
+  STEEP HIGH or NOTCH. Changes crossfade over 5 ms. Projects and presets saved with the
+  earlier HI mode retain its sound; the selector shows STEEP HIGH's place until moved.
+- **POWER** is the instrument's own switch: the output fades out over 10 ms and back in.
+  Its lamp also reflects the bypass value delivered by the host. Switching it on asks
+  the host to stop bypassing the instrument; some hosts require their own bypass control instead. REAPER VST3 manages
+  FX bypass separately without notifying the instrument, so that control cannot update
+  the lamp. Presets leave POWER alone.
 - **QUALITY** (a chrome toggle above POWER: ULTRA, HI, or LO, LO by default for a new
   instance from 0.2.5, HI before; projects keep theirs, those from 0.1 open at HI; not the
   instrument's): at ULTRA the circuit's model uses High Fidelity numerics, within -120 dBFS

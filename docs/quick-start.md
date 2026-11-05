@@ -64,6 +64,10 @@ and modulation), **OSCILLATOR BANK** (the three oscillators), **MIXER** (which s
 heard, and how loud), **MODIFIERS** (the filter and the two contours) and **OUTPUT**.
 QUALITY and POWER sit at the far right.
 
+In MODIFIERS, **POLES** selects one to four filter poles; **FILTER MODE** below it selects
+LO, BAND, STEEP HIGH or NOTCH using pictures of their responses. Start with four poles
+and LO for the original low-pass sound.
+
 The wooden rail under it holds **MACRO**, the favourite star, the preset's name (click it for
 the presets), the previous and next arrows, **SAVE**, then the lower area's keys: **PANEL**
 shows or hides it; **GLOBAL** (VOICES, STEREO and OUTPUT), **KEYS** (a playable keyboard) and
