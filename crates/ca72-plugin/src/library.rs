@@ -36,8 +36,9 @@ use crate::drive::STEPS;
 pub const FORMAT: i64 = 1;
 
 /// The parameters a preset never sets: the PITCH wheel (where the player leaves it), the
-/// bypass (the host's) and QUALITY (the computer's: decisions.md R47).
-pub const KEPT: &[&str] = &["pitch_wheel", "bypass", "quality"];
+/// bypass (the host's), POWER (the player's: decisions.md R-POWER) and QUALITY (the
+/// computer's: R47).
+pub const KEPT: &[&str] = &["pitch_wheel", "bypass", "power", "quality"];
 
 const MOST_TAGS: usize = 16;
 const LONGEST_TAG: usize = 32;

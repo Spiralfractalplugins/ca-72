@@ -317,8 +317,8 @@ fn curve_and_floor_keep_their_positions_and_reach_the_engine_only_when_assigned(
     let ids: Vec<String> = p.param_map().into_iter().map(|(id, ..)| id).collect();
     let n = ids.len();
     assert_eq!(
-        &ids[n - 3..],
-        ["velocity_curve", "velocity_floor", "filter_shape"]
+        &ids[n - 4..],
+        ["velocity_curve", "velocity_floor", "filter_shape", "power"]
     );
     assert_eq!(p.velocity_curve.value(), 0.0);
     assert_eq!(p.velocity_floor.value(), 0.0);

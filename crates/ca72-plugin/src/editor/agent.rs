@@ -322,7 +322,7 @@ impl Editing {
             "instrument": "CA-72",
             "version": env!("CARGO_PKG_VERSION"),
             "kind": if self.playing.standalone { "standalone" } else { "plugin" },
-            "power": !self.params.bypass.value(),
+            "power": self.params.power.value() && !self.params.bypass.value(),
             "mode": self.mode(),
             "parameters": parameters,
             "preset": preset,

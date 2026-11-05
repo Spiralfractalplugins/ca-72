@@ -12222,7 +12222,8 @@ brightness through the real entry under each `timbre_rest` (none, centre, zero, 
 a process of its own; the INPUT counts; `mpe_expression_neither_allocates_nor_frees` through all
 three rests; the drawer drawn in parts the same as whole (both skins, two scales); the editor's
 key, one drawer at a time, the key's light, typed values, INPUT, the MPE menu and MCP's two
-settings. `cargo test -p ca72-plugin -p ca72-panel`: SEE-RESULTS. Frame times (`frames`, the
+settings. `cargo test -p ca72-plugin -p ca72-panel`: 617 passed, 0 failed, 67 ignored; clippy
+(`--workspace --all-targets --all-features -D warnings`) and fmt clean. Frame times (`frames`, the
 worn skin): the drawer's renderer made 0.03 ms on the editor's thread; its first drop 4.8 ms at
 0.44 and 14.0 ms at 0.87 with its plate made, a knob turned 1.1 and 3.3 ms (median), INPUT
 changing 0.4 and 0.6 ms: as the arpeggiator's drawer (5.3, 15.8; 1.1, 3.8). No golden image
@@ -18402,3 +18403,33 @@ under it.
 loads nothing, the fourth stage's share of its passband, an unloaded fourth stage), only built
 from the stages' voltages and currents the loop's own validation covers (`vcf_realtime`); no
 factory preset uses the new settings (the owner's call); the dual filter.
+
+
+## R-POWER. POWER has its own switch, with host bypass reflected
+
+2026-11-05, release 0.3.2 preparation, issue #159. The owner chose an own switch
+with host sync. In REAPER 7.84 on Linux, CLAP's bypass parameter can turn the host's
+bypass on, but subsequent editor edits cannot clear it: REAPER sends its own bypass
+value back during flush. VST3's editor bypass edits do not switch REAPER's bypass.
+
+POWER now uses a new `power` parameter, appended after the existing parameters, on
+by default for old sessions. Output is powered only when this switch is on and the
+host's existing `bypass` parameter is false. It uses the engine's existing power fade.
+Switching POWER off changes only its own parameter, so it does not stop the host
+from processing future edits. Switching it on also requests that an active host
+bypass be cleared. A host may ignore that request; its own bypass control remains
+authoritative, and the lamp stays dark while it bypasses the instrument.
+
+The host's bypass ID and saved values remain intact. Presets exclude both switches;
+sessions retain them. MCP exposes `power` (true = on) and retains `bypass` (true =
+bypassed). The editor and agent's power status reflect both. No circuit equation or
+quality mode changes.
+
+Release validation: REAPER 7.84 CLAP and VST3 both accepted four POWER presses
+(off/on/off/on) without switching the host off. CLAP's host bypass resends its
+value, so the host control is required to re-enable it. REAPER VST3 exposes a
+separate FX bypass: that control changes REAPER's extra Bypass parameter while
+CA-72's own Bypass parameter remains false. Neither its state nor a request to
+clear it is available through CA-72's bypass parameter. The lamp reflects the
+bypass value the host actually delivers, not an independently managed host mute.
+Evidence: `release-032/reaper-{clap,vst3}-host.log` on the lab share.
