@@ -12222,7 +12222,8 @@ brightness through the real entry under each `timbre_rest` (none, centre, zero, 
 a process of its own; the INPUT counts; `mpe_expression_neither_allocates_nor_frees` through all
 three rests; the drawer drawn in parts the same as whole (both skins, two scales); the editor's
 key, one drawer at a time, the key's light, typed values, INPUT, the MPE menu and MCP's two
-settings. `cargo test -p ca72-plugin -p ca72-panel`: SEE-RESULTS. Frame times (`frames`, the
+settings. `cargo test -p ca72-plugin -p ca72-panel`: 617 passed, 0 failed, 67 ignored; clippy
+(`--workspace --all-targets --all-features -D warnings`) and fmt clean. Frame times (`frames`, the
 worn skin): the drawer's renderer made 0.03 ms on the editor's thread; its first drop 4.8 ms at
 0.44 and 14.0 ms at 0.87 with its plate made, a knob turned 1.1 and 3.3 ms (median), INPUT
 changing 0.4 and 0.6 ms: as the arpeggiator's drawer (5.3, 15.8; 1.1, 3.8). No golden image
