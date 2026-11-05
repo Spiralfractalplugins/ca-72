@@ -18424,3 +18424,12 @@ The host's bypass ID and saved values remain intact. Presets exclude both switch
 sessions retain them. MCP exposes `power` (true = on) and retains `bypass` (true =
 bypassed). The editor and agent's power status reflect both. No circuit equation or
 quality mode changes.
+
+Release validation: REAPER 7.84 CLAP and VST3 both accepted four POWER presses
+(off/on/off/on) without switching the host off. CLAP's host bypass resends its
+value, so the host control is required to re-enable it. REAPER VST3 exposes a
+separate FX bypass: that control changes REAPER's extra Bypass parameter while
+CA-72's own Bypass parameter remains false. Neither its state nor a request to
+clear it is available through CA-72's bypass parameter. The lamp reflects the
+bypass value the host actually delivers, not an independently managed host mute.
+Evidence: `release-032/reaper-{clap,vst3}-host.log` on the lab share.

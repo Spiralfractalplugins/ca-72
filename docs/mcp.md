@@ -282,7 +282,7 @@ the parameter's id in `ca72_set`/`ca72_get`, unless it says otherwise.
 | | MAIN OUTPUT, A-440 | rockers | on/off (on, off) | `main_output`, `a440` |
 | | FEEDBACK (the phones' VOLUME into EXTERNAL INPUT) | knob | 0 to 10 (0) | `feedback` |
 | | QUALITY | 3-way toggle | LO, HI, ULTRA (LO) | `quality` |
-| | POWER | switch | on/off (on) | `power`; the host's bypass is `bypass` (true = off, POWER's lamp dark) |
+| | POWER | switch | on/off (on) | `power`; `bypass` is the bypass value delivered by the host (true = off). Some hosts manage FX bypass separately. |
 | | QUALITY's menu: SHOW / HIDE ITS INDICATOR | menu | shown/hidden | `ca72_settings_set {quality_indicator}` |
 | | The OVERLOAD lamp | indicator | | not exposed (see below) |
 

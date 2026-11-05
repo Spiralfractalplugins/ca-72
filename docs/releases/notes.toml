@@ -161,7 +161,7 @@ features = [
 ]
 performance_improvements = []
 bug_fixes = [
-  "POWER can switch off and on repeatedly in REAPER CLAP. Its lamp also follows host bypass.",
+  "POWER can switch off and on repeatedly in REAPER CLAP. Host bypass may need its own control.",
   "VST3 editor changes stay applied when the host stops processing or bypasses the instrument.",
   "Short-block processing, first-event CLAP automation, and ULTRA setup on small stacks are corrected.",
 ]
