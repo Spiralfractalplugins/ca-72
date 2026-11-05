@@ -10661,6 +10661,21 @@ mod tests {
             {
                 e.realtime.read = stood::no_rtkit;
             }
+            // Elsewhere the system refused, whatever this machine's threads were given.
+            #[cfg(not(target_os = "linux"))]
+            {
+                fn refused() -> (ca72_rt::Standing, ca72_rt::Standing) {
+                    let s = ca72_rt::Standing {
+                        direct: 0,
+                        rtkit: 0,
+                        waiting: 0,
+                        ordinary: 1,
+                        why: Some(ca72_rt::Why::Refused),
+                    };
+                    (s, ca72_rt::Standing { ordinary: 6, ..s })
+                }
+                e.realtime.read = refused;
+            }
             e.read_realtime(Instant::now());
             e.settings.agents = true;
             e.agents.error = Some("refused".into());
