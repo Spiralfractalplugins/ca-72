@@ -341,8 +341,7 @@ fn shape_param(name: &str, n: usize) -> FloatParam {
     .with_string_to_value(std::sync::Arc::new(move |s| parse_shape_text(n, s)))
 }
 
-/// FILTER MODE, which the original does not have (decisions.md R46): LO, the filter as
-/// drawn; HI, the hardware reference's high-pass (the mixer's output less the filter's).
+/// Released host parameter: its two variants and normalized range must never change.
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterMode {
     #[id = "lo"]
@@ -352,6 +351,36 @@ pub enum FilterMode {
     #[name = "HI"]
     Hi,
 }
+
+/// The panel's four shapes, independent of the released LO/HI automation.
+#[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterShape {
+    #[id = "lo"]
+    #[name = "LO"]
+    Lo,
+    #[id = "band"]
+    #[name = "BAND"]
+    Band,
+    #[id = "high"]
+    #[name = "STEEP HIGH"]
+    High,
+    #[id = "notch"]
+    #[name = "NOTCH"]
+    Notch,
+}
+impl FilterShape {
+    pub fn voice(self) -> ca72::vcf::FilterMode {
+        match self {
+            Self::Lo => ca72::vcf::FilterMode::Lo,
+            Self::Band => ca72::vcf::FilterMode::Band,
+            Self::High => ca72::vcf::FilterMode::High,
+            Self::Notch => ca72::vcf::FilterMode::Notch,
+        }
+    }
+}
+
+/// FILTER POLES's ends (decisions.md R-POLES): the ladder's first stage to its fourth.
+pub const FILTER_POLES: (i32, i32) = (1, 4);
 
 /// QUALITY (decisions.md R47, R48): LO, the light model (Potato mode); HI, the
 /// circuit's model at its real-time setting; ULTRA, the circuit's model with High Fidelity numerics
@@ -687,6 +716,9 @@ pub struct Ca72Params {
     // MODIFIERS
     #[id = "filter_mode"]
     pub filter_mode: EnumParam<FilterMode>,
+    /// FILTER POLES (decisions.md R-POLES): 1 to 4, 4 the filter as drawn.
+    #[id = "filter_poles"]
+    pub filter_poles: IntParam,
     #[id = "filter_mod"]
     pub filter_mod: BoolParam,
     #[id = "keyboard_control_1"]
@@ -971,6 +1003,8 @@ pub struct Ca72Params {
     /// FLOOR: the least the velocity gives, the softest note's, 0 to 100 %.
     #[id = "velocity_floor"]
     pub velocity_floor: FloatParam,
+    #[id = "filter_shape"]
+    pub filter_shape: EnumParam<FilterShape>,
 }
 
 /// The velocity's CURVE, -100 (SOFT) to 100 % (HARD), 0 by default.
@@ -1140,6 +1174,16 @@ fn fresh_seed() -> u64 {
         .finish()
 }
 
+impl Ca72Params {
+    pub fn effective_filter_mode(&self) -> ca72::vcf::FilterMode {
+        if self.filter_mode.value() == FilterMode::Hi {
+            ca72::vcf::FilterMode::Hi
+        } else {
+            self.filter_shape.value().voice()
+        }
+    }
+}
+
 impl Default for Ca72Params {
     /// The panel as the instrument's default patch has it: oscillator 1 alone on a sawtooth
     /// at 8', the filter half open, MAIN OUTPUT at 10.
@@ -1204,6 +1248,15 @@ impl Default for Ca72Params {
             osc3_on: BoolParam::new("Osc 3 On", false),
             osc3_volume: ten("Osc 3 Volume", 8.0),
             filter_mode: EnumParam::new("Filter Mode", FilterMode::Lo),
+            filter_shape: EnumParam::new("Filter Shape", FilterShape::Lo),
+            filter_poles: IntParam::new(
+                "Filter Poles",
+                i32::from(ca72::vcf::POLES),
+                IntRange::Linear {
+                    min: FILTER_POLES.0,
+                    max: FILTER_POLES.1,
+                },
+            ),
             filter_mod: BoolParam::new("Filter Modulation", false),
             keyboard_control_1: BoolParam::new("Keyboard Control 1", true),
             keyboard_control_2: BoolParam::new("Keyboard Control 2", false),
@@ -1650,7 +1703,11 @@ impl Ca72Params {
             mod_mix: ten(&self.mod_mix),
             osc_mod: self.osc_mod.value(),
             filter_mod: self.filter_mod.value(),
-            filter_hi: self.filter_mode.value() == FilterMode::Hi,
+            filter_mode: self.effective_filter_mode(),
+            filter_poles: self
+                .filter_poles
+                .value()
+                .clamp(FILTER_POLES.0, FILTER_POLES.1) as u8,
             pitch_wheel: value(&self.pitch_wheel),
             mod_wheel: value(&self.mod_wheel),
             ext_volume: ten(&self.ext_volume),
@@ -1917,5 +1974,26 @@ mod tests {
         let shown = |n: f32| q.normalized_value_to_string(n, false);
         assert_eq!((shown(0.0), shown(1.0)), ("EVEN".into(), "CENTER".into()));
         assert_eq!(p.controls().placement, Placement::Even);
+    }
+}
+
+#[cfg(test)]
+mod filter_compat_tests {
+    use super::*;
+    #[test]
+    fn released_mode_normalization_keeps_hi_and_lo_applies_shape() {
+        let mut p = Ca72Params::default();
+        for shape in [
+            FilterShape::Lo,
+            FilterShape::Band,
+            FilterShape::High,
+            FilterShape::Notch,
+        ] {
+            p.filter_shape = EnumParam::new("Filter Shape", shape);
+            p.filter_mode = EnumParam::new("Filter Mode", p.filter_mode.preview_plain(1.0));
+            assert_eq!(p.effective_filter_mode(), ca72::vcf::FilterMode::Hi);
+            p.filter_mode = EnumParam::new("Filter Mode", p.filter_mode.preview_plain(0.0));
+            assert_eq!(p.effective_filter_mode(), shape.voice());
+        }
     }
 }

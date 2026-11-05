@@ -643,9 +643,11 @@ The controls' parameters:
 > `filter_mod`, `keyboard_control_1`, `keyboard_control_2`, `cutoff`, `emphasis`,
 > `contour_amount`, `filter_attack`, `filter_decay`, `filter_sustain`, `loudness_attack`,
 > `loudness_decay`, `loudness_sustain`, `volume`, `main_output`, `a440`, `feedback`, `quality`,
-> `osc2_timed`, `osc3_timed`, `osc1_shape_mod`, `osc2_shape_mod`, `osc3_shape_mod`.
+> `osc2_timed`, `osc3_timed`, `osc1_shape_mod`, `osc2_shape_mod`, `osc3_shape_mod`,
+> `filter_poles`.
 
-The [starter's layout](skin-packs/starter/layout.toml) places each of them once.
+The [starter's layout](skin-packs/starter/layout.toml) places each of them once but
+`filter_poles` (revision 8), which the plug-in places for a layout made before it.
 
 `osc2_timed` and `osc3_timed` are oscillators 2's and 3's TIMED keys (revision 2 of the
 controls): small amber keys, taking no field but `at`, dressed by the `tab` and `tab-lit`
@@ -685,12 +687,22 @@ control of a kind of its own, `Kind::Jack`: its LFO's OUT jack on the LFO page, 
 (the page draws the jack; LEVEL's rings go round it). A layout does not place it either: a layout
 naming one is refused, and a layout made for revisions 1 to 6 loads as it did.
 
+Revision 8 of the controls adds FILTER POLES (`filter_poles`), a selector of four places (1 to
+4, on the middle four of RANGE's six; the plug-in prints its legends), and makes FILTER MODE
+(`filter_mode`) a selector of four places too (LO, BAND, STEEP HIGH and NOTCH; the plug-in draws
+its legends, pictures of the four responses, as it does WAVEFORM's). Both are three quarters of
+RANGE's size, their legends as large as RANGE's; a selector takes no fields, so FILTER MODE's
+rocker's `size`, `colour` and `on` no longer apply. A layout made for revisions 1 to 7 loads with
+FILTER POLES placed by the plug-in (`layout.added`) and its FILTER MODE drawn as the selector
+where the layout put its rocker (`layout.kind`); the layout's own legends for the rocker (LO,
+HI) are printed as they were, so a pack brought up to revision 8 drops them.
+
 ## Compatibility: packs keep working as the CA-72 changes
 
 A pack made today must keep working on later CA-72s, and a pack made for a later one should do
 its best on an earlier one.
 
-- **Each layout says which revision of the CA-72's controls it was made for** (`controls = 7`
+- **Each layout says which revision of the CA-72's controls it was made for** (`controls = 8`
   today; a layout without it is made for the first). The plug-in keeps a record of its controls over
   time: when each arrived, and any rename, retirement or change of kind since.
 - **A control added after the pack was made** is placed by the plug-in: at its official place if
@@ -735,3 +747,7 @@ These are each flagged for separate review, and none is supported:
 - packs shared between plug-ins (bundles are the marketplace's: several packs sold together);
 - telling the user that a pack has an update (the marketplace does, when the user opens it;
   the plug-in never asks the network).
+
+The panel layout key `filter_mode` remains unchanged for pack compatibility. It operates the
+new host parameter `filter_shape`; moving it also sets the legacy host `filter_mode` to LO.
+A saved HI is displayed at STEEP HIGH until the selector moves (R-POLES).

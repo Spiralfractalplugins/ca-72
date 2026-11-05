@@ -1,7 +1,8 @@
 //! The panel as drawn matches the design the owner approved (`approved.png`: the mock-up at one
 //! panel unit a pixel, every control at half its travel). The switch column between MIXER and
-//! MODIFIERS (the mock-up's x 2100 to 2330, y 225 to 690) is the renderer's own, as the owner
-//! chose it on 2026-10-09 with FILTER MODE at its head (decisions.md R46). The mock-up had the
+//! MODIFIERS (the mock-up's x 2100 to 2330, y 140 to 840) is the renderer's own, as the owner
+//! chose it on 2026-10-09 with FILTER MODE at its head (decisions.md R46), and on 2026-11-03
+//! with FILTER POLES at its head and FILTER MODE's toggle under it (R-POLES). The mock-up had the
 //! left hand's controls in a column left of the panel, 330 units wide; they are on the strip
 //! below now (A6, R44), so the panel is compared with the mock-up right of its column. The
 //! name board under the face is gone (the plate moved up into the top strip, R44): the top

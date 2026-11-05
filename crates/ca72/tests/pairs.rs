@@ -2,7 +2,7 @@
 //! `Voice::after_filter`; decisions.md R-HI-PAIRS) give each voice the same samples to the bit
 //! as `Voice::tick_jacks` alone: at HI, where the pair is solved together, with the voices
 //! set apart (notes, cutoffs, emphasis, FEEDBACK, the jacks, a waveform changed, the filter's
-//! mode switched), and where the pair is not (ULTRA, and the two at different qualities); and
+//! mode and poles switched), and where the pair is not (ULTRA, and the two at different qualities); and
 //! with FEEDBACK's loop closed, where each voice runs its whole audio path alone.
 
 use ca72::voice::{Jacks, Quality, Voice};
@@ -47,7 +47,7 @@ fn pair_matches_alone(qa: Quality, qb: Quality, seconds: f64, one_emphasis: bool
         match i {
             100 => each(&|v| v.note(45, true)),
             9_000 => each(&|v| v.note(52, true)),
-            20_000 => each(&|v| v.panel.filter_hi = true),
+            20_000 => each(&|v| v.panel.filter_mode = ca72::vcf::FilterMode::Hi),
             30_000 => each(&|v| v.note(52, false)),
             _ => {}
         }
@@ -58,6 +58,11 @@ fn pair_matches_alone(qa: Quality, qb: Quality, seconds: f64, one_emphasis: bool
         match i {
             2_500 => each(&|v| v.note(60, true)),
             12_000 => each(&|v| v.feedback = 0.4),
+            // (FILTER POLES and FILTER MODE's mixes, each change crossfading: R-POLES.)
+            15_000 => each(&|v| v.panel.filter_poles = 2),
+            18_000 => each(&|v| v.panel.filter_mode = ca72::vcf::FilterMode::High),
+            21_000 => each(&|v| v.panel.filter_mode = ca72::vcf::FilterMode::Band),
+            22_500 => each(&|v| v.panel.filter_mode = ca72::vcf::FilterMode::Notch),
             24_000 if !one_emphasis => each(&|v| v.panel.emphasis = 0.2),
             36_000 => each(&|v| v.note(60, false)),
             48_000 => each(&|v| v.note(64, true)),
@@ -195,7 +200,7 @@ fn looped_pair_matches_alone(qa: Quality, qb: Quality, seconds: f64) {
         };
         match i {
             100 => each(&|v| v.note(45, true)),
-            8_000 => each(&|v| v.panel.filter_hi = true),
+            8_000 => each(&|v| v.panel.filter_mode = ca72::vcf::FilterMode::Hi),
             14_000 => each(&|v| v.panel.ext_on = false),
             20_000 => each(&|v| v.panel.ext_on = true),
             _ => {}

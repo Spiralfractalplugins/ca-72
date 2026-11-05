@@ -59,8 +59,8 @@ they are right.
 | Kind | Params | Fields allowed besides `param`, `at` |
 |---|---|---|
 | Knob | `tune`, `glide`, `mod_mix`, `osc2_frequency`, `osc3_frequency`, `osc1_volume`, `osc2_volume`, `osc3_volume`, `ext_volume`, `noise_volume`, `cutoff`, `emphasis`, `contour_amount`, `filter_attack`, `filter_decay`, `filter_sustain`, `loudness_attack`, `loudness_decay`, `loudness_sustain`, `volume`, `feedback` | `big = true/false` (`osc2_frequency`, `osc3_frequency` are big unless set false) |
-| Selector | `osc1_range`, `osc2_range`, `osc3_range`, `osc1_waveform`, `osc2_waveform`, `osc3_waveform` | none |
-| Rocker | `osc_mod`, `osc3_control`, `osc1_on`, `osc2_on`, `osc3_on`, `ext_on`, `noise_on`, `noise_type`, `filter_mode`, `filter_mod`, `keyboard_control_1`, `keyboard_control_2`, `main_output`, `a440` | `size = [w, h]` (16 to 240 each), `colour` (`blue`, `red`, `black`, `ivory`), `on` (`right`, `top`, `bottom`) |
+| Selector | `osc1_range`, `osc2_range`, `osc3_range`, `osc1_waveform`, `osc2_waveform`, `osc3_waveform`; `filter_poles` (FILTER POLES, added in revision 8: four places, 1 to 4, on the middle four of the six); `filter_mode` (FILTER MODE: LO, BAND, STEEP HIGH and NOTCH, its legends pictures of them; a selector since revision 8, a rocker before). Both filter selectors are three quarters of RANGE's size | none |
+| Rocker | `osc_mod`, `osc3_control`, `osc1_on`, `osc2_on`, `osc3_on`, `ext_on`, `noise_on`, `noise_type`, `filter_mod`, `keyboard_control_1`, `keyboard_control_2`, `main_output`, `a440` | `size = [w, h]` (16 to 240 each), `colour` (`blue`, `red`, `black`, `ivory`), `on` (`right`, `top`, `bottom`) |
 | Toggle | `quality` | `size = [w, h]` (16 to 240; default 50 by 81), `across = true` |
 | Key | `osc2_timed`, `osc3_timed` (oscillators 2's and 3's TIMED, added in revision 2); `osc1_shape_mod`, `osc2_shape_mod`, `osc3_shape_mod` (each oscillator's MOD, added in revision 3: on the panel only while its waveform is CONTINUOUS; place each under its WAVEFORM) | none |
 

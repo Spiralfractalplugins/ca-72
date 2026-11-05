@@ -20,6 +20,7 @@
 
 use crate::resample::{BlepTables, Decimator, Interpolator};
 use crate::tuning::FREQ_CENTRE;
+use crate::vcf::FilterMode;
 use crate::vco::Timed;
 #[cfg(test)]
 use crate::voice::OscPanel;
@@ -1007,6 +1008,9 @@ impl Noise {
 #[derive(Debug, Clone, Copy, Default)]
 struct Ladder {
     s: [f32; 4],
+    /// The last sample's input pair's output and its four stages' (FILTER POLES's taps and
+    /// the mixes' terms: decisions.md R-POLES).
+    taps: [f32; 5],
 }
 
 impl Ladder {
@@ -1067,13 +1071,37 @@ impl Ladder {
         if !converged {
             crate::unconverged::note(crate::unconverged::Solver::FilterLoop);
         }
-        for st in s.iter_mut() {
+        let mut taps = [y; 5];
+        for (st, tap) in s.iter_mut().zip(&mut taps[1..]) {
             let v = (y - *st) * g;
             let out = v + *st;
             *st = out + v;
             y = out;
+            *tap = out;
         }
+        self.taps = taps;
         y
+    }
+}
+
+/// FILTER MODE and FILTER POLES (1 to 4).
+type Shape = (FilterMode, u8);
+
+/// A one-pole high-pass's coefficient, last input and output.
+type Coupling = (f32, f32, f32);
+
+/// The ladder's output in FILTER MODE and FILTER POLES `shape` (decisions.md R-POLES), from
+/// its fourth stage's `y` and its `taps`: LO (and HI) the stage FILTER POLES picks, BAND and
+/// STEEP HIGH and NOTCH the circuit's mixes ([`crate::vcf::mix`]) of the stages.
+#[inline(always)]
+fn shaped(shape: Shape, y: f32, taps: &[f32; 5]) -> f32 {
+    match shape {
+        (FilterMode::Lo | FilterMode::Hi, crate::vcf::POLES) => y,
+        (FilterMode::Lo | FilterMode::Hi, n) => taps[usize::from(n)],
+        (mode, n) => {
+            let d = core::array::from_fn(|j| f64::from(taps[j] - taps[j + 1]));
+            crate::vcf::mix(mode, n, d, taps.map(f64::from)) as f32
+        }
     }
 }
 
@@ -1312,6 +1340,14 @@ pub struct Light {
     droop: (f32, f32, f32),
     mode: (f32, f32, f32),
     direct: f32,
+    /// FILTER MODE and FILTER POLES as the filter has them, and while a change crossfades
+    /// (decisions.md R-POLES) the old ones, what is left of their share and their own
+    /// output coupling; a crossfade's step a filter sample; whether the filter has run since
+    /// it was made or reset (if not, a change is taken at once).
+    shape: Shape,
+    fade: Option<([(f32, Coupling); 20], f32)>,
+    fade_step: f32,
+    ran: bool,
     /// The filter's passband at its cutoff (control rate).
     pass: f32,
     /// The thump's band-pass: its coefficients (high-pass, low-pass) and its state (the
@@ -1502,6 +1538,10 @@ impl Light {
                 0.0,
             ),
             direct: 0.0,
+            shape: (FilterMode::Lo, crate::vcf::POLES),
+            fade: None,
+            fade_step: (1.0 / (crate::vcf::SHAPE_FADE * filter_rate)) as f32,
+            ran: false,
             pass: 1.0,
             thump_c: (
                 (-1.0 / (laws::THUMP_TIMES.0 * rate)).exp() as f32,
@@ -1678,6 +1718,28 @@ impl Light {
         }
         self.set_for_panel = true;
         self.panel = *p;
+        // FILTER MODE and FILTER POLES: a change crossfades, once the filter has run
+        // (decisions.md R-POLES).
+        let shape = (p.filter_mode, p.filter_poles.clamp(1, 4));
+        if shape != self.shape {
+            self.fade = self.ran.then(|| {
+                let (mut from, left) = self.fade.unwrap_or(([(0.0, self.coupling); 20], 0.0));
+                for (w, _) in &mut from {
+                    *w *= left;
+                }
+                let i = self.shape.0 as usize * 4 + usize::from(self.shape.1 - 1);
+                let (weight, coupling) = &mut from[i];
+                let add = 1.0 - left;
+                let total = *weight + add;
+                if total > 0.0 {
+                    coupling.1 = (coupling.1 * *weight + self.coupling.1 * add) / total;
+                    coupling.2 = (coupling.2 * *weight + self.coupling.2 * add) / total;
+                }
+                *weight = total;
+                (from, 1.0)
+            });
+            self.shape = shape;
+        }
         // (MOD moves a CONTINUOUS shape only with the wheel forward: R-CONTINUOUS-WAVE.)
         let depth = light_depth(p.mod_wheel);
         for o in 0..3 {
@@ -1983,6 +2045,8 @@ impl Light {
         self.coupling = (self.coupling.0, 0.0, 0.0);
         self.droop = (self.droop.0, 0.0, 0.0);
         self.mode = (self.mode.0, 0.0, 0.0);
+        self.fade = None;
+        self.ran = false;
         self.thump = (0.0, 0.0, 0.0);
         self.ext_hp = (self.ext_hp.0, 0.0, 0.0);
         self.pre_hp = (self.pre_hp.0, 0.0, 0.0);
@@ -2101,24 +2165,91 @@ impl Light {
             laws::BIAS,
             self.limit,
         );
+        // The filter as drawn, nothing fading: its output as it always was.
+        if self.fade.is_none()
+            && matches!(
+                self.shape,
+                (FilterMode::Lo | FilterMode::Hi, crate::vcf::POLES)
+            )
+        {
+            // The filter's output coupling; FILTER MODE HI, the bus (through its own coupling)
+            // less it.
+            let y = y * self.pass;
+            let (a, x0, y0) = self.coupling;
+            let lo = a * (y0 + y - x0);
+            self.coupling = (a, y, lo);
+            let y = if self.shape.0 == FilterMode::Hi {
+                let (a, x0, y0) = self.mode;
+                let d = self.direct * bus;
+                let direct = a * (y0 + d - x0);
+                self.mode = (a, d, direct);
+                direct - lo
+            } else {
+                // (The direct branch's coupling at rest: in HI it starts from the bus's
+                // sample.)
+                self.mode.1 = 0.0;
+                self.mode.2 = 0.0;
+                lo
+            };
+            return self.filter_down.push(f64::from(y));
+        }
+        // Another setting, or a change crossfading (decisions.md R-POLES).
+        let taps = &self.ladder.taps;
         // The filter's output coupling; FILTER MODE HI, the bus (through its own coupling)
         // less it.
-        let y = y * self.pass;
-        let (a, x0, y0) = self.coupling;
-        let lo = a * (y0 + y - x0);
-        self.coupling = (a, y, lo);
-        let y = if self.panel.filter_hi {
+        let coupled = |shape: Shape, coupling: &mut Coupling| {
+            let y = shaped(shape, y, taps) * self.pass;
+            let (a, x0, y0) = *coupling;
+            let lo = a * (y0 + y - x0);
+            *coupling = (a, y, lo);
+            lo
+        };
+        let lo = coupled(self.shape, &mut self.coupling);
+        let shape_at = |i: usize| {
+            (
+                [
+                    FilterMode::Lo,
+                    FilterMode::Hi,
+                    FilterMode::Band,
+                    FilterMode::High,
+                    FilterMode::Notch,
+                ][i / 4],
+                (i % 4 + 1) as u8,
+            )
+        };
+        let mut then = self.fade;
+        let hi = |shape: Shape| shape.0 == FilterMode::Hi;
+        let direct = if hi(self.shape)
+            || then.is_some_and(|(from, _)| {
+                from.iter()
+                    .enumerate()
+                    .any(|(i, (w, _))| *w > 0.0 && hi(shape_at(i)))
+            }) {
             let (a, x0, y0) = self.mode;
             let d = self.direct * bus;
             let direct = a * (y0 + d - x0);
             self.mode = (a, d, direct);
-            direct - lo
+            direct
         } else {
             // (The direct branch's coupling at rest: in HI it starts from the bus's sample.)
             self.mode.1 = 0.0;
             self.mode.2 = 0.0;
-            lo
+            0.0
         };
+        let out = |shape: Shape, lo: f32| if hi(shape) { direct - lo } else { lo };
+        let mut y = out(self.shape, lo);
+        if let Some((ref mut from, left)) = then {
+            let mut previous = 0.0;
+            for (i, (weight, coupling)) in from.iter_mut().enumerate() {
+                if *weight > 0.0 {
+                    let shape = shape_at(i);
+                    previous += *weight * out(shape, coupled(shape, coupling));
+                }
+            }
+            let left = (left - self.fade_step).max(0.0);
+            self.fade = (left > 0.0).then_some((*from, left));
+            y = previous * left + y * (1.0 - left);
+        }
         self.filter_down.push(f64::from(y))
     }
 
@@ -2130,6 +2261,7 @@ impl Light {
             self.control();
         }
         self.count -= 1;
+        self.ran = true;
         // RETRIGGER's keys come down once the keys' gate has been low long enough for the
         // contours to start again; until then it is low, the keys held as they were.
         if self.waiting.0 != 0 && !self.gate && self.open >= self.gap {
@@ -2491,7 +2623,10 @@ mod tests {
                 for top in [0.78, 1.0] {
                     for x in [-10.0, -1.0, 0.0, 1.0, 10.0] {
                         let before = [0.2, -0.4, 0.6, -0.8];
-                        let mut ladder = Ladder { s: before };
+                        let mut ladder = Ladder {
+                            s: before,
+                            ..Ladder::default()
+                        };
                         let rest = (1.0 - g)
                             * (g * (g * (g * before[0] + before[1]) + before[2]) + before[3]);
                         let inv = 1.0 / top;
@@ -2687,7 +2822,11 @@ mod tests {
             let mut p = measuring();
             p.cutoff = cutoff;
             p.emphasis = emphasis;
-            p.filter_hi = emphasis == 0.99;
+            p.filter_mode = if emphasis == 0.99 {
+                FilterMode::Hi
+            } else {
+                FilterMode::Lo
+            };
             l.set_panel(&p);
             l.note(60, true);
             run(&mut l, 960);
@@ -3145,7 +3284,7 @@ mod tests {
             let mut p = measuring();
             p.cutoff = cutoff;
             p.emphasis = emphasis;
-            p.filter_hi = hi;
+            p.filter_mode = if hi { FilterMode::Hi } else { FilterMode::Lo };
             l.set_panel(&p);
             l.note(45, true);
             run(&mut l, 24_000);
@@ -3159,6 +3298,185 @@ mod tests {
                 "CUTOFF {cutoff}, EMPHASIS {emphasis}: HI {d:+.2} dB against LO"
             );
         }
+    }
+
+    /// A sawtooth on A2 (VOLUME 3) through the filter at CUTOFF `cutoff` in `mode` and `poles`:
+    /// its partials' levels, dB, at the given harmonics (Hann-windowed, at the oscillator's
+    /// own pitch, found at CUTOFF 10 in LO).
+    fn partials(cutoff: f64, mode: FilterMode, poles: u8, harmonics: &[u32]) -> Vec<f64> {
+        let play = |cutoff: f64, mode: FilterMode, poles: u8| {
+            let mut l = Light::new(48_000.0);
+            let mut p = measuring();
+            p.cutoff = cutoff;
+            p.filter_mode = mode;
+            p.filter_poles = poles;
+            l.set_panel(&p);
+            l.note(45, true);
+            run(&mut l, 24_000);
+            run(&mut l, 1 << 15)
+        };
+        let at = |x: &[f64], f: f64| {
+            let (mut re, mut im) = (0.0, 0.0);
+            for (n, v) in x.iter().enumerate() {
+                let t = n as f64 / x.len() as f64;
+                let w = 1.0 - (std::f64::consts::TAU * t).cos();
+                let a = std::f64::consts::TAU * f * n as f64 / 48_000.0;
+                re += v * w * a.cos();
+                im += v * w * a.sin();
+            }
+            20.0 * (re.hypot(im) / x.len() as f64).log10()
+        };
+        let open = play(1.0, FilterMode::Lo, 4);
+        let f0 = (0..120)
+            .map(|k| 107.0 + 0.05 * f64::from(k))
+            .map(|f| (f, at(&open, f)))
+            .fold((0.0, f64::MIN), |a, b| if b.1 > a.1 { b } else { a })
+            .0;
+        let x = play(cutoff, mode, poles);
+        harmonics
+            .iter()
+            .map(|&h| at(&x, f0 * f64::from(h)))
+            .collect()
+    }
+
+    /// FILTER POLES's LO as the circuit's (decisions.md R-POLES): above the corner (CUTOFF 5,
+    /// about 1 kHz; the 36th and 72nd partials, 4 and 8 kHz) 6 dB an octave a pole more than
+    /// the sawtooth's own 6; the fundamental, far under it, within a dB of LO at 4 poles.
+    #[test]
+    fn lo_falls_six_db_an_octave_a_pole() {
+        let drawn = partials(0.5, FilterMode::Lo, 4, &[1])[0];
+        for n in 1..=4u8 {
+            let p = partials(0.5, FilterMode::Lo, n, &[1, 36, 72]);
+            let slope = p[1] - p[2] - 6.02;
+            assert!(
+                (slope - 6.0 * f64::from(n)).abs() < 1.5,
+                "LO {n}: {slope:.1} dB an octave"
+            );
+            assert!(
+                (p[0] - drawn).abs() < 1.0,
+                "LO {n}: the fundamental {:.1} dB against LO 4's {drawn:.1}",
+                p[0]
+            );
+        }
+    }
+
+    /// STEEP HIGH as the circuit's: from two octaves to one under the corner (CUTOFF 7, 5.3 kHz;
+    /// the 12th and 24th partials) 5.3 dB an octave a pole (6 further down) more than the
+    /// sawtooth's own fall; its passband (CUTOFF 3, 214 Hz: the 96th partial) the same at every
+    /// setting.
+    #[test]
+    fn steep_high_rises_six_db_an_octave_a_pole() {
+        let mut top = Vec::new();
+        for n in 1..=4u8 {
+            let p = partials(0.7, FilterMode::High, n, &[12, 24]);
+            let slope = p[1] - p[0] + 6.02;
+            let n = f64::from(n);
+            assert!(
+                slope > 5.0 * n - 0.5 && slope < 6.0 * n + 1.0,
+                "STEEP HIGH {n}: {slope:.1} dB an octave"
+            );
+            top.push(partials(0.3, FilterMode::High, n.round() as u8, &[96])[0]);
+        }
+        let spread = top.iter().fold(f64::MIN, |a, &b| a.max(b))
+            - top.iter().fold(f64::MAX, |a, &b| a.min(b));
+        assert!(spread < 0.5, "STEEP HIGH's passbands {top:?}");
+    }
+
+    /// A change of FILTER MODE or FILTER POLES crossfades as the circuit's does: LO at 4 poles
+    /// to STEEP HIGH at 4 under a held note, no sample moves further from the one before than
+    /// the larger of the two settings' own does; a voice set before it plays takes its setting
+    /// at once.
+    #[test]
+    fn a_change_crossfades() {
+        let play = |change: Option<usize>, from: FilterMode, back: Option<usize>| {
+            let mut l = Light::new(48_000.0);
+            let mut p = measuring();
+            p.cutoff = 0.4;
+            p.filter_mode = from;
+            l.set_panel(&p);
+            l.note(45, true);
+            (0..36_000)
+                .map(|i| {
+                    if change == Some(i) {
+                        p.filter_mode = FilterMode::High;
+                        l.set_panel(&p);
+                    }
+                    if back == Some(i) {
+                        p.filter_mode = FilterMode::Lo;
+                        l.set_panel(&p);
+                    }
+                    l.tick(0.0)
+                })
+                .collect::<Vec<_>>()
+        };
+        let steepest = |x: &[f64]| {
+            x.windows(2)
+                .map(|w| (w[1] - w[0]).abs())
+                .fold(0.0f64, f64::max)
+        };
+        let lo = play(None, FilterMode::Lo, None);
+        let high = play(None, FilterMode::High, None);
+        let switched = play(Some(24_000), FilterMode::Lo, None);
+        let own = steepest(&lo[12_000..]).max(steepest(&high[12_000..]));
+        for delay in [1, 120] {
+            let interrupted = play(Some(24_000), FilterMode::Lo, Some(24_000 + delay));
+            let step = steepest(&interrupted[23_000..26_000]);
+            assert!(step <= 1.1 * own, "interrupted at {delay}: {step} vs {own}");
+        }
+        let at = steepest(&switched[23_000..26_000]);
+        assert!(
+            at <= 1.05 * own,
+            "{at:.3e} a sample across the change, {own:.3e} in either"
+        );
+        assert!(
+            play(Some(0), FilterMode::Lo, None) == high,
+            "set before it plays"
+        );
+    }
+
+    /// NOTCH as the circuit's: at 2 and 4 poles its deepest partial (of the 4th to the 20th,
+    /// CUTOFF 5) within one of BAND's loudest (the sawtooth's own fall taken out), 20 dB (2 poles) and 30 dB (4) under the same
+    /// partial in LO at 1 pole.
+    #[test]
+    fn notch_is_where_band_peaks() {
+        let harmonics: Vec<u32> = (4..=20).collect();
+        let band = partials(0.5, FilterMode::Band, 2, &harmonics);
+        let open = partials(0.5, FilterMode::Lo, 1, &harmonics);
+        // (BAND's partials less the sawtooth's own fall, 1/h.)
+        let flat = |k: usize| band[k] + 20.0 * f64::from(harmonics[k]).log10();
+        let loudest = (0..band.len())
+            .max_by(|&a, &b| flat(a).total_cmp(&flat(b)))
+            .unwrap();
+        for (n, depth) in [(2u8, 20.0), (4, 30.0)] {
+            let notch = partials(0.5, FilterMode::Notch, n, &harmonics);
+            let k = (0..notch.len())
+                .min_by(|&a, &b| (notch[a] - open[a]).total_cmp(&(notch[b] - open[b])))
+                .unwrap();
+            let below = open[k] - notch[k];
+            assert!(
+                k.abs_diff(loudest) <= 1 && below > depth,
+                "NOTCH {n}: partial {} {below:.1} dB under LO 1's, BAND's loudest {}",
+                harmonics[k],
+                harmonics[loudest]
+            );
+        }
+    }
+
+    /// BAND at 4 poles as the circuit's, G^2 (1 - G)^2: far above the corner (CUTOFF 5, about
+    /// 1 kHz; the 36th and 72nd partials) it falls as LO at 2 poles does, far under it (the
+    /// 1st and 2nd) it rises as STEEP HIGH at 2 does.
+    #[test]
+    fn band_is_lo_2_above_and_steep_high_2_under() {
+        let band = partials(0.5, FilterMode::Band, 4, &[1, 2, 36, 72]);
+        let lo = partials(0.5, FilterMode::Lo, 2, &[36, 72]);
+        let high = partials(0.5, FilterMode::High, 2, &[1, 2]);
+        let above = (band[2] - band[3]) - (lo[0] - lo[1]);
+        let under = (band[1] - band[0]) - (high[1] - high[0]);
+        assert!(
+            above.abs() < 1.0 && under.abs() < 1.0,
+            "BAND 4 against LO 2 above: {above:+.1} dB an octave; against STEEP HIGH 2 under: \
+             {under:+.1}"
+        );
     }
 
     /// With every source off, the filter at EMPHASIS 10 sings from the mixer's own noise as
