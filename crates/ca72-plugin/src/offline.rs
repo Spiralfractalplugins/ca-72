@@ -503,6 +503,30 @@ fn render_inner(snapshot: &Snapshot, request: &Request) -> Result<Render, ApiErr
 mod tests {
     use super::*;
     #[test]
+    fn power_and_host_bypass_restore_independently_and_old_states_start_powered() {
+        for power in [false, true] {
+            for bypass in [false, true] {
+                let mut s = Snapshot::initial();
+                s.override_values(&serde_json::json!({"power": power, "bypass": bypass}))
+                    .expect("switch values");
+                let p = s.restore_params().expect("restored switches");
+                assert_eq!(p.power.value(), power);
+                assert_eq!(p.bypass.value(), bypass);
+                assert_eq!(p.controls().power, power && !bypass);
+            }
+        }
+        let mut old = Snapshot::initial();
+        old.parameters.remove("power");
+        for bypass in [false, true] {
+            old.override_values(&serde_json::json!({"bypass": bypass}))
+                .expect("old bypass");
+            let p = old.restore_params().expect("pre-POWER state");
+            assert!(p.power.value());
+            assert_eq!(p.controls().power, !bypass);
+        }
+    }
+
+    #[test]
     fn rejected_routing_batch_keeps_the_snapshot_and_source_unchanged() {
         let p = Ca72Params::default();
         let mut s = Snapshot::capture(&p);

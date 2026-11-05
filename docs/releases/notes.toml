@@ -150,3 +150,18 @@ bug_fixes = [
   "Switching HI and ULTRA during a held note no longer resumes stale VCA output histories.",
   "RETRIGGER's tooltip explains NOTE PRIORITY; the retrigger policy stays the same.",
 ]
+
+[[release]]
+version = "0.3.2"
+features = [
+  "FILTER POLES selects the slope; FILTER MODE offers LO, BAND, STEEP HIGH and NOTCH.",
+  "Clearer 4K lettering and tips, a column settings menu, and TICKS & TITLES: QUIET improve readability.",
+  "Modulation tips explain their routes. The quick-start guide introduces the controls.",
+  "The standalone PITCH menu sets bend range. New instances remember your window size.",
+]
+performance_improvements = []
+bug_fixes = [
+  "POWER can switch off and on repeatedly in REAPER CLAP. Its lamp also follows host bypass.",
+  "VST3 editor changes stay applied when the host stops processing or bypasses the instrument.",
+  "Short-block processing, first-event CLAP automation, and ULTRA setup on small stacks are corrected.",
+]
