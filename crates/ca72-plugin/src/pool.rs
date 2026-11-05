@@ -1502,6 +1502,10 @@ mod tests {
         release: Option<(Arc<AtomicBool>, Duration)>,
         /// A pause when played on this thread (so that the workers take the others).
         slow_on: Option<ThreadId>,
+        /// Set when played on any other thread; with it, the pause on `slow_on` lasts until
+        /// it is set (5 s at most) rather than 2 ms, so a loaded system's late worker still
+        /// takes a voice.
+        elsewhere: Option<Arc<AtomicBool>>,
     }
 
     impl Play for Fake {
@@ -1523,7 +1527,17 @@ mod tests {
                 std::thread::sleep(*pause);
             }
             if self.slow_on.is_some() && self.slow_on == self.thread {
-                std::thread::sleep(Duration::from_millis(2));
+                match &self.elsewhere {
+                    Some(e) => {
+                        let t = Instant::now();
+                        while !e.load(Ordering::Acquire) && t.elapsed() < Duration::from_secs(5) {
+                            std::thread::sleep(Duration::from_micros(100));
+                        }
+                    }
+                    None => std::thread::sleep(Duration::from_millis(2)),
+                }
+            } else if let Some(e) = &self.elsewhere {
+                e.store(true, Ordering::Release);
             }
         }
 
@@ -1673,11 +1687,15 @@ mod tests {
     fn a_pool_at_rest_shares_the_next_blocks_run() {
         let voices = fakes(3);
         let me = std::thread::current().id();
+        let elsewhere = Arc::new(AtomicBool::new(false));
         for v in &voices {
-            v.lock().unwrap().slow_on = Some(me);
+            let mut v = v.lock().unwrap();
+            v.slow_on = Some(me);
+            v.elsewhere = Some(elsewhere.clone());
         }
         let mut pool = Pool::start(2, &voices, None).unwrap();
         for _ in 0..20 {
+            elsewhere.store(false, Ordering::Release);
             pool.block(CHUNK, None);
             let played = pool.play(&[0, 1, 2], 64, &EXT, 48_000.0, &mix(), false, MAX, None);
             assert_eq!(&played[..3], &[true; 3]);
