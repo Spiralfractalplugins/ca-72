@@ -1,6 +1,6 @@
 # Quick-start pictures
 
-These are the editor's own frames of CA-72 0.3.1, not captures from a particular host: the
+These are the editor's own frames of CA-72 0.3.2, not captures from a particular host: the
 plug-in's and the standalone's whole windows, drawn headlessly by the ignored test
 `the_quick_start_pngs` in `crates/ca72-plugin/src/editor.rs`, 1720 logical pixels wide at
 1.25 physical pixels each, in the default realistic look (`Skin::Worn`) and standard
@@ -35,7 +35,7 @@ and the frames are on the lab share, `/mnt/lab/artifacts/ca-72/issue-73/` (`crop
 `frames/`). For an update, render the frames again rather than painting a different setting
 onto a picture.
 
-When FILTER POLES and FILTER MODE's four settings (decisions.md R-POLES, branch
-`filter-poles`) merge, the panel's filter column changes: `02`, `03`, `04` (FILTER
-MODULATION's tip), `05`, `08` and `10`–`11` need rendering again, and the guide's FILTER MODE
-wording checked.
+The 0.3.2 refresh includes the POLES selector and FILTER MODE's four response pictures.
+All twelve images were regenerated from the release source, rather than compositing new
+controls onto earlier screenshots. Raw frames and the crop script for this refresh are in
+`/mnt/lab/artifacts/ca-72/release-032/screenshots/` (`raw/`, `crop.sh` and `cropped/`).
