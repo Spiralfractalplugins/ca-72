@@ -515,12 +515,12 @@ mod tests {
                 assert_eq!(p.controls().power, power && !bypass);
             }
         }
-        let mut old = Snapshot::initial();
-        old.parameters.remove("power");
+        // Host sessions predating POWER restore bypass into default parameters. Offline
+        // snapshots intentionally require a complete parameter set and are not host state.
         for bypass in [false, true] {
-            old.override_values(&serde_json::json!({"bypass": bypass}))
-                .expect("old bypass");
-            let p = old.restore_params().expect("pre-POWER state");
+            let p = fresh_params();
+            let ctx = TestProcessContext::<Ca72>::new(p.clone(), 48_000.0, ProcessMode::Offline);
+            assert!(ctx.automate(p.bypass.as_ptr(), if bypass { 1.0 } else { 0.0 }));
             assert!(p.power.value());
             assert_eq!(p.controls().power, !bypass);
         }
