@@ -1100,7 +1100,7 @@ fn an_installed_pack_is_read_again_only_when_it_changes() {
 fn a_pack_whose_check_once_aborted_is_refused_and_the_next_loads() {
     let vast = Path::new(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../skin-pack/tests/fixtures/vast-pattern"
+        "/tests/fixtures/vast-pattern"
     ));
     let skins = tempfile::tempdir().expect("a folder");
     for (from, name) in [(vast, "a-vast"), (starter(), "b-starter")] {

@@ -186,7 +186,7 @@ is drawn cut off (`look.fit`, a review): the font is still used, and the layout 
 fix. See what a font says of itself and what it lacks before using it:
 
 ```bash
-cd "$CA72" && cargo run -p skin-pack --example font_info -- fonts/Face-Regular.ttf "EVERY LEGEND"
+cd "$CA72" && cargo run -p ca72-panel --example font_info -- fonts/Face-Regular.ttf "EVERY LEGEND"
 ```
 
 It prints its names (family, copyright, licence and link, trademark), its maker, its

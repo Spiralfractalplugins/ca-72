@@ -90,7 +90,7 @@ of the folder's rules:
   stops at the limit).
 
 ```bash
-cargo run -p skin-pack --example pack_archive -- path/to/pack night.ifskin
+cargo run -p ca72-panel --example pack_archive -- path/to/pack night.ifskin
 ```
 
 This writes a folder as a pack file: its files in order, the same bytes every time.
@@ -127,10 +127,13 @@ candidate. No secret key belongs in any repository, including an ignored folder 
 Do not use a throwaway test key in a release.
 
 1. Choose an existing private folder **outside every Git work tree**, then generate the key
-   there. This example assumes `$HOME/offline-signing` already exists outside a repository:
+   there. The signing tools are plugin-kit's (the reader of every Idle Foundry plug-in's packs,
+   `plugin-kit-skin-pack`): run them in a clone of github.com/idlefoundry/plugin-kit, at the
+   commit `crates/ca72-panel/Cargo.toml` takes it at. This example assumes `$HOME/offline-signing`
+   already exists outside a repository:
 
    ```sh
-   cargo run -p skin-pack --example pack_keygen -- "$HOME/offline-signing/idlefoundry-1.key"
+   cargo run -p plugin-kit-skin-pack --example pack_keygen -- "$HOME/offline-signing/idlefoundry-1.key"
    ```
 
    The tool refuses paths in work trees (including linked worktrees and paths through links),
@@ -145,12 +148,12 @@ Do not use a throwaway test key in a release.
    means this key cannot sign future packs; the public half cannot recover it.
 
 3. Paste the printed `pub const IDLE_FOUNDRY_KEY: Option<TrustedKey> = Some(...)` line into
-   `crates/skin-pack/src/keys.rs`, replacing its `None` constant. Commit **only the public
+   plugin-kit's `crates/plugin-kit-skin-pack/src/keys.rs` (a kit change every plug-in then takes), replacing its `None` constant. Commit **only the public
    constant**. `ca72_panel::look::TRUSTED_KEYS`, the signer and the release gate share that list.
    Check it before building the release:
 
    ```sh
-   cargo run -p skin-pack --example check_release_key
+   cargo run -p ca72-panel --example check_release_key
    ```
 
    This fails if the public key is missing, weak, not marked first-party, has the wrong id, or
@@ -167,7 +170,7 @@ Do not use a throwaway test key in a release.
 
    ```sh
    cargo run -p ca72-panel --example check_pack -- path/to/pack
-   cargo run -p skin-pack --example pack_sign -- path/to/pack "$HOME/offline-signing/idlefoundry-1.key" idlefoundry-1 first-party 2026-10-18
+   cargo run -p plugin-kit-skin-pack --example pack_sign -- path/to/pack "$HOME/offline-signing/idlefoundry-1.key" idlefoundry-1 first-party 2026-10-18
    ```
 
    For a first-party `com.idlefoundry.*` id, the unsigned check initially refuses that reserved
@@ -181,7 +184,7 @@ Do not use a throwaway test key in a release.
    secret provider; never type the secret into a shell command:
 
    ```sh
-   cargo run -p skin-pack --example pack_sign -- night.ifskin - idlefoundry-1 first-party 2026-10-18 < "$HOME/offline-signing/idlefoundry-1.key"
+   cargo run -p plugin-kit-skin-pack --example pack_sign -- night.ifskin - idlefoundry-1 first-party 2026-10-18 < "$HOME/offline-signing/idlefoundry-1.key"
    ```
 
 5. Verify with the CA-72's full look checks, using the built-in key by default:
