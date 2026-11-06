@@ -358,12 +358,13 @@ name = "ca72-panel"
 version = "0.3.2"
 dependencies = [
  "plugin-kit-materials",
+ "plugin-kit-skin-pack",
  "resvg",
  "rustybuzz",
  "serde",
- "skin-pack",
  "tempfile",
  "toml",
+ "ttf-parser",
 ]
 
 [[package]]
@@ -1965,6 +1966,23 @@ version = "0.3.1"
 source = "git+https://github.com/idlefoundry/plugin-kit?rev=91faf69ae98045b9c1d3b4846c7831262353be98#91faf69ae98045b9c1d3b4846c7831262353be98"
 
 [[package]]
+name = "plugin-kit-skin-pack"
+version = "0.3.1"
+source = "git+https://github.com/idlefoundry/plugin-kit?rev=b29434f4355c6ca798442805ad0f6bea00270574#b29434f4355c6ca798442805ad0f6bea00270574"
+dependencies = [
+ "ed25519-dalek",
+ "png",
+ "resvg",
+ "roxmltree",
+ "serde",
+ "sha2",
+ "simplecss",
+ "toml",
+ "ttf-parser",
+ "zip",
+]
+
+[[package]]
 name = "plugin-kit-standalone"
 version = "0.3.1"
 source = "git+https://github.com/idlefoundry/plugin-kit?rev=91faf69ae98045b9c1d3b4846c7831262353be98#91faf69ae98045b9c1d3b4846c7831262353be98"
@@ -2366,26 +2384,6 @@ name = "siphasher"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
-
-[[package]]
-name = "skin-pack"
-version = "0.3.2"
-dependencies = [
- "ed25519-dalek",
- "getrandom 0.4.3",
- "png",
- "resvg",
- "roxmltree",
- "serde",
- "sha2",
- "simplecss",
- "tempfile",
- "toml",
- "ttf-parser",
- "windows-sys 0.61.2",
- "zeroize",
- "zip",
-]
 
 [[package]]
 name = "slab"

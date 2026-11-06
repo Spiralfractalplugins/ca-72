@@ -14,10 +14,14 @@ resvg = { version = "0.45", default-features = false, features = ["text"] }
 plugin-kit-materials = { git = "https://github.com/idlefoundry/plugin-kit", rev = "91faf69ae98045b9c1d3b4846c7831262353be98" }
 rustybuzz = "0.20"
 serde = { workspace = true }
-skin-pack = { path = "../skin-pack" }
+# Skin packs, every plug-in's (plugin-kit's K-SKIN-PACK, decisions.md R-KIT-SKIN-PACK): taken at
+# the kit's own commit for it, ahead of the others', which it shares no code with.
+skin-pack = { package = "plugin-kit-skin-pack", git = "https://github.com/idlefoundry/plugin-kit", rev = "b29434f4355c6ca798442805ad0f6bea00270574" }
 toml = "0.7"
 
 [dev-dependencies]
+# `font_info`'s font tables, the parser rustybuzz and the packs' reader already take.
+ttf-parser = "0.25"
 tempfile = { workspace = true }
 
 [lints]

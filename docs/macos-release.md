@@ -33,7 +33,7 @@ From a clean checkout of the version to release (once:
 
 ```sh
 export CA72_PUBLIC_RELEASE=1
-cargo run -p skin-pack --example check_release_key
+cargo run -p ca72-panel --example check_release_key
 cargo xtask bundle-universal ca72-plugin --profile bundle
 scripts/auv2.sh
 scripts/standalone.sh

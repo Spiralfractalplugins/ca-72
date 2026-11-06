@@ -172,7 +172,7 @@ coordinates with a short script is fine: keep the script outside `$PACK`. After 
 1. Run the check.
 2. After any change to an SVG (the drawing or a picture), see what it costs to draw:
    ```bash
-   cd "$CA72" && cargo run --release -p skin-pack --example svg_cost -- "$PACK/art/panel.svg"
+   cd "$CA72" && cargo run --release -p ca72-panel --example svg_cost -- "$PACK/art/panel.svg"
    ```
    It shows the drawing's counts and its time to draw, then the same with each costly kind of
    part left out. `work` is the cost in pixel-equivalents, against a limit of 60 million. A
@@ -250,7 +250,7 @@ When the user wants one file to share or to hand to a marketplace:
 1. Check the folder one last time: no Rejected finding, all the previews looked at.
 2. Write the pack file **outside** `$PACK`:
    ```bash
-   cd "$CA72" && cargo run --release -p skin-pack --example pack_archive -- "$PACK" "$PACK/../<pack-name>.ifskin"
+   cd "$CA72" && cargo run --release -p ca72-panel --example pack_archive -- "$PACK" "$PACK/../<pack-name>.ifskin"
    ```
 3. Check the pack file the same way, with previews:
    ```bash

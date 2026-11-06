@@ -18433,3 +18433,34 @@ CA-72's own Bypass parameter remains false. Neither its state nor a request to
 clear it is available through CA-72's bypass parameter. The lamp reflects the
 bypass value the host actually delivers, not an independently managed host mute.
 Evidence: `release-032/reaper-{clap,vst3}-host.log` on the lab share.
+
+## R-KIT-SKIN-PACK. The skin-pack crate is plugin-kit's
+
+**The owner, 2026-11-06:** "we absolutely should move the skin pack crates into the plug-in kit",
+and every Idle Foundry plug-in's skins are made this way from now on (the MC-79 next).
+
+**Decision:** `crates/skin-pack` is gone; the panel takes plugin-kit's `plugin-kit-skin-pack`
+(plugin-kit's K-SKIN-PACK, the same code from this `main`, `4df5c8b`) under its old name,
+`skin-pack = { package = "plugin-kit-skin-pack", ... }`, so no code here changed. It is taken
+at the kit's own commit for it, ahead of the commit the other kit crates are taken at
+(R-X11-REPEAT): it shares no code with them, and bringing the rest forward would bring the
+kit's pool changes into the CA-72 untested. The next kit update takes them all at one commit
+again.
+
+- **The creators' tools** (`pack_archive`, `svg_cost`, `font_info`) and the release's
+  `check_release_key` are the panel's examples now, the kit's copies, so a creator still runs
+  them in this repository: `cargo run -p ca72-panel --example pack_archive -- ...`. The owner's
+  signing tools (`pack_keygen`, `pack_sign`) are run in a clone of plugin-kit; the key's slot is
+  the kit's `keys.rs`. `docs/skin-packs.md`, the agent skill, `docs/macos-release.md` and
+  `scripts/package.sh` say so.
+- **Tests' files:** the vast-pattern pack the Skins folder's test refuses is the panel's
+  fixture now.
+- **The release gate** is the kit's: `CA72_PUBLIC_RELEASE=1` and `CA72_REQUIRE_NOTARIZATION=1`
+  still turn it on.
+
+**Tested (Linux, 2026-11-06):** `cargo test -p ca72-panel --all-targets` (165 passed, the
+examples' guards included), clippy on the panel and the plug-in (one warning, `audio_refused`,
+already on `main`), `check_release_key` ready for release.
+
+**Not tried:** Windows and macOS (CI), and a build of the plug-in's bundles; nothing in the
+plug-in's code or its packs changed.
