@@ -534,11 +534,20 @@ impl Vco {
             None
         };
         let hit = || {
-            self.solved
-                .iter()
-                .flatten()
-                .find(|s| (s.i_in, s.guess, s.celsius) == key && s.expo == self.expo)
-                .map(|s| (s.top, s.bottom))
+            // Two slots only: check them directly instead of iterating.
+            if let Some(s) = self.solved[0].as_ref()
+                && (s.i_in, s.guess, s.celsius) == key
+                && s.expo == self.expo
+            {
+                return Some((s.top, s.bottom));
+            }
+            if let Some(s) = self.solved[1].as_ref()
+                && (s.i_in, s.guess, s.celsius) == key
+                && s.expo == self.expo
+            {
+                return Some((s.top, s.bottom));
+            }
+            None
         };
         let (top, bottom) = match from_table.or_else(hit) {
             Some(x) => x,

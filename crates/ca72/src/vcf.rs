@@ -212,10 +212,12 @@ impl FilterExpo {
         // Every pair draws about 2 ib from its node (the input pair through R54 and R76 from
         // the bottom); a current drawn at a node lowers the bottom by that current times the
         // resistance above the node, times R67 over the whole chain.
-        let total = self.chain.iter().sum::<f64>() + self.r67;
+        // One pass over the bias chain: its total resistance and the drawn current.
+        let mut total = self.r67;
         let mut up = 0.0;
         let mut drawn = 0.0;
         for r in self.chain {
+            total += r;
             up += r;
             drawn += up * 2.0 * ib;
         }
@@ -325,8 +327,13 @@ impl FilterExpo {
     /// The control node's inputs as a Norton source: their current into the node at 0 V
     /// and the node's total conductance (R49 and R70 included).
     pub fn node(&self, inputs: &[Input]) -> (f64, f64) {
-        let g_in: f64 = inputs.iter().map(|i| 1.0 / i.r).sum();
-        let i_in: f64 = inputs.iter().map(|i| i.v / i.r).sum();
+        // Single pass over the inputs: each contributes its conductance and its current.
+        let (mut g_in, mut i_in) = (0.0f64, 0.0f64);
+        for i in inputs {
+            let g = 1.0 / i.r;
+            g_in += g;
+            i_in += i.v * g;
+        }
         (i_in, g_in + 1.0 / (self.r49 + self.r70))
     }
 }
